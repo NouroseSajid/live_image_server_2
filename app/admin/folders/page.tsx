@@ -21,7 +21,6 @@ export default function AdminFolders() {
     name: '',
     isPrivate: true,
     visible: true,
-    uniqueUrl: '',
     passphrase: '',
     inGridView: false,
     folderThumb: '',
@@ -46,80 +45,76 @@ export default function AdminFolders() {
     }
   };
 
-  const handleCreateFolder = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatusMessage(null);
-    if (!newFolder.name || !newFolder.name.trim()) {
+
+    const folderToProcess = editingFolder || newFolder;
+
+    if (!folderToProcess.name || !folderToProcess.name.trim()) {
       setStatusMessage({ type: 'error', text: 'Name is required' });
       return;
     }
-    setCreating(true);
-    const res = await fetch('/api/folders', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(newFolder),
-    });
-    if (res.ok) {
-      const created = await res.json();
-      setStatusMessage({ type: 'success', text: `Folder "${created.name}" created` });
-      setNewFolder({
-        name: '',
-        isPrivate: true,
-        visible: true,
-        uniqueUrl: '',
-        passphrase: '',
-        inGridView: false,
-        folderThumb: '',
+
+    if (editingFolder) {
+      setUpdating(true);
+      const res = await fetch(`/api/folders/${editingFolder.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(folderToProcess),
       });
-      await fetchFolders();
-    } else {
-      let errText = 'Failed to create folder';
-      try {
-        const err = await res.json();
-        if (err && err.error) errText = err.error;
-      } catch {
-        const text = await res.text();
-        if (text) errText = text;
+      if (res.ok) {
+        setStatusMessage({ type: 'success', text: `Folder "${folderToProcess.name}" updated` });
+        setEditingFolder(null);
+        await fetchFolders();
+      } else {
+        let errText = 'Failed to update folder';
+        try {
+          const err = await res.json();
+          if (err && err.error) errText = err.error;
+        } catch {
+          const text = await res.text();
+          if (text) errText = text;
+        }
+        setStatusMessage({ type: 'error', text: errText });
       }
-      setStatusMessage({ type: 'error', text: errText });
-    }
-    setCreating(false);
-  };
-
-  const handleUpdateFolder = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingFolder) return;
-    setStatusMessage(null);
-    if (!editingFolder.name || !editingFolder.name.trim()) {
-      setStatusMessage({ type: 'error', text: 'Name is required' });
-      return;
-    }
-    setUpdating(true);
-
-    const res = await fetch(`/api/folders/${editingFolder.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(editingFolder),
-    });
-    if (res.ok) {
-      setEditingFolder(null);
-      fetchFolders();
+      setUpdating(false);
     } else {
-      let errText = 'Failed to update folder';
-      try {
-        const err = await res.json();
-        if (err && err.error) errText = err.error;
-      } catch {
-        const text = await res.text();
-        if (text) errText = text;
+      setCreating(true);
+      const res = await fetch('/api/folders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(folderToProcess),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setStatusMessage({ type: 'success', text: `Folder "${created.name}" created` });
+        setNewFolder({
+          name: '',
+          isPrivate: true,
+          visible: true,
+          passphrase: '',
+          inGridView: false,
+          folderThumb: '',
+        });
+        await fetchFolders();
+      } else {
+        let errText = 'Failed to create folder';
+        try {
+          const err = await res.json();
+          if (err && err.error) errText = err.error;
+        } catch {
+          const text = await res.text();
+          if (text) errText = text;
+        }
+        setStatusMessage({ type: 'error', text: errText });
       }
-      setStatusMessage({ type: 'error', text: errText });
+      setCreating(false);
     }
-    setUpdating(false);
   };
 
   const handleDeleteFolder = async (id: string) => {
@@ -150,89 +145,6 @@ export default function AdminFolders() {
       <h1 className="text-2xl font-semibold mb-4">Folder Management</h1>
 
       <section className="mb-8">
-        <h2 className="text-xl font-medium mb-3">Create New Folder</h2>
-        {statusMessage && (
-          <div className={`mb-3 p-2 rounded ${statusMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-            {statusMessage.text}
-          </div>
-        )}
-        <form onSubmit={handleCreateFolder} className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
-          <input
-            className="border rounded px-3 py-2"
-            style={{ backgroundColor: 'var(--admin-card)', color: 'var(--admin-text)', borderColor: 'var(--admin-border)' }}
-            type="text"
-            placeholder="Name"
-            value={newFolder.name}
-            onChange={(e) => setNewFolder({ ...newFolder, name: e.target.value })}
-          />
-          <input
-            className="border rounded px-3 py-2"
-            style={{ backgroundColor: 'var(--admin-card)', color: 'var(--admin-text)', borderColor: 'var(--admin-border)' }}
-            type="text"
-            placeholder="Unique URL"
-            value={newFolder.uniqueUrl}
-            onChange={(e) => setNewFolder({ ...newFolder, uniqueUrl: e.target.value })}
-          />
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={newFolder.isPrivate}
-              onChange={(e) => setNewFolder({ ...newFolder, isPrivate: e.target.checked })}
-            />
-            <span>Is Private</span>
-          </label>
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={newFolder.visible}
-              onChange={(e) => setNewFolder({ ...newFolder, visible: e.target.checked })}
-            />
-            <span>Visible</span>
-          </label>
-
-          <input
-            className="border rounded px-3 py-2 md:col-span-2"
-            style={{ backgroundColor: 'var(--admin-card)', color: 'var(--admin-text)', borderColor: 'var(--admin-border)' }}
-            type="text"
-            placeholder="Passphrase (optional)"
-            value={newFolder.passphrase || ''}
-            onChange={(e) => setNewFolder({ ...newFolder, passphrase: e.target.value })}
-          />
-
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={newFolder.inGridView}
-              onChange={(e) => setNewFolder({ ...newFolder, inGridView: e.target.checked })}
-            />
-            <span>In Grid View</span>
-          </label>
-
-          <input
-            className="border rounded px-3 py-2 md:col-span-2"
-            style={{ backgroundColor: 'var(--admin-card)', color: 'var(--admin-text)', borderColor: 'var(--admin-border)' }}
-            type="text"
-            placeholder="Folder Thumbnail URL (optional)"
-            value={newFolder.folderThumb || ''}
-            onChange={(e) => setNewFolder({ ...newFolder, folderThumb: e.target.value })}
-          />
-
-          <div className="md:col-span-2">
-            <button
-              type="submit"
-              className="px-4 py-2 rounded"
-              style={{ backgroundColor: 'var(--admin-primary)', color: 'var(--admin-primary-foreground)' }}
-              disabled={creating}
-            >
-              {creating ? 'Creating…' : 'Create Folder'}
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="mb-8">
         <h2 className="text-xl font-medium mb-3">Existing Folders</h2>
         <ul className="space-y-2 max-w-3xl">
           {folders.map((folder) => (
@@ -259,82 +171,122 @@ export default function AdminFolders() {
         </ul>
       </section>
 
-      {editingFolder && (
-        <section className="mb-8 max-w-3xl">
-          <h2 className="text-xl font-medium mb-3">Edit Folder</h2>
-          <form onSubmit={handleUpdateFolder} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              className="border rounded px-3 py-2"
-              style={{ backgroundColor: 'var(--admin-card)', color: 'var(--admin-text)', borderColor: 'var(--admin-border)' }}
-              type="text"
-              placeholder="Name"
-              value={editingFolder.name}
-              onChange={(e) => setEditingFolder({ ...editingFolder, name: e.target.value })}
-            />
-            <input
-              className="border rounded px-3 py-2"
-              style={{ backgroundColor: 'var(--admin-card)', color: 'var(--admin-text)', borderColor: 'var(--admin-border)' }}
-              type="text"
-              placeholder="Unique URL"
-              value={editingFolder.uniqueUrl}
-              onChange={(e) => setEditingFolder({ ...editingFolder, uniqueUrl: e.target.value })}
-            />
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={editingFolder.isPrivate}
-                onChange={(e) => setEditingFolder({ ...editingFolder, isPrivate: e.target.checked })}
-              />
-              <span>Is Private</span>
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={editingFolder.visible}
-                onChange={(e) => setEditingFolder({ ...editingFolder, visible: e.target.checked })}
-              />
-              <span>Visible</span>
-            </label>
-            <input
-              className="border rounded px-3 py-2 md:col-span-2"
-              style={{ backgroundColor: 'var(--admin-card)', color: 'var(--admin-text)', borderColor: 'var(--admin-border)' }}
-              type="text"
-              placeholder="Passphrase (optional)"
-              value={editingFolder.passphrase || ''}
-              onChange={(e) => setEditingFolder({ ...editingFolder, passphrase: e.target.value })}
-            />
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={editingFolder.inGridView}
-                onChange={(e) => setEditingFolder({ ...editingFolder, inGridView: e.target.checked })}
-              />
-              <span>In Grid View</span>
-            </label>
-            <input
-              className="border rounded px-3 py-2 md:col-span-2"
-              style={{ backgroundColor: 'var(--admin-card)', color: 'var(--admin-text)', borderColor: 'var(--admin-border)' }}
-              type="text"
-              placeholder="Folder Thumbnail URL (optional)"
-              value={editingFolder.folderThumb || ''}
-              onChange={(e) => setEditingFolder({ ...editingFolder, folderThumb: e.target.value })}
-            />
+      <section className="mb-8">
+        <h2 className="text-xl font-medium mb-3">{editingFolder ? 'Edit Folder' : 'Create New Folder'}</h2>
+        {statusMessage && (
+          <div className={`mb-3 p-2 rounded ${statusMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+            {statusMessage.text}
+          </div>
+        )}
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl">
+          <input
+            className="border rounded px-3 py-2"
+            style={{ backgroundColor: 'var(--admin-card)', color: 'var(--admin-text)', borderColor: 'var(--admin-border)' }}
+            type="text"
+            placeholder="Name"
+            value={editingFolder ? editingFolder.name : newFolder.name}
+            onChange={(e) => {
+              if (editingFolder) {
+                setEditingFolder({ ...editingFolder, name: e.target.value });
+              } else {
+                setNewFolder({ ...newFolder, name: e.target.value });
+              }
+            }}
+          />
 
-            <div className="md:col-span-2 flex gap-2">
-              <button
-                type="submit"
-                className="px-4 py-2 rounded"
-                style={{ backgroundColor: 'var(--admin-primary)', color: 'var(--admin-primary-foreground)' }}
-              >
-                Save Changes
-              </button>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={editingFolder ? editingFolder.isPrivate : newFolder.isPrivate}
+              onChange={(e) => {
+                if (editingFolder) {
+                  setEditingFolder({ ...editingFolder, isPrivate: e.target.checked });
+                } else {
+                  setNewFolder({ ...newFolder, isPrivate: e.target.checked });
+                }
+              }}
+            />
+            <span>Is Private</span>
+          </label>
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={editingFolder ? editingFolder.visible : newFolder.visible}
+              onChange={(e) => {
+                if (editingFolder) {
+                  setEditingFolder({ ...editingFolder, visible: e.target.checked });
+                } else {
+                  setNewFolder({ ...newFolder, visible: e.target.checked });
+                }
+              }}
+            />
+            <span>Visible</span>
+          </label>
+
+          <input
+            className="border rounded px-3 py-2 md:col-span-2"
+            style={{ backgroundColor: 'var(--admin-card)', color: 'var(--admin-text)', borderColor: 'var(--admin-border)' }}
+            type="text"
+            placeholder="Passphrase (optional)"
+            value={editingFolder ? editingFolder.passphrase || '' : newFolder.passphrase || ''}
+            onChange={(e) => {
+              if (editingFolder) {
+                setEditingFolder({ ...editingFolder, passphrase: e.target.value });
+              } else {
+                setNewFolder({ ...newFolder, passphrase: e.target.value });
+              }
+            }}
+          />
+
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={editingFolder ? editingFolder.inGridView : newFolder.inGridView}
+              onChange={(e) => {
+                if (editingFolder) {
+                  setEditingFolder({ ...editingFolder, inGridView: e.target.checked });
+                } else {
+                  setNewFolder({ ...newFolder, inGridView: e.target.checked });
+                }
+              }}
+            />
+            <span>In Grid View</span>
+          </label>
+
+          <input
+            className="border rounded px-3 py-2 md:col-span-2"
+            style={{ backgroundColor: 'var(--admin-card)', color: 'var(--admin-text)', borderColor: 'var(--admin-border)' }}
+            type="text"
+            placeholder="Folder Thumbnail URL (optional)"
+            value={editingFolder ? editingFolder.folderThumb || '' : newFolder.folderThumb || ''}
+            onChange={(e) => {
+              if (editingFolder) {
+                setEditingFolder({ ...editingFolder, folderThumb: e.target.value });
+              } else {
+                setNewFolder({ ...newFolder, folderThumb: e.target.value });
+              }
+            }}
+          />
+
+          <div className="md:col-span-2 flex gap-2">
+            <button
+              type="submit"
+              className="px-4 py-2 rounded"
+              style={{ backgroundColor: 'var(--admin-primary)', color: 'var(--admin-primary-foreground)' }}
+              disabled={creating || updating}
+            >
+              {editingFolder ? (updating ? 'Saving…' : 'Save Changes') : (creating ? 'Creating…' : 'Create Folder')}
+            </button>
+            {editingFolder && (
               <button type="button" onClick={() => setEditingFolder(null)} className="px-4 py-2 rounded border" style={{ borderColor: 'var(--admin-border)' }}>
                 Cancel
               </button>
-            </div>
-          </form>
-        </section>
-      )}
+            )}
+          </div>
+        </form>
+      </section>
     </div>
   );
 }

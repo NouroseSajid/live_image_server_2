@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   try {
     const body = await request.json();
-    let { name, isPrivate, visible, uniqueUrl, passphrase, inGridView, folderThumb } = body;
+    let { name, isPrivate, visible, passphrase, inGridView, folderThumb } = body;
 
     if (!name) {
       return new NextResponse('Missing folder name', { status: 400 });
@@ -56,8 +56,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return new NextResponse('Folder not found', { status: 404 });
     }
 
-    // If name changed and uniqueUrl not explicitly provided, regenerate uniqueUrl
-    if (name !== existingFolder.name && !uniqueUrl) {
+    let updatedUniqueUrl = existingFolder.uniqueUrl;
+
+    // If name changed, regenerate uniqueUrl
+    if (name !== existingFolder.name) {
       let baseSlug = slugify(name, { lower: true, strict: true });
       let slug = baseSlug;
       let counter = 1;
@@ -65,13 +67,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         slug = `${baseSlug}-${counter}`;
         counter++;
       }
-      uniqueUrl = slug;
-    } else if (uniqueUrl && uniqueUrl !== existingFolder.uniqueUrl) {
-      // If uniqueUrl is provided and changed, ensure it's unique (excluding current folder)
-      const conflictFolder = await prisma.folder.findFirst({ where: { uniqueUrl, id: { not: params.id } } });
-      if (conflictFolder) {
-        return new NextResponse('Unique URL already exists', { status: 409 });
-      }
+      updatedUniqueUrl = slug;
     }
 
     const updatedFolder = await prisma.folder.update({
@@ -80,7 +76,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         name,
         isPrivate,
         visible,
-        uniqueUrl,
+        uniqueUrl: updatedUniqueUrl,
         passphrase,
         inGridView,
         folderThumb,

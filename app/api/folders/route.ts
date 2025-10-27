@@ -30,27 +30,18 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    let { name, isPrivate, visible, uniqueUrl, passphrase, inGridView, folderThumb } = body;
+    let { name, isPrivate, visible, passphrase, inGridView, folderThumb } = body;
 
     if (!name) {
     return NextResponse.json({ error: 'Missing folder name' }, { status: 400 });
     }
 
-    if (!uniqueUrl) {
-      let baseSlug = slugify(name, { lower: true, strict: true });
-      let slug = baseSlug;
-      let counter = 1;
-      while (await prisma.folder.findUnique({ where: { uniqueUrl: slug } })) {
-        slug = `${baseSlug}-${counter}`;
-        counter++;
-      }
-      uniqueUrl = slug;
-    } else {
-      // If uniqueUrl is provided, ensure it's unique
-      const existingFolder = await prisma.folder.findUnique({ where: { uniqueUrl } });
-      if (existingFolder) {
-        return NextResponse.json({ error: 'Unique URL already exists' }, { status: 409 });
-      }
+    let baseSlug = slugify(name, { lower: true, strict: true });
+    let uniqueUrl = baseSlug;
+    let counter = 1;
+    while (await prisma.folder.findUnique({ where: { uniqueUrl } })) {
+      uniqueUrl = `${baseSlug}-${counter}`;
+      counter++;
     }
 
     const newFolder = await prisma.folder.create({
