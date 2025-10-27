@@ -7,7 +7,7 @@ export default async function Admin() {
   return (
     <div>
       <h1>Admin Panel</h1>
-      <p>Welcome {session?.user?.email}</p>
+      <p>Welcome {session?.user?.email} ({process.env.WHAT_AM_I === "1" ? "live" : "repo"})</p>
     </div>
   );
 }

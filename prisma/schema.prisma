@@ -51,6 +51,7 @@ model File {
   duration   Float?     // seconds (video)
   fileSize   BigInt     // bytes
   fileType   FileType   // image | video
+  isLive     Boolean    @default(false)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   deletedAt  DateTime?
