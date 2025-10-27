@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-text-landing: #f4f4f4;
+
+  --primary-font: 'Inter', sans-serif;
+  --secondary-font: 'Roboto', sans-serif;
+
+  --background: #f4f4f4; /* Light background */
+  --foreground: #29363b; /* Dark text */
+
+  --card: #D4E6F1;  /* A professional and modern blue */
+  --primary: #29363b; /* Dark primary color */
+  --primary_dark: #f8f8f8; /* Light text for dark backgrounds */
+
+  --popover: #FFFFFF;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+.dark {
+  --background: #29363b; /* Dark background */
+  --foreground: #f8f8f8; /* Light text */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --card: #162536; /* A bit darker blue with better contrast */
+  --primary: #f4f4f4; /* Light primary color */
+  --primary_dark: #121212; /* Dark text for light backgrounds */
+
+  --popover: #29363b;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+.admin-theme {
+  --admin-primary: #3B82F6;
+  --admin-secondary: #F3F4F6;
+  --admin-text: #1F2937;
+  --admin-background: #FFFFFF;
+  --admin-card: #FFFFFF;
+  --admin-border: #E5E7EB;
+  --admin-primary-foreground: #FFFFFF;
+}
+
+.dark .admin-theme {
+  --admin-primary: #3B82F6;
+  --admin-secondary: #1F2937;
+  --admin-text: #F3F4F6;
+  --admin-background: #111827;
+  --admin-card: #1F2937;
+  --admin-border: #374151;
+  --admin-primary-foreground: #FFFFFF;
 }

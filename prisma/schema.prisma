@@ -1,0 +1,142 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User model (kept from the original file)
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ----------  FOLDER  ----------
+model Folder {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  isPrivate    Boolean  @default(true)
+  visible      Boolean  @default(true)
+  uniqueUrl    String   @unique // short slug for share link
+  passphrase   String?  // ← plain-text mini-padlock. NULL = public folder
+  inGridView   Boolean  @default(false)
+  folderThumb  String?  // key/path to a thumbnail image
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  files        File[]
+  accessLinks  AccessLink[]
+  downloadJobs DownloadJob[]
+}
+
+// ----------  FILE  ----------
+model File {
+  id         String     @id @default(cuid())
+  fileName   String
+  hash       String     @unique // BLAKE3/MD5 for quick dedupe
+  width      Int?
+  height     Int?
+  duration   Float?     // seconds (video)
+  fileSize   BigInt     // bytes
+  fileType   FileType   // image | video
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  deletedAt  DateTime?
+
+  folderId   String
+  folder     Folder     @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  variants   Variant[]
+  downloadJobFiles DownloadJobFile[]
+
+  @@unique([folderId, fileName])
+}
+
+// ----------  VARIANT (thumb, medium, raw, 4k, webp …) ----------
+model Variant {
+  id      String   @id @default(cuid())
+  name    String   // thumb, medium, 4k, webp, mp4_720 etc.
+  width   Int?
+  height  Int?
+  size    BigInt   // bytes
+  path    String   // object-storage key
+  codec   String?  // h264, hevc, raw …
+
+  fileId  String
+  file    File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([fileId, name])
+}
+
+// ----------  SHAREABLE ACCESS LINK (optional, single-use, expires) ----------
+model AccessLink {
+  id         String    @id @default(cuid())
+  token      String    @unique @default(cuid()) // pass this in query-string
+  expiresAt  DateTime?
+  usesLeft   Int       @default(1)
+  createdAt  DateTime  @default(now())
+
+  folderId   String
+  folder     Folder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+}
+
+// ----------  BULK DOWNLOAD JOB ----------
+model DownloadJob {
+  id         String        @id @default(cuid())
+  status     JobStatus     @default(PENDING)
+  zipPath    String?       // final object-key of zip
+  zipSize    BigInt?
+  progress   Int           @default(0) // 0-100
+  failReason String?
+
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  folderId   String
+  folder     Folder        @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  files      DownloadJobFile[]
+}
+
+// ----------  JOIN TABLE: WHICH FILES BELONG TO A DOWNLOAD JOB ----------
+model DownloadJobFile {
+  id        String       @id @default(cuid())
+  status    JobStatus    @default(PENDING) // per-file retry status
+  fileId    String
+  file      File         @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  jobId     String
+  job       DownloadJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, fileId])
+}
+
+// ----------  KEY/VALUE SETTINGS ----------
+model Setting {
+  key   String @id
+  value String
+}
+
+// ----------  ENUMS ----------
+enum FileType {
+  image
+  video
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
