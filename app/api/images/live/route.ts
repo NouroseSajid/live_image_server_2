@@ -7,6 +7,15 @@ export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   const cookies = request.cookies;
 
+  const transformPathToUrl = (path: string) => {
+    const publicDir = 'public';
+    const publicDirIndex = path.indexOf(publicDir);
+    if (publicDirIndex === -1) {
+      return path;
+    }
+    return path.substring(publicDirIndex + publicDir.length).replace(/\\/g, '/');
+  };
+
   try {
     const liveImages = await prisma.file.findMany({
       where: {
@@ -26,7 +35,15 @@ export async function GET(request: NextRequest) {
       return true; // Public images are always returned
     });
 
-    return NextResponse.json(filteredImages);
+    const imagesWithUrls = filteredImages.map(image => ({
+      ...image,
+      variants: image.variants.map(variant => ({
+        ...variant,
+        path: transformPathToUrl(variant.path),
+      })),
+    }));
+
+    return NextResponse.json(imagesWithUrls);
   } catch (error) {
     console.error('Error fetching live images:', error);
     return new NextResponse('Internal Server Error', { status: 500 });
