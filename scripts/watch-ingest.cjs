@@ -1,156 +1,337 @@
-const chokidar = require('chokidar');
-const fs = require('fs');
-const path = require('path');
-const sharp = require('sharp');
-const { PrismaClient } = require('@prisma/client');
-const { fileTypeFromBuffer } = require('file-type');
-const crypto = require('crypto');
+console.log("watch-ingest.cjs script is starting...");
+
+const chokidar = require("chokidar");
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const sharp = require("sharp");
+const { PrismaClient } = require("@prisma/client");
+const { fileTypeFromBuffer } = require("file-type");
+const crypto = require("node:crypto");
 
 const prisma = new PrismaClient();
-const ingestFolder = path.join(process.cwd(), 'public', 'ingest');
+const ingestFolder = path.join(__dirname, "..", "public", "ingest");
 
-async function ensureDefaultFolderExists() {
-  const targetFolderId = 'clvj1s5s0000008l0g1g2h3j4'; // A fixed, unique ID for the default folder
+let liveFolderId = null;
+
+// Simple queue for concurrency control
+const processingQueue = [];
+let processing = false;
+
+function log(message) {
+  console.log(`[${new Date().toISOString()}] ${message}`);
+}
+
+async function findOrCreateLiveFolder() {
   try {
-    let folder = await prisma.folder.findUnique({
-      where: { id: targetFolderId },
+    log("Checking for existing LIVE folder...");
+
+    let folder = await prisma.folder.findFirst({
+      where: {
+        name: {
+          contains: "live",
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
     });
 
     if (!folder) {
-      console.log(`Default folder not found. Creating it now...`);
+      log(`No 'LIVE' folder found. Creating a new one...`);
       folder = await prisma.folder.create({
         data: {
-          id: targetFolderId,
-          name: 'Default Ingest Folder',
-          uniqueUrl: `default-ingest-${crypto.randomBytes(4).toString('hex')}`,
-          // Add any other required fields with default values
+          name: "LIVE 1",
+          uniqueUrl: `live-1-${crypto.randomBytes(4).toString("hex")}`,
+          isPrivate: false,
+          visible: true,
+          inGridView: true,
+          folderThumb: "/placeholder-folder.jpg",
         },
       });
-      console.log(`Default folder created with ID: ${folder.id}`);
+      log(`'LIVE 1' folder created with ID: ${folder.id}`);
+    } else {
+      log(`Found existing LIVE folder: ${folder.name} (ID: ${folder.id})`);
     }
+
+    liveFolderId = folder.id;
   } catch (error) {
-    console.error('Error ensuring default folder exists:', error);
-    process.exit(1); // Exit if we can't ensure the folder exists
+    console.error("Error while handling LIVE folder:", error);
+    process.exit(1);
   }
 }
 
-ensureDefaultFolderExists();
-
-// Ensure the ingest folder exists
-if (!fs.existsSync(ingestFolder)) {
-  fs.mkdirSync(ingestFolder, { recursive: true });
-  console.log(`Created ingest folder: ${ingestFolder}`);
+// Enqueue file paths to process one by one
+async function enqueueFile(filePath) {
+  processingQueue.push(filePath);
+  if (!processing) {
+    processing = true;
+    while (processingQueue.length > 0) {
+      const nextFile = processingQueue.shift();
+      try {
+        await processFile(nextFile);
+      } catch (error) {
+        log(`Error processing file in queue: ${error.message}`);
+      }
+    }
+    processing = false;
+  }
 }
 
-console.log(`Watching for new images in: ${ingestFolder}`);
+async function processFile(filePath) {
+  try {
+    // Check if file still exists (could have been moved/deleted)
+    await fs.access(filePath);
 
-chokidar.watch(ingestFolder, {
-  ignored: /(^|[\/\\])\..*/, // ignore dotfiles
-  persistent: true,
-  ignoreInitial: true, // Don't emit add events for files that already exist when the watcher starts
-}).on('add', async (filePath) => {
-  console.log(`New image detected: ${filePath}`);
+    // Read file buffer and detect type early to ignore unsupported
+    const fileBuffer = await fs.readFile(filePath);
+    const fileTypeResult = await fileTypeFromBuffer(fileBuffer);
 
+    if (!fileTypeResult) {
+      log(`Skipping unsupported file (unknown type): ${filePath}`);
+      await fs.unlink(filePath);
+      return;
+    }
+
+    const mime = fileTypeResult.mime;
+    const isImage = mime.startsWith("image/");
+    const isVideo = mime.startsWith("video/");
+
+    if (!isImage && !isVideo) {
+      log(`Skipping unsupported file (not image/video): ${filePath}`);
+      await fs.unlink(filePath);
+      return;
+    }
+
+    if (isVideo) {
+      // For now, just move video original to storage (no conversion)
+      await processVideo(filePath, fileTypeResult);
+    } else if (isImage) {
+      await processImage(filePath, fileBuffer);
+    }
+  } catch (error) {
+    log(`Error processing file ${filePath}: ${error.message}`);
+  }
+}
+
+async function processVideo(filePath, fileTypeResult) {
   const fileName = path.basename(filePath);
   const fileExtension = path.extname(filePath);
   const fileBaseName = path.basename(fileName, fileExtension);
 
-  // TODO: Implement a mechanism to get the default ingest folder ID from the database or configuration.
-  // For now, using a placeholder. This should be configurable in the admin panel.
-  const targetFolderId = 'clvj123450000000000000000'; // Replace with a valid folder ID from your DB
+  log(`Processing video file: ${fileName}`);
+
+  const targetFolderId = liveFolderId;
+
+  // Create permanent storage folders
+  const permanentFolderBase = path.join(
+    __dirname,
+    "..",
+    "public",
+    "images",
+    String(targetFolderId)
+  );
+  const originalFolder = path.join(permanentFolderBase, "original");
 
   try {
-    const folder = await prisma.folder.findUnique({
-      where: { id: targetFolderId },
+    await fs.mkdir(originalFolder, { recursive: true });
+
+    const originalPath = path.join(originalFolder, fileName);
+
+    // Move video file to permanent original folder
+    await fs.rename(filePath, originalPath);
+    log(`Moved video original to: ${originalPath}`);
+
+    const fileStats = await fs.stat(originalPath);
+    const videoBuffer = await fs.readFile(originalPath);
+    const hash = crypto.createHash("md5").update(videoBuffer).digest("hex");
+
+    // Check for duplicates
+    const existing = await prisma.file.findFirst({
+      where: { hash: hash },
     });
 
-    if (!folder) {
-      console.error(`Default ingest folder with ID ${targetFolderId} not found in database. Skipping image processing for ${fileName}.`);
+    if (existing) {
+      log(`Duplicate video detected! Deleting ${fileName} and skipping.`);
+      await fs.unlink(originalPath);
       return;
     }
 
-    // Create permanent storage folders
-    const permanentFolderBase = path.join(process.cwd(), 'public', 'images', targetFolderId);
-    const originalFolder = path.join(permanentFolderBase, 'original');
-    const webpFolder = path.join(permanentFolderBase, 'webp');
-    const thumbFolder = path.join(permanentFolderBase, 'thumbs');
-
-    await fs.promises.mkdir(originalFolder, { recursive: true });
-    await fs.promises.mkdir(webpFolder, { recursive: true });
-    await fs.promises.mkdir(thumbFolder, { recursive: true });
-
-    // Move original file to permanent location
-    const originalPath = path.join(originalFolder, fileName);
-    await fs.promises.rename(filePath, originalPath);
-    console.log(`Moved original to: ${originalPath}`);
-
-    const imageBuffer = fs.readFileSync(originalPath);
-    const fileStats = fs.statSync(originalPath);
-
-    // Simple hash generation (for demonstration, consider a more robust hashing like BLAKE3)
-    const hash = crypto.createHash('md5').update(imageBuffer).digest('hex');
-
-    const fileTypeResult = await fileTypeFromBuffer(imageBuffer);
-    let fileType = 'image'; // Default to image
-    if (fileTypeResult && fileTypeResult.mime.startsWith('video')) {
-      fileType = 'video';
-    }
-
-    let imageWidth = null;
-    let imageHeight = null;
-    let rotatedImageBuffer = imageBuffer;
-
-    if (fileType === 'image') {
-      const rotatedImage = sharp(imageBuffer).rotate();
-      const metadata = await rotatedImage.metadata();
-      imageWidth = metadata.width || null;
-      imageHeight = metadata.height || null;
-      rotatedImageBuffer = await rotatedImage.toBuffer();
-
-      // Generate WebP for lightbox (ensure correct orientation)
-      const webpPath = path.join(webpFolder, `${fileBaseName}.webp`);
-      await sharp(rotatedImageBuffer)
-        .webp({ quality: 80 })
-        .toFile(webpPath);
-      console.log(`Generated WebP: ${webpPath}`);
-
-      // Generate thumbnail (higher quality to reduce visible artifacts)
-      const thumbPath = path.join(thumbFolder, `${fileBaseName}_thumb.webp`);
-      await sharp(webpPath)
-        .resize(200, 200, { fit: 'cover' })
-        .webp({ quality: 80, reductionEffort: 4 })
-        .toFile(thumbPath);
-      console.log(`Generated thumbnail from webp: ${thumbPath}`);
-    }
-
-    const webpPath = path.join(webpFolder, `${fileBaseName}.webp`);
-    const thumbPath = path.join(thumbFolder, `${fileBaseName}_thumb.webp`);
-    const webpStats = fs.existsSync(webpPath) ? fs.statSync(webpPath) : null;
-    const thumbStats = fs.existsSync(thumbPath) ? fs.statSync(thumbPath) : null;
-
-    // Store in database
+    // Save video file record (no variants for now)
     const newFile = await prisma.file.create({
       data: {
-        fileName: fileName,
-        hash: hash,
-        width: imageWidth,
-        height: imageHeight,
-        rotation: 0, // Set rotation to 0 as the image is physically rotated
+        fileName,
+        hash,
+        width: null,
+        height: null,
+        rotation: 0,
         fileSize: BigInt(fileStats.size),
-        fileType: fileType,
+        fileType: "video",
         folderId: targetFolderId,
         variants: {
           create: [
-            { name: 'original', path: originalPath, size: BigInt(fileStats.size) },
-            ...(webpStats ? [{ name: 'webp', path: webpPath, size: BigInt(webpStats.size) }] : []),
-            ...(thumbStats ? [{ name: 'thumbnail', path: thumbPath, size: BigInt(thumbStats.size) }] : []),
+            {
+              name: "original",
+              path: path.relative(process.cwd(), originalPath),
+              size: BigInt(fileStats.size),
+            },
           ],
         },
       },
     });
-    console.log(`File and variants saved to DB: ${newFile.fileName}`);
 
+    log(`Video file saved to DB: ${newFile.fileName}`);
   } catch (error) {
-    console.error(`Error processing image ${fileName}:`, error);
+    log(`Error processing video file ${fileName}: ${error.message}`);
   }
-});
+}
+
+async function processImage(filePath, imageBuffer) {
+  const fileName = path.basename(filePath);
+  log(`Processing image file: ${fileName}`);
+
+  const fileExtension = path.extname(filePath);
+  const fileBaseName = path.basename(fileName, fileExtension);
+  const targetFolderId = liveFolderId;
+
+  // Create permanent storage folders
+  const permanentFolderBase = path.join(
+    __dirname,
+    "..",
+    "public",
+    "images",
+    String(targetFolderId)
+  );
+  const originalFolder = path.join(permanentFolderBase, "original");
+  const webpFolder = path.join(permanentFolderBase, "webp");
+  const thumbFolder = path.join(permanentFolderBase, "thumbs");
+
+  try {
+    await Promise.all([
+      fs.mkdir(originalFolder, { recursive: true }),
+      fs.mkdir(webpFolder, { recursive: true }),
+      fs.mkdir(thumbFolder, { recursive: true }),
+    ]);
+
+    // Move original file to permanent folder
+    const originalPath = path.join(originalFolder, fileName);
+    await fs.rename(filePath, originalPath);
+    log(`Moved original to: ${originalPath}`);
+
+    // Read original again (in case of rename timing)
+    const originalBuffer = await fs.readFile(originalPath);
+    const fileStats = await fs.stat(originalPath);
+
+    const hash = crypto.createHash("md5").update(originalBuffer).digest("hex");
+
+    // Check for duplicates before heavy processing
+    const existing = await prisma.file.findFirst({
+      where: { hash: hash },
+    });
+
+    if (existing) {
+      log(`Duplicate detected! Deleting ${fileName} and skipping.`);
+      await fs.unlink(originalPath);
+      return;
+    }
+
+    // Get original metadata including orientation, width, and height
+    const originalSharp = sharp(originalBuffer);
+    const originalMetadata = await originalSharp.metadata();
+    const imageWidth = originalMetadata.width || null;
+    const imageHeight = originalMetadata.height || null;
+    const imageRotation = originalMetadata.orientation || 1; // Default to 1 (normal)
+
+    // Create a sharp instance that applies rotation for variant generation
+    const rotatedImageForVariants = originalSharp.rotate();
+    const rotatedImageBuffer = await rotatedImageForVariants.toBuffer();
+
+    // Create WebP and thumbnail variants
+    const webpPath = path.join(webpFolder, `${fileBaseName}.webp`);
+    const thumbPath = path.join(thumbFolder, `${fileBaseName}_thumb.webp`);
+
+    await sharp(rotatedImageBuffer).webp({ quality: 80 }).toFile(webpPath);
+    log(`Generated WebP: ${webpPath}`);
+
+    await sharp(rotatedImageBuffer)
+      .resize(200, 200, { fit: "cover" })
+      .webp({ quality: 80 })
+      .toFile(thumbPath);
+    log(`Generated thumbnail: ${thumbPath}`);
+
+    const [webpStats, thumbStats] = await Promise.all([
+      fs.stat(webpPath),
+      fs.stat(thumbPath),
+    ]);
+
+    // Save to DB
+    const newFile = await prisma.file.create({
+      data: {
+        fileName,
+        hash,
+        width: imageWidth,
+        height: imageHeight,
+        rotation: imageRotation, // Store the EXIF orientation value
+        fileSize: BigInt(fileStats.size),
+        fileType: "image",
+        folderId: targetFolderId,
+        variants: {
+          create: [
+            {
+              name: "original",
+              path: path.relative(process.cwd(), originalPath),
+              size: BigInt(fileStats.size),
+            },
+            {
+              name: "webp",
+              path: path.relative(process.cwd(), webpPath),
+              size: BigInt(webpStats.size),
+            },
+            {
+              name: "thumbnail",
+              path: path.relative(process.cwd(), thumbPath),
+              size: BigInt(thumbStats.size),
+            },
+          ],
+        },
+      },
+    });
+
+    log(`File and variants saved to DB: ${newFile.fileName}`);
+  } catch (error) {
+    log(`Error processing image file ${fileName}: ${error.message}`);
+  }
+}
+
+async function startWatching() {
+  try {
+    await fs.mkdir(ingestFolder, { recursive: true });
+    log(`Ready. Watching for new files in: ${ingestFolder}`);
+  } catch (err) {
+    console.error("Error creating ingest folder:", err);
+    process.exit(1);
+  }
+
+  chokidar
+    .watch(ingestFolder, {
+      ignored: /(^|[\/\\])\../, // ignore dotfiles and folders
+      persistent: true,
+      ignoreInitial: false,
+      depth: 10, // watch up to 10 levels deep for subfolders
+      awaitWriteFinish: {
+        stabilityThreshold: 1500, // wait for 1.5 sec of no changes before triggering
+        pollInterval: 100,
+      },
+    })
+    .on("add", async (filePath) => {
+      log(`Detected new file: ${filePath}`);
+      enqueueFile(filePath);
+    })
+    .on("error", (error) => log(`Watcher error: ${error.message}`))
+    .on("ready", () => log("Watcher is now active..."));
+}
+
+// Bootstrapping startup process
+(async () => {
+  await findOrCreateLiveFolder();
+  await startWatching();
+})();
