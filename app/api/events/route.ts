@@ -1,59 +1,46 @@
-import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { NextRequest } from "next/server";
+import { EventEmitter } from "events";
 
-export const runtime = 'edge';
+const emitter = new EventEmitter();
+emitter.setMaxListeners(0);
 
-export async function GET() {
-  const encoder = new TextEncoder();
-  const customReadable = new ReadableStream({
+// GET /api/events  (existing SSE)
+export async function GET(request: NextRequest) {
+  const stream = new ReadableStream({
     start(controller) {
-      // Keep track of connected clients
-      const clientId = Date.now().toString();
-      
-      // Function to send updates to this client
-      const sendUpdate = async () => {
-        try {
-          // Get latest images
-          const latestImages = await prisma.file.findMany({
-            where: {
-              isProcessing: true,
-              OR: [
-                { isLive: true },
-                { processingCompleted: false }
-              ]
-            },
-            orderBy: { createdAt: 'desc' },
-            take: 10
-          });
-
-          // Send the update
-          const data = encoder.encode(`data: ${JSON.stringify({ 
-            type: 'image_update',
-            images: latestImages,
-            timestamp: Date.now()
-          })}\n\n`);
-          
-          controller.enqueue(data);
-        } catch (error) {
-          console.error('Error sending update:', error);
-        }
+      const handler = (data: any) => {
+        controller.enqueue(
+          `event: image_update\ndata: ${JSON.stringify({ images: [data] })}\n\n`,
+        );
       };
+      emitter.on("new-file", handler);
 
-      // Send updates every 2 seconds
-      const interval = setInterval(sendUpdate, 2000);
+      // keep-alive
+      const keepAlive = setInterval(() => controller.enqueue(":\n\n"), 15_000);
 
-      // Cleanup when client disconnects
-      return () => {
-        clearInterval(interval);
-      };
-    }
-  });
-
-  return new NextResponse(customReadable, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      request.signal.addEventListener("abort", () => {
+        clearInterval(keepAlive);
+        emitter.off("new-file", handler);
+      });
     },
   });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
+}
+
+// POST /api/events  (new – only ws-server calls this)
+export async function POST(req: NextRequest) {
+  const secret = req.headers.get("X-Internal-Secret");
+  if (secret !== "ingest-123")
+    return new Response("Forbidden", { status: 403 });
+
+  const file = await req.json();
+  emitter.emit("new-file", file); // push to every open SSE connection
+  return new Response("OK", { status: 200 });
 }
