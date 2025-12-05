@@ -1,5 +1,3 @@
-console.log("watch-ingest.cjs script is starting...");
-
 const chokidar = require("chokidar");
 const fs = require("node:fs/promises");
 const path = require("node:path");
@@ -7,11 +5,62 @@ const sharp = require("sharp");
 const { PrismaClient } = require("@prisma/client");
 const { fileTypeFromBuffer } = require("file-type");
 const crypto = require("node:crypto");
+const WebSocket = require("ws");
 
 const prisma = new PrismaClient();
 const ingestFolder = path.join(__dirname, "..", "public", "ingest");
+const configPath = path.join(__dirname, "..", "ingest-config.json");
 
 let liveFolderId = null;
+let ws;
+
+// --- WebSocket Client Setup ---
+function connectWebSocket() {
+  ws = new WebSocket("ws://localhost:8080");
+
+  ws.on("open", () => {
+    log("[WS] Connected to WebSocket server");
+  });
+
+  ws.on("error", (error) => {
+    log(`[WS] Connection error: ${error.message}`);
+  });
+
+  ws.on("close", () => {
+    log("[WS] Disconnected. Attempting to reconnect in 5 seconds...");
+    setTimeout(connectWebSocket, 5000);
+  });
+}
+
+function broadcastNewFile(file) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    // Serialize BigInt properties (Prisma uses BigInt for sizes) to strings
+    const serialize = (obj) => {
+      if (!obj || typeof obj !== "object") return obj;
+      const out = Array.isArray(obj) ? [] : {};
+      for (const [k, v] of Object.entries(obj)) {
+        if (typeof v === "bigint") {
+          out[k] = v.toString();
+        } else if (Array.isArray(v)) {
+          out[k] = v.map((item) => serialize(item));
+        } else if (v && typeof v === "object") {
+          out[k] = serialize(v);
+        } else {
+          out[k] = v;
+        }
+      }
+      return out;
+    };
+
+    const payload = serialize(file);
+    const message = JSON.stringify({ type: "new-file", payload });
+    ws.send(message);
+    log(`[WS] Broadcasted new file: ${file.fileName}`);
+  } else {
+    log("[WS] Cannot broadcast: WebSocket is not open.");
+  }
+}
+// --- End WebSocket Client Setup ---
 
 // Simple queue for concurrency control
 const processingQueue = [];
@@ -21,19 +70,56 @@ function log(message) {
   console.log(`[${new Date().toISOString()}] ${message}`);
 }
 
-async function findOrCreateLiveFolder() {
+async function getIngestFolderId() {
   try {
-    log("Checking for existing LIVE folder...");
+    const data = await fs.readFile(configPath, "utf-8");
+    const config = JSON.parse(data);
+    // Handle legacy single-folder shape or new array shape
+    if (config.folderId) {
+      return config.folderId;
+    }
+    if (Array.isArray(config.folderIds) && config.folderIds.length > 0) {
+      // Normalize to first configured folder for the live watcher
+      return config.folderIds[0];
+    }
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      log(`Error reading ingest config file: ${error.message}`);
+    }
+  }
+  return null;
+}
 
+async function updateIngestFolderId() {
+  try {
+    const folderId = await getIngestFolderId();
+
+    // If a folderId is configured, prefer and use that (validate it exists)
+    if (folderId) {
+      const folder = await prisma.folder.findUnique({
+        where: { id: folderId },
+      });
+      if (folder) {
+        if (liveFolderId !== folder.id) {
+          log(`Ingest folder changed to: ${folder.name} (ID: ${folder.id})`);
+          liveFolderId = folder.id;
+        }
+        return;
+      }
+      // Config pointed to a non-existent folder; warn but continue to ensure a LIVE folder exists
+      log(`Warning: Folder ID ${folderId} from config not found in database.`);
+    }
+
+    // Only search/create a default LIVE folder if we don't already have one configured/known
+    if (liveFolderId) {
+      // Already have a live folder set; nothing to do
+      return;
+    }
+
+    log("Checking for existing LIVE folder...");
     let folder = await prisma.folder.findFirst({
-      where: {
-        name: {
-          contains: "live",
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      where: { name: { contains: "live" } },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!folder) {
@@ -56,7 +142,7 @@ async function findOrCreateLiveFolder() {
     liveFolderId = folder.id;
   } catch (error) {
     console.error("Error while handling LIVE folder:", error);
-    process.exit(1);
+    return;
   }
 }
 
@@ -85,41 +171,77 @@ async function processFile(filePath) {
     // Read file buffer and detect type early to ignore unsupported
     const fileBuffer = await fs.readFile(filePath);
     const fileTypeResult = await fileTypeFromBuffer(fileBuffer);
+    const isRaw = isRawFile(filePath);
 
-    if (!fileTypeResult) {
+    if (!fileTypeResult && !isRaw) {
       log(`Skipping unsupported file (unknown type): ${filePath}`);
       await fs.unlink(filePath);
       return;
     }
 
-    const mime = fileTypeResult.mime;
+    const mime = fileTypeResult
+      ? fileTypeResult.mime
+      : "application/octet-stream";
     const isImage = mime.startsWith("image/");
     const isVideo = mime.startsWith("video/");
 
-    if (!isImage && !isVideo) {
-      log(`Skipping unsupported file (not image/video): ${filePath}`);
-      await fs.unlink(filePath);
-      return;
-    }
-
-    if (isVideo) {
-      // For now, just move video original to storage (no conversion)
+    if (isRaw) {
+      await processRawFile(filePath);
+    } else if (isVideo) {
       await processVideo(filePath, fileTypeResult);
     } else if (isImage) {
       await processImage(filePath, fileBuffer);
+    } else {
+      log(`Skipping unsupported file (not image, video, or raw): ${filePath}`);
+      await fs.unlink(filePath);
     }
   } catch (error) {
     log(`Error processing file ${filePath}: ${error.message}`);
   }
 }
 
+function isRawFile(filePath) {
+  const rawExtensions = [
+    ".arw",
+    ".cr2",
+    ".cr3",
+    ".nef",
+    ".orf",
+    ".raf",
+    ".rw2",
+    ".pef",
+    ".dng",
+  ];
+  const extension = path.extname(filePath).toLowerCase();
+  return rawExtensions.includes(extension);
+}
+
+async function processRawFile(filePath) {
+  const fileName = path.basename(filePath);
+  log(`Processing RAW file: ${fileName}`);
+  const targetFolderId = liveFolderId;
+  const permanentFolderBase = path.join(
+    __dirname,
+    "..",
+    "public",
+    "images",
+    String(targetFolderId),
+  );
+  const rawFolder = path.join(permanentFolderBase, "raw");
+
+  try {
+    await fs.mkdir(rawFolder, { recursive: true });
+    const originalPath = path.join(rawFolder, fileName);
+    await fs.rename(filePath, originalPath);
+    log(`Moved RAW file to: ${originalPath}`);
+  } catch (error) {
+    log(`Error moving RAW file ${fileName}: ${error.message}`);
+  }
+}
+
 async function processVideo(filePath, fileTypeResult) {
   const fileName = path.basename(filePath);
-  const fileExtension = path.extname(filePath);
-  const fileBaseName = path.basename(fileName, fileExtension);
-
   log(`Processing video file: ${fileName}`);
-
   const targetFolderId = liveFolderId;
 
   // Create permanent storage folders
@@ -128,13 +250,12 @@ async function processVideo(filePath, fileTypeResult) {
     "..",
     "public",
     "images",
-    String(targetFolderId)
+    String(targetFolderId),
   );
   const originalFolder = path.join(permanentFolderBase, "original");
 
   try {
     await fs.mkdir(originalFolder, { recursive: true });
-
     const originalPath = path.join(originalFolder, fileName);
 
     // Move video file to permanent original folder
@@ -145,18 +266,13 @@ async function processVideo(filePath, fileTypeResult) {
     const videoBuffer = await fs.readFile(originalPath);
     const hash = crypto.createHash("md5").update(videoBuffer).digest("hex");
 
-    // Check for duplicates
-    const existing = await prisma.file.findFirst({
-      where: { hash: hash },
-    });
-
+    const existing = await prisma.file.findFirst({ where: { hash } });
     if (existing) {
       log(`Duplicate video detected! Deleting ${fileName} and skipping.`);
       await fs.unlink(originalPath);
       return;
     }
 
-    // Save video file record (no variants for now)
     const newFile = await prisma.file.create({
       data: {
         fileName,
@@ -177,9 +293,11 @@ async function processVideo(filePath, fileTypeResult) {
           ],
         },
       },
+      include: { variants: true },
     });
 
     log(`Video file saved to DB: ${newFile.fileName}`);
+    broadcastNewFile(newFile);
   } catch (error) {
     log(`Error processing video file ${fileName}: ${error.message}`);
   }
@@ -199,7 +317,7 @@ async function processImage(filePath, imageBuffer) {
     "..",
     "public",
     "images",
-    String(targetFolderId)
+    String(targetFolderId),
   );
   const originalFolder = path.join(permanentFolderBase, "original");
   const webpFolder = path.join(permanentFolderBase, "webp");
@@ -223,7 +341,6 @@ async function processImage(filePath, imageBuffer) {
 
     const hash = crypto.createHash("md5").update(originalBuffer).digest("hex");
 
-    // Check for duplicates before heavy processing
     const existing = await prisma.file.findFirst({
       where: { hash: hash },
     });
@@ -241,18 +358,19 @@ async function processImage(filePath, imageBuffer) {
     const imageHeight = originalMetadata.height || null;
     const imageRotation = originalMetadata.orientation || 1; // Default to 1 (normal)
 
-    // Create a sharp instance that applies rotation for variant generation
-    const rotatedImageForVariants = originalSharp.rotate();
-    const rotatedImageBuffer = await rotatedImageForVariants.toBuffer();
+    const sharpForVariants = sharp(originalBuffer, {
+      failOnError: false,
+    }).withMetadata({ orientation: imageRotation });
 
     // Create WebP and thumbnail variants
     const webpPath = path.join(webpFolder, `${fileBaseName}.webp`);
     const thumbPath = path.join(thumbFolder, `${fileBaseName}_thumb.webp`);
 
-    await sharp(rotatedImageBuffer).webp({ quality: 80 }).toFile(webpPath);
+    await sharpForVariants.clone().webp({ quality: 80 }).toFile(webpPath);
     log(`Generated WebP: ${webpPath}`);
 
-    await sharp(rotatedImageBuffer)
+    await sharpForVariants
+      .clone()
       .resize(200, 200, { fit: "cover" })
       .webp({ quality: 80 })
       .toFile(thumbPath);
@@ -263,7 +381,16 @@ async function processImage(filePath, imageBuffer) {
       fs.stat(thumbPath),
     ]);
 
-    // Save to DB
+    const folderExists = await prisma.folder.findUnique({
+      where: { id: targetFolderId },
+    });
+    if (!folderExists) {
+      log(
+        `Error: Folder with ID ${targetFolderId} does not exist. Cannot create file.`,
+      );
+      return;
+    }
+
     const newFile = await prisma.file.create({
       data: {
         fileName,
@@ -294,9 +421,11 @@ async function processImage(filePath, imageBuffer) {
           ],
         },
       },
+      include: { variants: true },
     });
 
     log(`File and variants saved to DB: ${newFile.fileName}`);
+    broadcastNewFile(newFile);
   } catch (error) {
     log(`Error processing image file ${fileName}: ${error.message}`);
   }
@@ -308,21 +437,21 @@ async function startWatching() {
     log(`Ready. Watching for new files in: ${ingestFolder}`);
   } catch (err) {
     console.error("Error creating ingest folder:", err);
-    process.exit(1);
+    return;
   }
 
   chokidar
     .watch(ingestFolder, {
-      ignored: /(^|[\/\\])\../, // ignore dotfiles and folders
+      ignored: /(^|[\/\\])\../,
       persistent: true,
       ignoreInitial: false,
-      depth: 10, // watch up to 10 levels deep for subfolders
+      depth: 10,
       awaitWriteFinish: {
-        stabilityThreshold: 1500, // wait for 1.5 sec of no changes before triggering
+        stabilityThreshold: 1500,
         pollInterval: 100,
       },
     })
-    .on("add", async (filePath) => {
+    .on("add", (filePath) => {
       log(`Detected new file: ${filePath}`);
       enqueueFile(filePath);
     })
@@ -332,6 +461,8 @@ async function startWatching() {
 
 // Bootstrapping startup process
 (async () => {
-  await findOrCreateLiveFolder();
+  connectWebSocket();
+  await updateIngestFolderId();
+  setInterval(updateIngestFolderId, 5000);
   await startWatching();
 })();
