@@ -61,14 +61,7 @@ function broadcastNewFile(file) {
   }
 }
 // --- End WebSocket Client Setup ---
-
-// Simple queue for concurrency control
-const processingQueue = [];
-let processing = false;
-
-function log(message) {
-  console.log(`[${new Date().toISOString()}] ${message}`);
-}
+// --- End WebSocket Client Setup ---
 
 async function getIngestFolderId() {
   try {
@@ -84,12 +77,11 @@ async function getIngestFolderId() {
     }
   } catch (error) {
     if (error.code !== "ENOENT") {
-      log(`Error reading ingest config file: ${error.message}`);
+      console.error("Error reading ingest-config.json:", error);
     }
+    return null;
   }
-  return null;
 }
-
 async function updateIngestFolderId() {
   try {
     const folderId = await getIngestFolderId();
@@ -351,16 +343,22 @@ async function processImage(filePath, imageBuffer) {
       return;
     }
 
-    // Get original metadata including orientation, width, and height
-    const originalSharp = sharp(originalBuffer);
+    // Read original metadata and auto-rotate so output images are physically
+    // upright. Then read rotated metadata so width/height reflect final pixels.
+    const originalSharp = sharp(originalBuffer, { failOnError: false });
     const originalMetadata = await originalSharp.metadata();
-    const imageWidth = originalMetadata.width || null;
-    const imageHeight = originalMetadata.height || null;
-    const imageRotation = originalMetadata.orientation || 1; // Default to 1 (normal)
+    const originalOrientation = originalMetadata.orientation || 1;
 
-    const sharpForVariants = sharp(originalBuffer, {
-      failOnError: false,
-    }).withMetadata({ orientation: imageRotation });
+    // Auto-rotate according to EXIF orientation, producing an upright image
+    const rotatedSharp = sharp(originalBuffer, { failOnError: false }).rotate();
+    const rotatedMetadata = await rotatedSharp.metadata();
+    const imageWidth = rotatedMetadata.width || null;
+    const imageHeight = rotatedMetadata.height || null;
+    // After applying rotate(), set orientation to normal for stored variants
+    const imageRotation = 1;
+
+    // Use rotatedSharp as the source for variant generation
+    const sharpForVariants = rotatedSharp.withMetadata({ orientation: imageRotation });
 
     // Create WebP and thumbnail variants
     const webpPath = path.join(webpFolder, `${fileBaseName}.webp`);

@@ -1,10 +1,10 @@
-import Link from 'next/link';
-import Image from 'next/image';
-import { footerLinks, socialLinks } from '../data/siteLinks';
-import { FaInstagram, FaYoutube, FaWhatsapp } from 'react-icons/fa';
-import { SiTiktok } from 'react-icons/si';
+import Image from "next/image";
+import Link from "next/link";
+import { FaInstagram, FaWhatsapp, FaYoutube } from "react-icons/fa";
+import { SiTiktok } from "react-icons/si";
+import { footerLinks, socialLinks } from "../data/siteLinks";
 
-const iconMap: Record<string, any> = {
+const iconMap: Record<string, React.ElementType> = {
   FaInstagram,
   FaYoutube,
   FaWhatsapp,
@@ -20,7 +20,12 @@ export default function Footer() {
           <div>
             <Link href="/" className="flex items-center gap-3">
               <div className="p-1 dark:bg-white dark:rounded-md">
-                <Image src="/icons/Logo.svg" alt="Logo" width={40} height={40} />
+                <Image
+                  src="/icons/Logo.svg"
+                  alt="Logo"
+                  width={40}
+                  height={40}
+                />
               </div>
               <span className="text-2xl font-bold"> Nourose </span>
             </Link>
@@ -55,7 +60,10 @@ export default function Footer() {
                   .filter((l) => !l.footerOnly)
                   .map((l) => (
                     <li key={l.href}>
-                      <Link href={l.href} className="hover:text-[var(--primary)] transition-colors">
+                      <Link
+                        href={l.href}
+                        className="hover:text-[var(--primary)] transition-colors"
+                      >
                         {l.label}
                       </Link>
                     </li>
@@ -70,7 +78,10 @@ export default function Footer() {
                   .filter((l) => l.footerOnly)
                   .map((l) => (
                     <li key={l.href}>
-                      <Link href={l.href} className="hover:text-[var(--primary)] transition-colors">
+                      <Link
+                        href={l.href}
+                        className="hover:text-[var(--primary)] transition-colors"
+                      >
                         {l.label}
                       </Link>
                     </li>

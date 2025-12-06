@@ -10,6 +10,7 @@ export function ImageSkeleton() {
 export function ImageSkeletonGrid() {
   return (
     <>
+      {/* Using index as a key is safe here because the list is static and will not be reordered. */}
       {Array.from({ length: 10 }).map((_, i) => (
         <ImageSkeleton key={i} />
       ))}

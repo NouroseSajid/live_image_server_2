@@ -3,17 +3,17 @@
 :root {
   --color-text-landing: #f4f4f4;
 
-  --primary-font: 'Inter', sans-serif;
-  --secondary-font: 'Roboto', sans-serif;
+  --primary-font: "Inter", sans-serif;
+  --secondary-font: "Roboto", sans-serif;
 
   --background: #f4f4f4; /* Light background */
   --foreground: #29363b; /* Dark text */
 
-  --card: #D4E6F1;  /* A professional and modern blue */
+  --card: #d4e6f1; /* A professional and modern blue */
   --primary: #29363b; /* Dark primary color */
   --primary_dark: #f8f8f8; /* Light text for dark backgrounds */
 
-  --popover: #FFFFFF;
+  --popover: #ffffff;
 }
 
 .dark {
@@ -33,21 +33,21 @@ body {
 }
 
 .admin-theme {
-  --admin-primary: #3B82F6;
-  --admin-secondary: #F3F4F6;
-  --admin-text: #1F2937;
-  --admin-background: #FFFFFF;
-  --admin-card: #FFFFFF;
-  --admin-border: #E5E7EB;
-  --admin-primary-foreground: #FFFFFF;
+  --admin-primary: #3b82f6;
+  --admin-secondary: #f3f4f6;
+  --admin-text: #1f2937;
+  --admin-background: #ffffff;
+  --admin-card: #ffffff;
+  --admin-border: #e5e7eb;
+  --admin-primary-foreground: #ffffff;
 }
 
 .dark .admin-theme {
-  --admin-primary: #3B82F6;
-  --admin-secondary: #1F2937;
-  --admin-text: #F3F4F6;
+  --admin-primary: #3b82f6;
+  --admin-secondary: #1f2937;
+  --admin-text: #f3f4f6;
   --admin-background: #111827;
-  --admin-card: #1F2937;
+  --admin-card: #1f2937;
   --admin-border: #374151;
-  --admin-primary-foreground: #FFFFFF;
+  --admin-primary-foreground: #ffffff;
 }

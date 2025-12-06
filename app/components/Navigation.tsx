@@ -1,5 +1,5 @@
-import { NavLink } from '../data/siteLinks';
-import Link from 'next/link';
+import type { NavLink } from "../data/siteLinks";
+import Link from "next/link";
 
 interface NavigationProps {
   onClose: () => void;

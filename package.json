@@ -3,21 +3,26 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "concurrently -k -r -n \"WEB,INGEST,WS\" -c \"cyan,magenta,yellow\" \"next dev --turbopack\" \"node scripts/watch-ingest.cjs\" \"node scripts/ws-server.js\"",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "biome check",
     "format": "biome format --write",
-    "watch:ingest": "node scripts/watch-ingest.cjs"
+    "watch:ingest": "node scripts/watch-ingest.cjs",
+    "start:ws": "node scripts/ws-server.js"
   },
   "dependencies": {
     "@prisma/client": "^6.17.1",
     "@tanstack/react-virtual": "^3.13.12",
     "@tanstack/virtual-core": "^3.13.12",
     "chokidar": "^4.0.3",
+    "concurrently": "^9.2.1",
     "dotenv": "^17.2.3",
+    "file-saver": "^2.0.5",
     "file-type": "^21.0.0",
     "framer-motion": "^12.23.24",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.555.0",
     "next": "15.5.6",
     "next-auth": "^4.24.11",
     "prisma": "^6.17.1",
@@ -28,11 +33,15 @@
     "react-photo-album": "^3.2.1",
     "sharp": "^0.34.4",
     "slugify": "^1.6.6",
-    "yet-another-react-lightbox": "^3.25.0"
+    "wait-on": "^9.0.1",
+    "ws": "^8.18.3",
+    "yet-another-react-lightbox": "^3.25.0",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.0",
     "@tailwindcss/postcss": "^4",
+    "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

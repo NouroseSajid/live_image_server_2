@@ -1,4 +1,4 @@
-const WebSocket = require("ws");
+const { WebSocket, WebSocketServer } = require("ws");
 const http = require("http"); // already built-in
 
 // helper: forward a message to the SSE endpoint
@@ -28,14 +28,29 @@ wss.on("connection", (ws) => {
   ws.on("message", (data) => {
     try {
       const msg = JSON.parse(data);
+      console.log(`[WS Server] Received message type: ${msg.type}`);
+
       if (msg.type === "new-file") {
-        forwardToSSE(msg.payload); // <-- bridge
+        forwardToSSE(msg.payload); // <-- bridge to SSE for browser
       }
-    } catch {}
+
+      // Broadcast all messages to all connected clients (for ingest-config-update, etc.)
+      wss.clients.forEach((client) => {
+        if (client.readyState === 1) {
+          client.send(data);
+        }
+      });
+    } catch (err) {
+      console.error("[WS Server] Error processing message:", err);
+    }
   });
 
   ws.on("close", () => {
     console.log("Client disconnected");
+  });
+
+  ws.on("error", (err) => {
+    console.error("[WS Server] Client error:", err);
   });
 });
 

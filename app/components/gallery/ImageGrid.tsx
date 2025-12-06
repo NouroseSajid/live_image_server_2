@@ -1,107 +1,186 @@
-'use client';
+"use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from "react";
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
+import type { Image as GalleryImage } from "@/app/types/gallery";
 
-interface Image {
-  id: string;
-  fileName: string;
-  folderId: string;
-  variants: { name: string; path: string }[];
+interface PhotoGridProps {
+  images: GalleryImage[];
 }
 
-interface ImageGridProps {
-  images: Image[];
-  onImageClick: (index: number) => void;
-  batchSize?: number;
+interface Photo {
+  src: string;
+  width: number;
+  height: number;
+  alt?: string;
+  lightboxSrc: string;
+  rotation?: number;
 }
 
-const ImageGrid: React.FC<ImageGridProps> = ({ 
-  images, 
-  onImageClick, 
-  batchSize = 50 
-}) => {
-  const [displayCount, setDisplayCount] = useState(batchSize);
-  const [isLoading, setIsLoading] = useState(false);
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const loadingRef = useRef<HTMLDivElement>(null);
+export default function PhotoGrid({ images }: PhotoGridProps) {
+  const [index, setIndex] = useState(-1);
 
-  useEffect(() => {
-    const loadMoreImages = () => {
-      setIsLoading(true);
-      setTimeout(() => {
-        setDisplayCount(prev => Math.min(prev + batchSize, images.length));
-        setIsLoading(false);
-      }, 500); // Simulate loading delay
-    };
+  const exifOrientationToDegrees = (rotation: number): number => {
+    switch (rotation) {
+      case 1:
+        return 0;
+      case 2:
+        return 0;
+      case 3:
+        return 180;
+      case 4:
+        return 0;
+      case 5:
+        return 90;
+      case 6:
+        return 90;
+      case 7:
+        return 90;
+      case 8:
+        return 270;
+      default:
+        return 0;
+    }
+  };
 
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && displayCount < images.length) {
-          loadMoreImages();
-        }
-      },
-      { threshold: 0.5 }
-    );
+  const getImageDimensions = (
+    width: number,
+    height: number,
+    rotation: number,
+  ) => {
+    const rotationDegrees = exifOrientationToDegrees(rotation);
 
-    if (loadingRef.current) {
-      observerRef.current.observe(loadingRef.current);
+    // Swap dimensions for 90° and 270° rotations
+    if (rotationDegrees === 90 || rotationDegrees === 270) {
+      return {
+        displayWidth: height,
+        displayHeight: width,
+        aspectRatio: height / width,
+        rotationDegrees,
+      };
     }
 
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
+    return {
+      displayWidth: width,
+      displayHeight: height,
+      aspectRatio: width / height,
+      rotationDegrees,
     };
-  }, [displayCount, images.length, batchSize]);
+  };
+
+  const getImageVariant = (image: GalleryImage, preferredTypes: string[]) => {
+    for (const type of preferredTypes) {
+      const variant = image.variants.find((v) => v.name === type);
+      if (variant) return variant;
+    }
+
+    // Fallback to 'full' or 'original' if preferred types are not found
+    const fullVariant = image.variants.find((v) => v.name === "full");
+    if (fullVariant) return fullVariant;
+    const originalVariant = image.variants.find((v) => v.name === "original");
+    if (originalVariant) return originalVariant;
+
+    // If still not found, try to find any non-thumbnail variant
+    const nonThumbVariant = image.variants.find((v) => v.name !== "thumb");
+    if (nonThumbVariant) return nonThumbVariant;
+
+    // As a last resort, return the first variant (could be a thumbnail)
+    return image.variants[0];
+  };
+
+  const photos: Photo[] = images.map((image) => {
+    const gridVariant = getImageVariant(image, ["thumb", "webp"]);
+    const lightboxVariant = getImageVariant(image, ["webp"]);
+
+    if (!image.width || !image.height) {
+      console.warn(
+        `Image ${image.fileName} is missing width or height information.`,
+      );
+    }
+
+    const { displayWidth, displayHeight, aspectRatio } = getImageDimensions(
+      image.width || 1600,
+      image.height || 1200,
+      image.rotation || 1,
+    );
+
+    return {
+      src: gridVariant?.path || "",
+      width: displayWidth,
+      height: displayHeight,
+      aspectRatio,
+      alt: image.fileName,
+      lightboxSrc: lightboxVariant?.path || "",
+      rotation: image.rotation || 1,
+    };
+  });
 
   return (
-    <div className="w-full">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4 w-[95%] mx-auto">
-        <AnimatePresence>
-          {images.slice(0, displayCount).map((image, index) => (
-            <motion.div
-              key={image.id}
-              className="relative group cursor-pointer"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              whileHover={{ scale: 1.05 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => onImageClick(index)}
-            >
-              <div className="aspect-w-16 aspect-h-12">
-                <img
-                  src={image.variants.find(v => v.name === 'thumbnail')?.path || '/placeholder-image.jpg'}
-                  alt={image.fileName}
-                  className="w-full h-full object-cover rounded-xl shadow-lg border border-gray-200/10"
-                  loading="lazy"
-                />
-              </div>
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-xl flex items-center justify-center">
-                <p className="text-white text-sm font-medium px-4 py-2 bg-black/60 rounded-lg transform translate-y-2 group-hover:translate-y-0 transition-transform duration-200">
-                  View Image
-                </p>
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
-      
-      {displayCount < images.length && (
-        <div
-          ref={loadingRef}
-          className="w-full flex justify-center items-center py-8"
-        >
-          <motion.div
-            className="w-12 h-12 border-4 border-gray-300 border-t-gray-800 rounded-full"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          />
-        </div>
-      )}
-    </div>
-  );
-};
+    <>
+      {/* Masonry Grid with Tailwind Columns */}
+      <div className="columns-1 sm:columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4 p-4 space-y-4">
+        {photos.map((photo, idx) => {
+          const rotationDegrees = exifOrientationToDegrees(photo.rotation || 1);
 
-export default ImageGrid;
+          return (
+            <div
+              key={idx}
+              className="break-inside-avoid mb-4 group cursor-pointer transform transition-all duration-300 hover:scale-105"
+              onClick={() => setIndex(idx)}
+            >
+              <div className="relative overflow-hidden rounded-xl shadow-lg border border-gray-200/10">
+                {/* Fixed aspect ratio container based on rotated dimensions */}
+                <div
+                  className="relative w-full"
+                  style={{
+                    paddingBottom: `${(1 / photo.aspectRatio) * 100}%`,
+                  }}
+                >
+                  <img
+                    src={photo.src}
+                    alt={photo.alt}
+                    className="absolute inset-0 w-full h-full transition-transform duration-300 group-hover:scale-110"
+                    style={{
+                      transform: `rotate(${rotationDegrees}deg)`,
+                      objectFit:
+                        rotationDegrees === 90 || rotationDegrees === 270
+                          ? "contain"
+                          : "cover",
+                    }}
+                    loading="lazy"
+                  />
+                </div>
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                  <p className="text-white text-sm font-medium px-4 py-2 bg-black/60 rounded-lg transform translate-y-2 group-hover:translate-y-0 transition-transform duration-200">
+                    View Image
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <Lightbox
+        slides={photos.map((photo) => ({
+          ...photo,
+          src: photo.lightboxSrc,
+          width: photo.width,
+          height: photo.height,
+        }))}
+        open={index >= 0}
+        index={index}
+        close={() => setIndex(-1)}
+        carousel={{
+          finite: true,
+        }}
+        animation={{
+          fade: 300,
+        }}
+        plugins={[Zoom]}
+      />
+    </>
+  );
+}

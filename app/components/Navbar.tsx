@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import Drawer from './Drawer';
-import { mainNavLinks } from '../data/siteLinks';
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import Drawer from "./Drawer";
+import { mainNavLinks } from "../data/siteLinks";
 import { useSession, signIn, signOut } from "next-auth/react";
 
 const Navbar = () => {
@@ -15,18 +15,21 @@ const Navbar = () => {
 
   // Lock scroll when drawer is open
   useEffect(() => {
-    document.body.style.overflow = isDrawerOpen ? 'hidden' : '';
+    document.body.style.overflow = isDrawerOpen ? "hidden" : "";
   }, [isDrawerOpen]);
 
   return (
     <>
-      <nav className="flex justify-between items-center px-4 py-2 bg-[var(--background)] border-b border-[var(--border)] fixed top-0 left-0 w-full z-[1000] shadow-sm">
+      <nav className="flex justify-between items-center px-4 py-2 bg-gray-900/75 backdrop-blur-lg border-b border-[var(--border)] fixed top-0 left-0 w-full z-[1000] shadow-sm">
         {/* Logo */}
         <div className="flex items-center">
           <div className="p-1 dark:bg-white dark:rounded-md">
-          <Image src="/icons/Logo.svg" alt="Logo" width={40} height={40} />
+            <Image src="/icons/Logo.svg" alt="Logo" width={40} height={40} />
           </div>
-          <Link href="/" className="ml-2 text-2xl font-bold text-[var(--foreground)]">
+          <Link
+            href="/"
+            className="ml-2 text-2xl font-bold text-[var(--foreground)]"
+          >
             Nourose
           </Link>
         </div>
@@ -46,7 +49,7 @@ const Navbar = () => {
                   <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[var(--primary)] transition-all duration-300 group-hover:w-full" />
                 </Link>
               ))}
-            
+
             {session ? (
               <button
                 onClick={() => signOut()}
@@ -74,27 +77,27 @@ const Navbar = () => {
           >
             <span
               className={`block w-6 h-0.5 bg-[var(--foreground)] rounded-sm transition-all duration-300 ease-in-out ${
-                isDrawerOpen ? 'rotate-45 translate-y-[8px]' : ''
+                isDrawerOpen ? "rotate-45 translate-y-[8px]" : ""
               }`}
             ></span>
             <span
               className={`block w-6 h-0.5 bg-[var(--foreground)] rounded-sm my-1 transition-all duration-300 ease-in-out ${
-                isDrawerOpen ? 'opacity-0' : ''
+                isDrawerOpen ? "opacity-0" : ""
               }`}
             ></span>
             <span
               className={`block w-6 h-0.5 bg-[var(--foreground)] rounded-sm transition-all duration-300 ease-in-out ${
-                isDrawerOpen ? '-rotate-45 -translate-y-[8px]' : ''
+                isDrawerOpen ? "-rotate-45 -translate-y-[8px]" : ""
               }`}
             ></span>
           </button>
         </div>
       </nav>
 
-      <Drawer 
-        isOpen={isDrawerOpen} 
-        onClose={toggleDrawer} 
-        navItems={mainNavLinks} 
+      <Drawer
+        isOpen={isDrawerOpen}
+        onClose={toggleDrawer}
+        navItems={mainNavLinks}
         session={session}
       />
     </>

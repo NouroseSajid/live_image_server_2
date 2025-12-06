@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 interface SSEOptions {
   onImageUpdate?: (images: any[]) => void;
@@ -9,12 +9,12 @@ interface SSEOptions {
 export function useImageEvents({
   onImageUpdate,
   onProcessingUpdate,
-  onError
+  onError,
 }: SSEOptions = {}) {
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const eventSource = new EventSource('/api/events');
+    const eventSource = new EventSource("/api/events");
 
     eventSource.onopen = () => {
       setIsConnected(true);
@@ -25,21 +25,21 @@ export function useImageEvents({
       if (onError) onError(error);
     };
 
-    eventSource.addEventListener('image_update', (event) => {
+    eventSource.addEventListener("image_update", (event) => {
       try {
         const data = JSON.parse(event.data);
         if (onImageUpdate) onImageUpdate(data.images);
       } catch (error) {
-        console.error('Error parsing image update:', error);
+        console.error("Error parsing image update:", error);
       }
     });
 
-    eventSource.addEventListener('processing_update', (event) => {
+    eventSource.addEventListener("processing_update", (event) => {
       try {
         const data = JSON.parse(event.data);
         if (onProcessingUpdate) onProcessingUpdate(data);
       } catch (error) {
-        console.error('Error parsing processing update:', error);
+        console.error("Error parsing processing update:", error);
       }
     });
 

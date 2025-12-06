@@ -134,6 +134,7 @@ model Setting {
 enum FileType {
   image
   video
+  raw
 }
 
 enum JobStatus {

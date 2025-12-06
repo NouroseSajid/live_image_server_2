@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { motion } from 'framer-motion';
+import React from "react";
+import { motion } from "framer-motion";
 
 interface LoadingSpinnerProps {
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
 }
 
 const sizes = {
-  sm: 'w-8 h-8',
-  md: 'w-12 h-12',
-  lg: 'w-16 h-16'
+  sm: "w-8 h-8",
+  md: "w-12 h-12",
+  lg: "w-16 h-16",
 };
 
-const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'md' }) => {
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = "md" }) => {
   return (
     <div className="flex justify-center items-center p-4">
       <motion.div

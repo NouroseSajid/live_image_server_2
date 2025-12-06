@@ -20,6 +20,7 @@ export interface Folder {
   name: string;
   folderThumb: string | null;
   uniqueUrl: string;
+  isPrivate?: boolean;
 }
 
 export interface ProcessingImage {

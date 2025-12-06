@@ -5,6 +5,8 @@ import { AuthProvider } from "./providers/AuthProvider";
 import { ThemeProvider } from "./components/ThemeProvider";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import { SelectionProvider } from "./providers/SelectionProvider";
+import { SelectionToolbar } from "./components/gallery/SelectionToolbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,11 +35,12 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <AuthProvider>
-            <Navbar />
-            <main className="flex-1 mt-16">
-              {children}
-            </main>
-            <Footer />
+            <SelectionProvider>
+              <Navbar />
+              <main className="flex-1 mt-16 pb-24">{children}</main>
+              <SelectionToolbar />
+              <Footer />
+            </SelectionProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
