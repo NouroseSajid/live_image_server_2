@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import type { Folder } from "@prisma/client";
+import { useCallback, useEffect, useState } from "react";
 import { useImageEvents } from "../../hooks/useImageEvents"; // Import the hook
 
 export default function IngestFolderSelector() {
@@ -34,20 +34,20 @@ export default function IngestFolderSelector() {
       }
       const configData = await configRes.json();
       console.log("[refreshData] Config from API:", configData);
-      
+
       // The API may return { folderIds: [] } (new) or { folderId } (old).
       if (Array.isArray(configData.folderIds)) {
         // Only keep folder IDs that actually exist in the database
         const validIds = configData.folderIds.filter((id: string) =>
-          foldersData.some((f: Folder) => f.id === id)
+          foldersData.some((f: Folder) => f.id === id),
         );
         console.log("[refreshData] Valid folder IDs from config:", validIds);
         setSelectedFolderIds(validIds);
-        
+
         // If some IDs were invalid, warn the user
         if (validIds.length < configData.folderIds.length) {
           setError(
-            "⚠️ Some previously configured folders no longer exist. Please select valid folders and save again."
+            "⚠️ Some previously configured folders no longer exist. Please select valid folders and save again.",
           );
         }
       } else if (configData.folderId) {
@@ -77,7 +77,7 @@ export default function IngestFolderSelector() {
     },
   });
 
-  const handleSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const _handleSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const values = Array.from(e.target.selectedOptions).map((o) => o.value);
     setSelectedFolderIds(values);
   };
@@ -94,8 +94,11 @@ export default function IngestFolderSelector() {
   };
 
   const handleSaveChanges = async () => {
-    console.log(`[UI] Save button clicked. Selected folders:`, selectedFolderIds);
-    
+    console.log(
+      `[UI] Save button clicked. Selected folders:`,
+      selectedFolderIds,
+    );
+
     if (!selectedFolderIds || selectedFolderIds.length === 0) {
       const msg = "Please select at least one folder.";
       console.warn(`[UI] ${msg}`);
@@ -107,11 +110,11 @@ export default function IngestFolderSelector() {
     try {
       setError(null);
       setSuccessMessage(null);
-      
+
       console.log(`[API] Sending POST to /api/ingest-folder with:`, {
         folderIds: selectedFolderIds,
       });
-      
+
       const res = await fetch("/api/ingest-folder", {
         method: "POST",
         headers: {
@@ -123,30 +126,30 @@ export default function IngestFolderSelector() {
       console.log(`[API] Response status: ${res.status}`);
       const responseData = await res.json();
       console.log(`[API] Response data:`, responseData);
-      
+
       if (!res.ok) {
         console.error(`[API] Error response:`, responseData);
         throw new Error(
-          responseData.error || 
-          `Failed to update ingest folder (${res.status}).`
+          responseData.error ||
+            `Failed to update ingest folder (${res.status}).`,
         );
       }
 
       console.log(`[API] Success! Response:`, responseData);
       setSuccessMessage(
-        `✅ Ingest folder updated! ${selectedFolderIds.length} folder${selectedFolderIds.length !== 1 ? "s" : ""} selected.`
+        `✅ Ingest folder updated! ${selectedFolderIds.length} folder${selectedFolderIds.length !== 1 ? "s" : ""} selected.`,
       );
 
       // Broadcast the config update to the WebSocket server so the watcher picks it up
       try {
         console.log(`[WS] Opening connection to broadcast config update...`);
         const ws = new WebSocket("ws://localhost:8080");
-        
+
         const wsTimeout = setTimeout(() => {
           console.error("[WS] Connection timeout (5s)");
           ws.close();
         }, 5000);
-        
+
         ws.onopen = () => {
           clearTimeout(wsTimeout);
           const msg = JSON.stringify({
@@ -157,12 +160,12 @@ export default function IngestFolderSelector() {
           console.log("[WS] ✅ Sent ingest-config-update to watcher");
           ws.close();
         };
-        
-        ws.onerror = (err) => {
+
+        ws.onerror = (err: any) => {
           clearTimeout(wsTimeout);
           console.error("[WS] ❌ Connection error:", err);
         };
-      } catch (wsErr) {
+      } catch (wsErr: any) {
         console.error("[WS] ❌ WebSocket error:", wsErr);
       }
     } catch (err: any) {
@@ -186,19 +189,19 @@ export default function IngestFolderSelector() {
         Choose which folder new images from the ingest directory will be added
         to.
       </p>
-      
+
       {error && (
         <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
           ❌ {error}
         </div>
       )}
-      
+
       {successMessage && (
         <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
           {successMessage}
         </div>
       )}
-      
+
       {isLoading ? (
         <div className="text-gray-500">Loading folders...</div>
       ) : (
@@ -226,7 +229,7 @@ export default function IngestFolderSelector() {
               ))}
             </div>
           </div>
-          
+
           <div className="flex flex-col gap-2">
             <button
               type="button"
@@ -240,10 +243,11 @@ export default function IngestFolderSelector() {
             >
               {isSaving ? "Saving..." : "Save"}
             </button>
-            
+
             {selectedFolderIds.length > 0 && (
               <div className="text-xs text-gray-600 dark:text-gray-400">
-                {selectedFolderIds.length} folder{selectedFolderIds.length !== 1 ? "s" : ""} selected
+                {selectedFolderIds.length} folder
+                {selectedFolderIds.length !== 1 ? "s" : ""} selected
               </div>
             )}
           </div>

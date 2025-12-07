@@ -1,6 +1,6 @@
+import { serialize } from "cookie";
 import { NextResponse } from "next/server";
 import prisma from "../../../../prisma/client";
-import { serialize } from "cookie";
 
 export async function POST(request: Request) {
   try {

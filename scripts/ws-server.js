@@ -1,5 +1,5 @@
-const { WebSocket, WebSocketServer } = require("ws");
-const http = require("http"); // already built-in
+const { _WebSocket, WebSocketServer } = require("ws");
+const http = require("node:http"); // already built-in
 
 // helper: forward a message to the SSE endpoint
 function forwardToSSE(payload) {
@@ -54,7 +54,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-function broadcast(data) {
+function _broadcast(data) {
   wss.clients.forEach((client) => {
     if (client.readyState === 1) {
       client.send(data);

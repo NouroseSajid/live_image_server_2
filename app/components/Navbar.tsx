@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import Drawer from "./Drawer";
+import { signIn, signOut, useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
 import { mainNavLinks } from "../data/siteLinks";
-import { useSession, signIn, signOut } from "next-auth/react";
+import Drawer from "./Drawer";
 
 const Navbar = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -52,6 +52,7 @@ const Navbar = () => {
 
             {session ? (
               <button
+                type="button"
                 onClick={() => signOut()}
                 className="group relative text-[var(--foreground)] hover:text-[var(--primary)] transition-colors"
               >
@@ -60,6 +61,7 @@ const Navbar = () => {
               </button>
             ) : (
               <button
+                type="button"
                 onClick={() => signIn("github")}
                 className="group relative text-[var(--foreground)] hover:text-[var(--primary)] transition-colors"
               >
@@ -71,6 +73,7 @@ const Navbar = () => {
 
           {/* Hamburger Button */}
           <button
+            type="button"
             aria-label="Toggle menu"
             className="flex flex-col justify-center items-center w-10 h-10 relative group"
             onClick={toggleDrawer}

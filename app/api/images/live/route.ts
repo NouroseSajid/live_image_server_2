@@ -1,7 +1,7 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import { type NextRequest, NextResponse } from "next/server";
+
 import prisma from "../../../../prisma/client";
+
 
 export async function GET(request: NextRequest) {
   const cookies = request.cookies;

@@ -1,16 +1,16 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]/route";
-import prisma from "../../../prisma/client";
 import slugify from "slugify";
-import { Prisma } from "@prisma/client";
+import prisma from "../../../prisma/client";
+import { authOptions } from "../auth/[...nextauth]/route";
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const nameStartsWith = searchParams.get("nameStartsWith");
 
-    let folders;
+    let folders: Folder[] | undefined;
     if (nameStartsWith) {
       folders = await prisma.folder.findMany({
         where: {

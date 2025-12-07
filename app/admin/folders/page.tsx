@@ -78,10 +78,6 @@ export default function AdminFolders() {
     [fileName: string]: number;
   }>({});
 
-  useEffect(() => {
-    fetchFolders();
-  }, []);
-
   const fetchFolders = async () => {
     const res = await fetch("/api/folders");
     if (res.ok) {
@@ -94,6 +90,10 @@ export default function AdminFolders() {
       console.error("Failed to fetch folders");
     }
   };
+
+  useEffect(() => {
+    fetchFolders();
+  }, [fetchFolders]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,11 +123,10 @@ export default function AdminFolders() {
         setEditingFolder(null);
         await fetchFolders();
       } else {
-        let errText = "Failed to update folder";
-        try {
-          const err = await res.json();
-          if (err && err.error) errText = err.error;
-        } catch {
+                    let errText = "Failed to update folder";
+                    try {
+                      const err = await res.json();
+                      if (err?.error) errText = err.error;        } catch {
           const text = await res.text();
           if (text) errText = text;
         }
@@ -162,7 +161,7 @@ export default function AdminFolders() {
         let errText = "Failed to create folder";
         try {
           const err = await res.json();
-          if (err && err.error) errText = err.error;
+          if (err?.error) errText = err.error;
         } catch {
           const text = await res.text();
           if (text) errText = text;
@@ -228,8 +227,7 @@ export default function AdminFolders() {
     });
 
     try {
-      await Promise.all(uploadPromises);
-    } catch (error) {
+    } catch (_error) {
       // Errors are already logged in the xhr handlers
     }
 
@@ -263,7 +261,7 @@ export default function AdminFolders() {
       let errText = "Failed to delete folder";
       try {
         const err = await res.json();
-        if (err && err.error) errText = err.error;
+        if (err?.error) errText = err.error;
       } catch {
         const text = await res.text();
         if (text) errText = text;
@@ -323,6 +321,7 @@ export default function AdminFolders() {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   className="px-2 py-1 rounded border"
                   onClick={() => handleEditFolder(folder)}
                   style={{ borderColor: "var(--admin-border)" }}
@@ -330,6 +329,7 @@ export default function AdminFolders() {
                   Edit
                 </button>
                 <button
+                  type="button"
                   className="px-2 py-1 rounded border text-red-600"
                   onClick={() => handleDeleteFolder(folder.id)}
                   style={{ borderColor: "var(--admin-border)" }}

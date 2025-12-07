@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useInView } from "react-intersection-observer";
 import type { Image as GalleryImage } from "../types/gallery";
 import { ImageSkeletonGrid } from "./ImageSkeleton";
-import PhotoGrid from "./gallery/PhotoGrid";
+import JustifiedPhotoGrid from "./gallery/JustifiedPhotoGrid";
 
 export function LiveGallery() {
   const [liveImages, setLiveImages] = useState<GalleryImage[]>([]);
@@ -209,7 +209,10 @@ export function LiveGallery() {
               <h3 className="text-xl font-semibold mb-4 drop-shadow">
                 All Images
               </h3>
-              <PhotoGrid images={liveImages} newImageIds={newImageIds} />
+              <JustifiedPhotoGrid
+                images={liveImages}
+                newImageIds={newImageIds}
+              />
             </>
           )}
 

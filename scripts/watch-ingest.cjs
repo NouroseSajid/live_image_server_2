@@ -14,6 +14,15 @@ const configPath = path.join(__dirname, "..", "ingest-config.json");
 let liveFolderId = null;
 let ws;
 
+// Simple logger used across this script
+function log(message) {
+  console.log(`[${new Date().toISOString()}] ${message}`);
+}
+
+// Simple processing queue controls
+const processingQueue = [];
+let processing = false;
+
 // --- WebSocket Client Setup ---
 function connectWebSocket() {
   ws = new WebSocket("ws://localhost:8080");
@@ -60,7 +69,7 @@ function broadcastNewFile(file) {
     log("[WS] Cannot broadcast: WebSocket is not open.");
   }
 }
-// --- End WebSocket Client Setup ---
+
 // --- End WebSocket Client Setup ---
 
 async function getIngestFolderId() {
@@ -82,6 +91,7 @@ async function getIngestFolderId() {
     return null;
   }
 }
+
 async function updateIngestFolderId() {
   try {
     const folderId = await getIngestFolderId();
@@ -343,34 +353,58 @@ async function processImage(filePath, imageBuffer) {
       return;
     }
 
-    // Read original metadata and auto-rotate so output images are physically
-    // upright. Then read rotated metadata so width/height reflect final pixels.
+    // PROPER ROTATION HANDLING - FIXED VERSION
+    // First, get the original metadata to check EXIF orientation
     const originalSharp = sharp(originalBuffer, { failOnError: false });
     const originalMetadata = await originalSharp.metadata();
     const originalOrientation = originalMetadata.orientation || 1;
 
+    log(`Original orientation for ${fileName}: ${originalOrientation}`);
+
     // Auto-rotate according to EXIF orientation, producing an upright image
+    // This physically rotates the image pixels
     const rotatedSharp = sharp(originalBuffer, { failOnError: false }).rotate();
     const rotatedMetadata = await rotatedSharp.metadata();
-    const imageWidth = rotatedMetadata.width || null;
-    const imageHeight = rotatedMetadata.height || null;
+
+    // Get the final dimensions after rotation
+    let imageWidth = rotatedMetadata.width || null;
+    let imageHeight = rotatedMetadata.height || null;
+
     // After applying rotate(), set orientation to normal for stored variants
-    const imageRotation = 1;
+    const imageRotation = 1; // Always 1 after physically rotating
+
+    log(`Dimensions after rotation: ${imageWidth}x${imageHeight}`);
+
+    // Determine if image should be landscape or portrait based on final dimensions
+    if (imageWidth && imageHeight) {
+      const isPortrait = imageHeight > imageWidth;
+      log(`Image orientation: ${isPortrait ? "Portrait" : "Landscape"}`);
+    }
 
     // Use rotatedSharp as the source for variant generation
-    const sharpForVariants = rotatedSharp.withMetadata({ orientation: imageRotation });
+    const sharpForVariants = rotatedSharp.withMetadata({
+      orientation: imageRotation,
+    });
 
     // Create WebP and thumbnail variants
     const webpPath = path.join(webpFolder, `${fileBaseName}.webp`);
     const thumbPath = path.join(thumbFolder, `${fileBaseName}_thumb.webp`);
 
-    await sharpForVariants.clone().webp({ quality: 80 }).toFile(webpPath);
+    // Generate variants with proper quality settings
+    await sharpForVariants
+      .clone()
+      .webp({ quality: 85, effort: 6 })
+      .toFile(webpPath);
     log(`Generated WebP: ${webpPath}`);
 
     await sharpForVariants
       .clone()
-      .resize(200, 200, { fit: "cover" })
-      .webp({ quality: 80 })
+      .resize(300, 300, {
+        fit: "cover",
+        position: "center",
+        withoutEnlargement: false,
+      })
+      .webp({ quality: 80, effort: 6 })
       .toFile(thumbPath);
     log(`Generated thumbnail: ${thumbPath}`);
 
@@ -395,7 +429,8 @@ async function processImage(filePath, imageBuffer) {
         hash,
         width: imageWidth,
         height: imageHeight,
-        rotation: imageRotation, // Store the EXIF orientation value
+        rotation: imageRotation, // Store the normalized orientation (always 1 after rotation)
+        originalOrientation: originalOrientation, // Store original EXIF orientation for reference
         fileSize: BigInt(fileStats.size),
         fileType: "image",
         folderId: targetFolderId,
@@ -422,7 +457,9 @@ async function processImage(filePath, imageBuffer) {
       include: { variants: true },
     });
 
-    log(`File and variants saved to DB: ${newFile.fileName}`);
+    log(
+      `File and variants saved to DB: ${newFile.fileName} (${imageWidth}x${imageHeight})`,
+    );
     broadcastNewFile(newFile);
   } catch (error) {
     log(`Error processing image file ${fileName}: ${error.message}`);

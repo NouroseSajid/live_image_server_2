@@ -1,7 +1,7 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route";
 import prisma from "../../../../prisma/client";
+import { authOptions } from "../../auth/[...nextauth]/route";
 
 // Helper function to convert BigInt to string for JSON serialization
 function serializeBigInt(obj: unknown): unknown {

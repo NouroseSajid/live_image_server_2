@@ -1,10 +1,10 @@
-import { NextResponse, NextRequest } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route";
-import prisma from "../../../../prisma/client";
-import slugify from "slugify";
-import path from "node:path";
 import fs from "node:fs/promises";
+import path from "node:path";
+import { type NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import slugify from "slugify";
+import prisma from "../../../../prisma/client";
+import { authOptions } from "../../auth/[...nextauth]/route";
 
 // Helper function to convert BigInt to string for JSON serialization
 function serializeBigInt(obj: unknown): unknown {
@@ -26,16 +26,10 @@ const transformPathToUrl = (path: string) => {
   return path.substring(publicDirIndex + publicDir.length).replace(/\\/g, "/");
 };
 
-interface RouteParams {
-  id: string;
-}
 
-interface RouteContext {
-  params: RouteParams;
-}
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
@@ -93,7 +87,7 @@ export async function PUT(
   try {
     const params = await paramsPromise;
     const body = await request.json();
-    let { name, isPrivate, visible, passphrase, inGridView, folderThumb } =
+    const { name, isPrivate, visible, passphrase, inGridView, folderThumb } =
       body;
 
     if (!name) {
@@ -112,7 +106,7 @@ export async function PUT(
 
     // If name changed, regenerate uniqueUrl
     if (name !== existingFolder.name) {
-      let baseSlug = slugify(name, { lower: true, strict: true });
+      const baseSlug = slugify(name, { lower: true, strict: true });
       let slug = baseSlug;
       let counter = 1;
       while (
@@ -147,7 +141,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);

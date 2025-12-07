@@ -1,15 +1,14 @@
-import { NextResponse, NextRequest } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../auth/[...nextauth]/route";
-import prisma from "../../../prisma/client";
-import sharp from "sharp";
-import path from "path";
-import fs from "fs/promises";
-import { createReadStream, createWriteStream } from "fs";
-import { pipeline } from "stream/promises";
-import { fileTypeFromFile } from "file-type";
 import crypto from "crypto";
+import { fileTypeFromFile } from "file-type";
 import { Prisma } from "@prisma/client";
+import { createReadStream, createWriteStream } from "fs";
+import fs from "fs/promises";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import path from "path";
+import sharp from "sharp";
+import { pipeline } from "stream/promises";
+import { authOptions } from "../auth/[...nextauth]/route";
 
 export const config = {
   api: {
@@ -63,7 +62,9 @@ export async function POST(request: NextRequest) {
       return new NextResponse("Missing file data", { status: 400 });
     }
 
-    await pipeline(request.body, createWriteStream(tempFilePath));
+    // Convert web ReadableStream to Node.js stream for pipeline
+    const nodeStream = require("stream").Readable.fromWeb(request.body);
+    await pipeline(nodeStream, createWriteStream(tempFilePath));
 
     const folder = await prisma.folder.findUnique({
       where: { id: folderId },
@@ -104,31 +105,141 @@ export async function POST(request: NextRequest) {
     }
     const fileTypeValue = fileType === "video" ? "video" : "image";
 
-    let imageWidth = null;
-    let imageHeight = null;
+    let imageWidth: number | null = null;
+    let imageHeight: number | null = null;
     let imageOrientation = 1; // Default to 1 (normal)
-    let imageBuffer: Buffer;
+    let imageBuffer: Buffer | null = null;
+    let originalOrientation = 1;
 
     if (fileType === "image") {
-      const image = sharp(tempFilePath);
-      const metadata = await image.metadata();
-      imageWidth = metadata.width;
-      imageHeight = metadata.height;
-      imageOrientation = metadata.orientation || 1; // Get EXIF orientation, default to 1
+      // PROPER ROTATION HANDLING - FIXED VERSION
+      try {
+        // First, get the original metadata to check EXIF orientation
+        const originalSharp = sharp(tempFilePath, { failOnError: false });
+        const meta = await originalSharp.metadata();
+        originalOrientation = meta.orientation || 1;
 
-      // Do not apply rotation here; it will be handled by CSS based on stored orientation
-      imageBuffer = await image.toBuffer();
+        console.log(
+          `Original orientation for ${fileName}: ${originalOrientation}`,
+        );
 
-      await sharp(imageBuffer).webp({ quality: 80 }).toFile(webpPath);
-      await sharp(imageBuffer)
-        .resize(200, 200, { fit: "inside" })
-        .webp({ quality: 60 })
-        .toFile(thumbPath);
+        // Auto-rotate according to EXIF orientation, producing an upright image
+        const rotatedSharp = sharp(tempFilePath, {
+          failOnError: false,
+        }).rotate();
+        const rotatedMetadata = await rotatedSharp.metadata();
+
+        imageWidth = rotatedMetadata.width ?? null;
+        imageHeight = rotatedMetadata.height ?? null;
+        imageOrientation = 1; // After rotation, orientation is normalized
+
+        console.log(`Dimensions after rotation: ${imageWidth}x${imageHeight}`);
+
+        // Determine if image should be landscape or portrait based on final dimensions
+        if (imageWidth && imageHeight) {
+          const isPortrait = imageHeight > imageWidth;
+          console.log(
+            `Image orientation: ${isPortrait ? "Portrait" : "Landscape"}`,
+          );
+        }
+
+        // Generate variants using the rotated image
+        try {
+          await rotatedSharp
+            .clone()
+            .webp({ quality: 85, effort: 6 })
+            .toFile(webpPath);
+          console.log(`Generated WebP: ${webpPath}`);
+        } catch (err) {
+          console.warn(
+            "Warning: failed to create webp variant from rotated image:",
+            err,
+          );
+        }
+
+        try {
+          await rotatedSharp
+            .clone()
+            .resize(300, 300, {
+              fit: "cover",
+              position: "center",
+              withoutEnlargement: false,
+            })
+            .webp({ quality: 80, effort: 6 })
+            .toFile(thumbPath);
+          console.log(`Generated thumbnail: ${thumbPath}`);
+        } catch (err) {
+          console.warn(
+            "Warning: failed to create thumbnail from rotated image:",
+            err,
+          );
+        }
+
+        try {
+          imageBuffer = await rotatedSharp.toBuffer();
+        } catch (err) {
+          imageBuffer = null;
+        }
+      } catch (err: any) {
+        console.warn(
+          "sharp.rotate/metadata failed, falling back to non-rotated handling:",
+          err.message || err,
+        );
+
+        // Fallback: try reading metadata from the original file without rotate
+        try {
+          const originalSharp = sharp(tempFilePath, { failOnError: false });
+          const meta = await originalSharp.metadata();
+          imageWidth = meta.width ?? null;
+          imageHeight = meta.height ?? null;
+          originalOrientation = meta.orientation ?? 1;
+          imageOrientation = originalOrientation;
+
+          try {
+            await originalSharp
+              .clone()
+              .webp({ quality: 85, effort: 6 })
+              .toFile(webpPath);
+          } catch (err) {
+            console.warn(
+              "Warning: failed to create webp variant from original image:",
+              err,
+            );
+          }
+
+          try {
+            await originalSharp
+              .clone()
+              .resize(300, 300, {
+                fit: "cover",
+                position: "center",
+                withoutEnlargement: false,
+              })
+              .webp({ quality: 80, effort: 6 })
+              .toFile(thumbPath);
+          } catch (err) {
+            console.warn(
+              "Warning: failed to create thumbnail from original image:",
+              err,
+            );
+          }
+
+          try {
+            imageBuffer = await originalSharp.toBuffer();
+          } catch (err) {
+            imageBuffer = null;
+          }
+        } catch (err: any) {
+          console.warn(
+            "sharp metadata fallback also failed; skipping variant generation:",
+            err.message || err,
+          );
+          imageBuffer = await fs.readFile(tempFilePath);
+        }
+      }
     } else {
       // For non-image files, we can't generate webp/thumbnails
-      // We can decide to copy the file as-is or handle it differently
-      // For now, we'll just skip thumbnail/webp generation for non-images
-      imageBuffer = await fs.readFile(tempFilePath); // Read the file into a buffer for later use if needed
+      imageBuffer = await fs.readFile(tempFilePath);
     }
 
     const webpStats = await fs.stat(webpPath).catch(() => null);
@@ -140,7 +251,8 @@ export async function POST(request: NextRequest) {
         hash: hash,
         width: imageWidth,
         height: imageHeight,
-        rotation: imageOrientation,
+        rotation: imageOrientation, // Store the normalized orientation
+        originalOrientation: originalOrientation, // Store original EXIF orientation for reference
         fileSize: BigInt(fileStats.size),
         fileType: fileTypeValue,
         folderId: folderId,

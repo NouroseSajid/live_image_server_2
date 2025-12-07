@@ -11,8 +11,8 @@ export function ImageSkeletonGrid() {
   return (
     <>
       {/* Using index as a key is safe here because the list is static and will not be reordered. */}
-      {Array.from({ length: 10 }).map((_, i) => (
-        <ImageSkeleton key={i} />
+      {Array.from({ length: 10 }).map(() => (
+        <ImageSkeleton key={Math.random().toString(36).substring(2, 15)} />
       ))}
     </>
   );

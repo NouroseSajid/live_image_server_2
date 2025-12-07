@@ -1,11 +1,11 @@
 "use client";
 
-import Navigation from "./Navigation";
 import Image from "next/image";
-import ThemeToggle from "./ThemeToggle";
-import type { NavLink } from "../data/siteLinks";
 import type { Session } from "next-auth";
 import { signIn, signOut } from "next-auth/react";
+import type { NavLink } from "../data/siteLinks";
+import Navigation from "./Navigation";
+import ThemeToggle from "./ThemeToggle";
 
 interface DrawerProps {
   isOpen: boolean;
@@ -19,12 +19,13 @@ const Drawer = ({ isOpen, onClose, navItems, session }: DrawerProps) => {
     <>
       {/* Overlay with blur */}
       {isOpen && (
-        <div
-          role="button"
+        <button
+          type="button"
           tabIndex={0}
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1001] transition-opacity duration-300"
           onClick={onClose}
           onKeyDown={(e) => e.key === "Enter" && onClose()}
+          aria-label="Close drawer"
         />
       )}
 

@@ -1,6 +1,6 @@
-
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 interface ThumbnailUploaderProps {
@@ -11,10 +11,13 @@ interface ThumbnailUploaderProps {
   onThumbnailUpdate: (newThumbnailUrl: string) => void;
 }
 
-export default function ThumbnailUploader({ folder, onThumbnailUpdate }: ThumbnailUploaderProps) {
+export default function ThumbnailUploader({
+  folder,
+  onThumbnailUpdate,
+}: ThumbnailUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [_selectedFile, setSelectedFile] = useState<File | null>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -56,14 +59,14 @@ export default function ThumbnailUploader({ folder, onThumbnailUpdate }: Thumbna
 
   return (
     <div className="md:col-span-2">
-      <label className="block text-sm font-medium mb-1">
-        Folder Thumbnail
-      </label>
+      <label htmlFor="thumbnail-upload" className="block text-sm font-medium mb-1">Folder Thumbnail</label>
       <div className="flex items-center gap-4">
         {folder.folderThumb && (
-          <img
+          <Image
             src={folder.folderThumb}
             alt="Thumbnail preview"
+            width={64} // Assuming h-16 w-16 means 64px by 64px
+            height={64}
             className="h-16 w-16 rounded-md object-cover"
           />
         )}
@@ -81,7 +84,9 @@ export default function ThumbnailUploader({ folder, onThumbnailUpdate }: Thumbna
               hover:file:bg-violet-100"
             disabled={uploading}
           />
-          {uploading && <p className="text-sm text-gray-500 mt-1">Uploading...</p>}
+          {uploading && (
+            <p className="text-sm text-gray-500 mt-1">Uploading...</p>
+          )}
           {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
         </div>
       </div>

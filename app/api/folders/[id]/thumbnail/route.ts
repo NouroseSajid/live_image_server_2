@@ -1,13 +1,12 @@
-
-import { NextResponse, NextRequest } from "next/server";
+import { createWriteStream } from "node:fs";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { pipeline } from "node:stream/promises";
+import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../auth/[...nextauth]/route";
-import prisma from "../../../../../prisma/client";
 import sharp from "sharp";
-import path from "path";
-import fs from "fs/promises";
-import { createWriteStream } from "fs";
-import { pipeline } from "stream/promises";
+import prisma from "../../../../../prisma/client";
+import { authOptions } from "../../../auth/[...nextauth]/route";
 
 export async function POST(
   request: NextRequest,
@@ -41,14 +40,19 @@ export async function POST(
     }
 
     if (!request.body) {
-        return new NextResponse("Missing file data", { status: 400 });
+      return new NextResponse("Missing file data", { status: 400 });
     }
 
     // Stream the request body to a temporary file
     await pipeline(request.body, createWriteStream(tempFilePath));
 
     // Define thumbnail storage
-    const thumbnailDir = path.join(process.cwd(), "public", "thumbnails", "folders");
+    const thumbnailDir = path.join(
+      process.cwd(),
+      "public",
+      "thumbnails",
+      "folders",
+    );
     await fs.mkdir(thumbnailDir, { recursive: true });
     const thumbnailFileName = `${folderId}-${Date.now()}.webp`;
     const thumbnailPath = path.join(thumbnailDir, thumbnailFileName);
@@ -63,7 +67,7 @@ export async function POST(
     const thumbnailUrl = `/thumbnails/folders/${thumbnailFileName}`;
 
     // Update the folder record in the database
-    const updatedFolder = await prisma.folder.update({
+    const _updatedFolder = await prisma.folder.update({
       where: { id: folderId },
       data: {
         folderThumb: thumbnailUrl,
@@ -71,12 +75,15 @@ export async function POST(
     });
 
     return NextResponse.json({ thumbnailUrl });
-
   } catch (error) {
     console.error("Error uploading thumbnail:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   } finally {
     // Clean up the temporary file
-    await fs.unlink(tempFilePath).catch(err => console.error(`Failed to delete temp file: ${tempFilePath}`, err));
+    await fs
+      .unlink(tempFilePath)
+      .catch((err) =>
+        console.error(`Failed to delete temp file: ${tempFilePath}`, err),
+      );
   }
 }

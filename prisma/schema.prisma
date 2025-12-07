@@ -53,6 +53,7 @@ model File {
   fileType   FileType   // image | video
   isLive     Boolean    @default(false)
   rotation   Int?      @default(1) // EXIF orientation value
+  originalOrientation Int? @default(1) // Store original EXIF orientation
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   deletedAt  DateTime?

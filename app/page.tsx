@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { LiveGallery } from "@/app/components/LiveGallery";
-import { RepoGallery } from "@/app/components/RepoGallery";
+import RepoGallery from "@/app/components/RepoGallery";
 
 export default function Home() {
   const [isLive, setIsLive] = useState(false);

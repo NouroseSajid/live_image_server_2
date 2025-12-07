@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import React from "react";
 import { motion } from "framer-motion";
+import React from "react";
 
 interface Folder {
   id: string;
@@ -29,9 +31,10 @@ const FolderGrid: React.FC<FolderGridProps> = ({ folders, onFolderClick }) => {
           onClick={() => onFolderClick?.(folder)}
         >
           <div className="aspect-w-16 aspect-h-12">
-            <img
+            <Image
               src={folder.folderThumb || "/placeholder-folder.jpg"}
               alt={folder.name}
+              fill
               className="w-full h-full object-cover rounded-xl shadow-lg border border-gray-200/10"
             />
           </div>

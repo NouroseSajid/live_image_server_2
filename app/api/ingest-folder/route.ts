@@ -1,23 +1,22 @@
-import { NextResponse, NextRequest } from "next/server";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 
 const configPath = path.join(process.cwd(), "ingest-config.json");
 
 // Support multiple ingest target folders (array of folder IDs)
-const IngestConfigSchema = z.object({
-  folderIds: z.array(z.string()),
-});
+// const IngestConfigSchema = z.object({ // Not been used yet
+//   folderIds: z.array(z.string()),
+// });
 
 // Helper to read the config file
 async function getIngestConfig() {
   try {
-    const data = await fs.readFile(configPath, "utf-8");
+    const _data = await fs.readFile(configPath, "utf-8");
     return JSON.parse(data);
   } catch (err: any) {
-    // Handle missing file gracefully
     if (err && err.code === "ENOENT") {
       return null; // File doesn't exist
     }
@@ -33,7 +32,7 @@ async function writeIngestConfig(config: { folderIds: string[] }) {
 export async function GET() {
   try {
     const config = await getIngestConfig();
-    if (config && config.folderIds) {
+    if (config?.folderIds) {
       return NextResponse.json({ folderIds: config.folderIds });
     }
     return NextResponse.json({ folderIds: [] });
@@ -59,7 +58,9 @@ export async function POST(request: NextRequest) {
     } else if (body && body.folderId !== undefined && body.folderId !== null) {
       folderIds = [String(body.folderId)];
     } else {
-      console.warn("[API] Invalid request body, no folderIds or folderId found");
+      console.warn(
+        "[API] Invalid request body, no folderIds or folderId found",
+      );
       return NextResponse.json(
         { error: "Invalid request body." },
         { status: 400 },

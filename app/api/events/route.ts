@@ -1,5 +1,5 @@
-import { NextRequest } from "next/server";
-import { EventEmitter } from "events";
+import { EventEmitter } from "node:events";
+import type { NextRequest } from "next/server";
 
 const emitter = new EventEmitter();
 emitter.setMaxListeners(0);
@@ -8,7 +8,7 @@ emitter.setMaxListeners(0);
 export async function GET(request: NextRequest) {
   const stream = new ReadableStream({
     start(controller) {
-      const handler = (data: any) => {
+      const handler = (data) => {
         controller.enqueue(
           `event: image_update\ndata: ${JSON.stringify({ images: [data] })}\n\n`,
         );
