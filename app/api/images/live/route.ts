@@ -15,11 +15,17 @@ export async function GET() {
   try {
     const liveImages = await prisma.file.findMany({
       where: {
-        isLive: true,
+        OR: [
+          { isLive: true }, // Live mode files
+          { folder: { inGridView: true } }, // Files in folders marked for grid view
+        ],
       },
       include: {
         folder: true, // Include folder information if needed
         variants: true, // Include variants for different image sizes/formats
+      },
+      orderBy: {
+        createdAt: 'desc', // Show newest first
       },
     });
     return NextResponse.json(liveImages);

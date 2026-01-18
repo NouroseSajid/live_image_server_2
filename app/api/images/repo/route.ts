@@ -14,17 +14,22 @@ export async function GET() {
 
   try {
     const repoImages = await prisma.file.findMany({
-      where: {
-        folder: {
-          inGridView: true,
-        },
-      },
       include: {
         folder: true, // Include folder information if needed
         variants: true, // Include variants for different image sizes/formats
       },
     });
-    return NextResponse.json(repoImages);
+
+    const serializedImages = repoImages.map(image => ({
+      ...image,
+      fileSize: image.fileSize.toString(),
+      variants: image.variants.map(variant => ({
+        ...variant,
+        size: variant.size.toString(),
+      })),
+    }));
+
+    return NextResponse.json(serializedImages);
   } catch (error) {
     console.error('Error fetching repository images:', error);
     return new NextResponse('Internal Server Error', { status: 500 });

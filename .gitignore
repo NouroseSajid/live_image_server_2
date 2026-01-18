@@ -9,7 +9,9 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
+/public/images
+/public/uploads
+/public/ingest
 # testing
 /coverage
 

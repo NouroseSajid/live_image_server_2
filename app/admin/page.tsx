@@ -1,13 +1,17 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../api/auth/[...nextauth]/route";
+import AdminPanel from "../components/AdminPanel";
 
 export default async function Admin() {
   const session = await getServerSession(authOptions);
   
-  return (
-    <div>
-      <h1>Admin Panel</h1>
-      <p>Welcome {session?.user?.email} ({process.env.WHAT_AM_I === "1" ? "live" : "repo"})</p>
-    </div>
-  );
+  if (!session || !session.user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xl text-red-600">Not authorized</p>
+      </div>
+    );
+  }
+
+  return <AdminPanel />;
 }
