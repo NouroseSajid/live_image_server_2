@@ -31,7 +31,9 @@ export default function Gallery() {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [images, setImages] = useState<FetchedImage[]>([]);
   const [activeFolder, setActiveFolder] = useState<string>("all");
-  const [visibleCount, setVisibleCount] = useState(20);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
   const [width, setWidth] = useState(0);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [lightboxImg, setLightboxImg] = useState<Image | null>(null);
@@ -39,6 +41,8 @@ export default function Gallery() {
   const [showQualityModal, setShowQualityModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const BATCH_SIZE = 20;
   useEffect(() => {
     const fetchFolders = async () => {
       const res = await fetch("/api/folders");
@@ -49,18 +53,57 @@ export default function Gallery() {
         console.error("Failed to fetch folders");
       }
     };
+    fetchFolders();
+  }, []);
+
+  // Fetch initial batch and new batches as offset changes
+  useEffect(() => {
     const fetchImages = async () => {
-      const res = await fetch("/api/images/repo");
-      if (res.ok) {
-        const data: FetchedImage[] = await res.json();
-        setImages(data);
-      } else {
-        console.error("Failed to fetch images");
+      setIsLoading(true);
+      try {
+        const res = await fetch(`/api/images/repo?limit=${BATCH_SIZE}&offset=${offset}`);
+        if (res.ok) {
+          const data: FetchedImage[] = await res.json();
+          if (offset === 0) {
+            setImages(data);
+          } else {
+            setImages((prev) => [...prev, ...data]);
+          }
+          setHasMore(data.length === BATCH_SIZE);
+        } else {
+          console.error("Failed to fetch images");
+        }
+      } catch (error) {
+        console.error("Error fetching images:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
-    fetchFolders();
+    
     fetchImages();
-  }, []);
+  }, [offset, activeFolder]);
+
+  // Infinite scroll detection using Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !isLoading && hasMore) {
+          setOffset((prev) => prev + BATCH_SIZE);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (sentinelRef.current) {
+      observer.observe(sentinelRef.current);
+    }
+Offset(0);
+    setImages([]);
+    setSelectedIds(new Set());
+    setHasMore(true
+      observer.disconnect();
+    };
+  }, [isLoading, hasMore]);
   const allImages = useMemo(() => {
     const processedImages = images.map((image) => ({
       id: image.id,
@@ -118,44 +161,9 @@ export default function Gallery() {
     return [{ id: "all", name: "All" }, ...folders];
   }, [folders]);
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 font-sans selection:bg-blue-500/30 pb-24">
+    <div className="min-h-screen bg-transparent text-zinc-100 font-sans selection:bg-blue-500/30 pb-24">
       {/* Header */}
-      <header
-        className={`sticky top-0 z-50 transition-all duration-300 border-b ${
-          scrolled
-            ? "bg-[#09090b]/80 backdrop-blur-xl border-zinc-800/50 py-3"
-            : "bg-transparent border-transparent py-6"
-        }`}
-      >
-        <div className="max-w-[1400px] mx-auto px-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <MdFolder className="text-white" size={20} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">
-                Studio Archive
-              </h1>
-              <p className="text-xs text-zinc-500 font-medium">
-                Internal Production Library
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-sm font-bold text-zinc-400 hover:text-white transition-all">
-              <MdInfo size={16} />
-              Help
-            </button>
-            <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 overflow-hidden cursor-pointer hover:ring-2 ring-blue-500 transition-all">
-              <img
-                src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
-                alt="User"
-              />
-            </div>
-          </div>
-        </div>
-      </header>
+      
 
       <main ref={containerRef} className="max-w-[1400px] mx-auto px-6 mt-8">
         {/* Category Navigation */}
@@ -176,14 +184,23 @@ export default function Gallery() {
           onOpenImage={setLightboxImg}
         />
 
-        {/* Pagination */}
-        <LoadMoreButton
-          visibleCount={visibleCount}
-          totalCount={allImages.length}
-          onLoadMore={() =>
-            setVisibleCount((v) => Math.min(v + 20, allImages.length))
-          }
-        />
+        {/* Infinite Scroll Sentinel */}
+        <div ref={sentinelRef} className="h-4" />
+
+        {/* Loading Indicator */}
+        {isLoading && (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <span className="ml-3 text-gray-400">Loading more images...</span>
+          </div>
+        )}
+
+        {/* No More Images Message */}
+        {!hasMore && allImages.length > 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <p>No more images to load</p>
+          </div>
+        )}
       </main>
 
       {/* Lightbox Modal */}

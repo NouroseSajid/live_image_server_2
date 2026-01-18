@@ -1,22 +1,29 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../auth/[...nextauth]/route';
 import prisma from '../../../../prisma/client';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  // Decide if authentication is required for repo images. 
-  // For now, assuming repo images might be public or require authentication based on folder settings.
-  // if (!session || !session.user) {
-  //   return new NextResponse('Unauthorized', { status: 401 });
-  // }
-
   try {
+    const searchParams = request.nextUrl.searchParams;
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
+
+    // Validate pagination params
+    const validLimit = Math.min(Math.max(limit, 1), 100); // Between 1-100
+    const validOffset = Math.max(offset, 0);
+
     const repoImages = await prisma.file.findMany({
       include: {
-        folder: true, // Include folder information if needed
-        variants: true, // Include variants for different image sizes/formats
+        folder: true,
+        variants: true,
+      },
+      skip: validOffset,
+      take: validLimit,
+      orderBy: {
+        createdAt: 'desc',
       },
     });
 
