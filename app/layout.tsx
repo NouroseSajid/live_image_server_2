@@ -5,6 +5,8 @@ import { AuthProvider } from "./providers/AuthProvider";
 import { ThemeProvider } from "./components/ThemeProvider";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import Uploader from "./components/Uploader";
+import UploadToast from "./components/UploadsToast";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +35,8 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <AuthProvider>
+            <Uploader />
+            <UploadToast />
             <Navbar />
             <main className="flex-1 mt-16">
               {children}

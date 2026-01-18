@@ -6,7 +6,8 @@ import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user) {
@@ -15,7 +16,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
   try {
     const file = await prisma.file.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!file) {
@@ -35,7 +36,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     // Delete from database
     await prisma.file.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return NextResponse.json({ success: true });

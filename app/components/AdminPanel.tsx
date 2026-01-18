@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { FiFolder, FiImage, FiEdit2, FiTrash2, FiPlus } from 'react-icons/fi';
 import IngestFolderSelector from './IngestFolderSelector';
 import IngestMonitor from './IngestMonitor';
 import FolderEditorModal from './FolderEditorModal';
+import { useUploads } from '@/app/lib/useUploads';
 
 interface Folder {
   id: string;
@@ -33,6 +34,9 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const { add } = useUploads();
+  const [dragActive, setDragActive] = useState<boolean>(false); // New state for drag and drop
+  const dragRef = useRef<HTMLLabelElement | null>(null); // Ref for the drag area
 
   // Form states
   const [newFolderName, setNewFolderName] = useState('');
@@ -165,41 +169,54 @@ export default function AdminPanel() {
     }
   };
 
+  // handle drag events
+  const handleDrag = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  // handle drop events
+  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (!activeFolder) {
+      setError('Please select a folder first');
+      return;
+    }
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      if (activeFolder) { // Ensure activeFolder is not null before adding
+        add(Array.from(e.dataTransfer.files), activeFolder); // Pass activeFolder
+        setSuccess(`Added ${e.dataTransfer.files.length} file(s) from drop to upload queue.`);
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError('Please select a folder first to drop files.');
+      }
+    }
+  };
+
   const uploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!activeFolder) {
       setError('Please select a folder first');
       return;
     }
 
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    try {
-      setLoading(true);
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('folderId', activeFolder);
-
-      const res = await fetch('/api/images/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to upload image');
-      }
-
-      const uploadedFile = await res.json();
-      setFiles([...files, uploadedFile]);
-      setUploadedFile(uploadedFile);
-      setSuccess('Image uploaded successfully');
+    e.target.value = ''; // Clear the input so same file can be selected again
+    if (activeFolder) { // Ensure activeFolder is not null before adding
+      add(Array.from(files), activeFolder); // Pass activeFolder
+      // The headless Uploader.tsx will now handle the actual upload
+      // and UploadsToast will display the progress and notifications.
+      setSuccess(`Added ${files.length} file(s) to upload queue.`);
       setTimeout(() => setSuccess(null), 3000);
-      e.target.value = ''; // Reset file input
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error uploading image');
-    } finally {
-      setLoading(false);
+      // setFiles will be updated when the upload completes and new files are returned from the API
     }
   };
 
@@ -358,7 +375,15 @@ export default function AdminPanel() {
                 <>
                   {/* Upload Area */}
                   <div className="mb-6">
-                    <label className="block border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
+                    <label
+                      ref={dragRef} // Assign the ref
+                      className={`block border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
+                        ${dragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-blue-500'}`}
+                      onDragEnter={handleDrag}
+                      onDragLeave={handleDrag}
+                      onDragOver={handleDrag}
+                      onDrop={handleDrop}
+                    >
                       <input
                         type="file"
                         multiple
@@ -369,7 +394,9 @@ export default function AdminPanel() {
                       />
                       <div className="text-gray-600 dark:text-gray-400">
                         <FiImage className="mx-auto mb-2" size={32} />
-                        <p className="font-semibold">Drop images or click to upload</p>
+                        <p className="font-semibold">
+                          {dragActive ? 'Drop your files here' : 'Drop images or click to upload'}
+                        </p>
                         <p className="text-sm">PNG, JPG, GIF, WebP, or video files</p>
                       </div>
                     </label>

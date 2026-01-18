@@ -6,8 +6,8 @@ import { useState, useEffect } from "react";
 interface ActionBarProps {
   selectedCount: number;
   selectedIds: Set<string>;
-  highQualitySize?: number;
-  mediumQualitySize?: number;
+  highQualitySize?: number | bigint;
+  mediumQualitySize?: number | bigint;
   onClear: () => void;
   onDownloadAll?: () => void;
   onShare?: () => void;
@@ -22,12 +22,15 @@ export default function ActionBar({
   onDownloadAll,
   onShare
 }: ActionBarProps) {
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return "0 B";
+  const formatBytes = (bytes: number | bigint): string => {
+    // Convert to number if BigInt
+    const bytesNum = typeof bytes === 'bigint' ? Number(bytes) : bytes;
+    
+    if (bytesNum === 0) return "0 B";
     const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytesNum) / Math.log(k));
+    return Math.round((bytesNum / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
   const handleDownloadAll = () => {

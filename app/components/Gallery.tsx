@@ -7,6 +7,7 @@ import CategoryNavigation from "./CategoryNavigation";
 import ActionBar from "./ActionBar";
 import ImageGrid from "./ImageGrid";
 import LoadMoreButton from "./LoadMoreButton";
+import QualityModal from "./QualityModal";
 import { buildRows, type Image } from "../lib/imageData";
 interface FetchedImage {
   id: string;
@@ -35,6 +36,8 @@ export default function Gallery() {
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [lightboxImg, setLightboxImg] = useState<Image | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [showQualityModal, setShowQualityModal] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const fetchFolders = async () => {
@@ -205,6 +208,73 @@ export default function Gallery() {
       <ActionBar
         selectedCount={selectedIds.size}
         selectedIds={selectedIds}
+        mediumQualitySize={allImages
+          .filter(img => selectedIds.has(img.id))
+          .reduce((acc, img) => {
+            const fullImage = images.find(i => i.id === img.id);
+            const variant = fullImage?.variants?.find(v => v.name === 'webp');
+            return acc + (variant?.size || BigInt(0));
+          }, BigInt(0)) // Start with BigInt(0)
+        }
+        onClear={() => setSelectedIds(new Set())}
+        onDownloadAll={async () => {
+          if (selectedIds.size === 0) {
+            alert("Please select images to download.");
+            return;
+          }
+
+          setShowQualityModal(true);
+        }}
+        onShare={() => {
+          // Share functionality
+          const selectedList = Array.from(selectedIds).join(',');
+          const shareUrl = `${window.location.origin}?selected=${selectedList}`;
+          navigator.clipboard.writeText(shareUrl);
+          alert('Shared URL copied to clipboard!');
+        }}
+      />
+
+      {/* Quality Selection Modal */}
+      <QualityModal
+        isOpen={showQualityModal}
+        onSelect={async (quality) => {
+          setShowQualityModal(false);
+          setIsDownloading(true);
+
+          try {
+            const response = await fetch('/api/images/download-zip', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ imageIds: Array.from(selectedIds), quality }),
+            });
+
+            if (response.ok) {
+              const blob = await response.blob();
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'selected_images.zip';
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+              a.remove();
+              // Clear selection after download initiated
+              setSelectedIds(new Set());
+              alert("Your download has started! For iOS users, you can find the ZIP file in your 'Files' app, usually under 'Downloads' or 'On My iPhone/iPad'.");
+            } else {
+              const errorData = await response.json();
+              alert(`Failed to download images: ${errorData.error || response.statusText}`);
+            }
+          } catch (error) {
+            console.error('Error initiating zip download:', error);
+            alert('An unexpected error occurred during download.');
+          } finally {
+            setIsDownloading(false);
+          }
+        }}
+        onCancel={() => setShowQualityModal(false)}
         highQualitySize={allImages
           .filter(img => selectedIds.has(img.id))
           .reduce((acc, img) => {
@@ -221,23 +291,6 @@ export default function Gallery() {
             return acc + (variant?.size || 0);
           }, 0)
         }
-        onClear={() => setSelectedIds(new Set())}
-        onDownloadAll={() => {
-          // Download all selected images
-          selectedIds.forEach(id => {
-            const img = images.find(i => i.id === id);
-            if (img) {
-              window.open(`/api/images/${id}/download?quality=webp`, '_blank');
-            }
-          });
-        }}
-        onShare={() => {
-          // Share functionality
-          const selectedList = Array.from(selectedIds).join(',');
-          const shareUrl = `${window.location.origin}?selected=${selectedList}`;
-          navigator.clipboard.writeText(shareUrl);
-          alert('Shared URL copied to clipboard!');
-        }}
       />
 
       <style>{`
