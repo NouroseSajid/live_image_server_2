@@ -391,9 +391,10 @@ async function processImage(filePath, imageBuffer) {
     const thumbPath = path.join(thumbFolder, `${fileBaseName}_thumb.webp`);
 
     // Generate variants with proper quality settings
+    // Quality 75 targets ~1-2MB file size (WhatsApp-like compression)
     await sharpForVariants
       .clone()
-      .webp({ quality: 85, effort: 6 })
+      .webp({ quality: 75, effort: 6 })
       .toFile(webpPath);
     log(`Generated WebP: ${webpPath}`);
 

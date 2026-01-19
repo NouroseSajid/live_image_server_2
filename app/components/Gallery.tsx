@@ -14,7 +14,9 @@ interface FetchedImage {
   fileName: string;
   folderId: string;
   variants: {
+    name: string;
     path: string;
+    size?: number;
   }[];
   width: number;
   height: number;
@@ -97,32 +99,21 @@ export default function Gallery() {
     if (sentinelRef.current) {
       observer.observe(sentinelRef.current);
     }
-Offset(0);
-    setImages([]);
-    setSelectedIds(new Set());
-    setHasMore(true
+
+    return () => {
       observer.disconnect();
     };
   }, [isLoading, hasMore]);
-  const allImages = useMemo(() => {
-    const processedImages = images.map((image) => ({
-      id: image.id,
-      width: image.width,
-      height: image.height,
-      url: image.variants[0]?.path || "/placeholder-image.jpg",
-      category: image.folderId,
-      title: image.fileName,
-      meta: `${image.width}x${image.height}`,
-    }));
-    if (activeFolder === "all") {
-      return processedImages;
-    }
-    return processedImages.filter((image) => image.category === activeFolder);
-  }, [images, activeFolder]);
-  const pageImages = useMemo(
-    () => allImages.slice(0, visibleCount),
-    [allImages, visibleCount]
-  );
+
+  // Reset when changing folder
+  useEffect(() => {
+    setOffset(0);
+    setImages([]);
+    setSelectedIds(new Set());
+    setHasMore(true);
+  }, [activeFolder]);
+
+  // Handle resize for responsive layout
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     const handleResize = () =>
@@ -135,14 +126,41 @@ Offset(0);
       window.removeEventListener("resize", handleResize);
     };
   }, []);
-  useEffect(() => {
-    setVisibleCount(20);
-    setSelectedIds(new Set());
-  }, [activeFolder]);
-  const rows = useMemo(
-    () => buildRows(pageImages, width, 260, 14),
-    [pageImages, width]
+
+  // Filter images by folder
+  const filteredImages = useMemo(
+    () =>
+      activeFolder === "all"
+        ? images
+        : images.filter((i) => i.folderId === activeFolder),
+    [images, activeFolder]
   );
+
+  // Transform raw images to processed format for buildRows
+  const processedImages = useMemo(() => {
+    return filteredImages.map((image) => ({
+      id: image.id,
+      width: image.width,
+      height: image.height,
+      // Use thumbnail for initial display (lazy loading)
+      url: image.variants.find((v) => v.name === "thumb")?.path || 
+           image.variants[0]?.path || 
+           "/placeholder-image.jpg",
+      // Use WebP for lightbox (like WhatsApp - compressed but high quality)
+      originalUrl: image.variants.find((v) => v.name === "webp")?.path ||
+                   image.variants.find((v) => v.name === "original")?.path ||
+                   image.variants[0]?.path,
+      category: image.folderId,
+      title: image.fileName,
+      meta: `${image.width}x${image.height}`,
+    }));
+  }, [filteredImages]);
+
+  const rows = useMemo(
+    () => buildRows(processedImages, width, 260, 14),
+    [processedImages, width]
+  );
+
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -150,13 +168,15 @@ Offset(0);
       return next;
     });
   };
+
   const handleSelectAll = () => {
-    if (selectedIds.size === allImages.length) {
+    if (selectedIds.size === processedImages.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(allImages.map((i) => i.id)));
+      setSelectedIds(new Set(processedImages.map((i) => i.id)));
     }
   };
+
   const categories = useMemo(() => {
     return [{ id: "all", name: "All" }, ...folders];
   }, [folders]);
@@ -171,7 +191,7 @@ Offset(0);
           categories={categories}
           activeFolder={activeFolder}
           onSelectCategory={setActiveFolder}
-          totalImages={allImages.length}
+          totalImages={processedImages.length}
           selectedCount={selectedIds.size}
           onSelectAll={handleSelectAll}
         />
@@ -196,7 +216,7 @@ Offset(0);
         )}
 
         {/* No More Images Message */}
-        {!hasMore && allImages.length > 0 && (
+        {!hasMore && processedImages.length > 0 && (
           <div className="text-center py-8 text-gray-500">
             <p>No more images to load</p>
           </div>
@@ -209,13 +229,13 @@ Offset(0);
           img={lightboxImg}
           onClose={() => setLightboxImg(null)}
           onNext={() => {
-            const idx = allImages.findIndex((i) => i.id === lightboxImg.id);
-            setLightboxImg(allImages[(idx + 1) % allImages.length]);
+            const idx = processedImages.findIndex((i) => i.id === lightboxImg.id);
+            setLightboxImg(processedImages[(idx + 1) % processedImages.length]);
           }}
           onPrev={() => {
-            const idx = allImages.findIndex((i) => i.id === lightboxImg.id);
+            const idx = processedImages.findIndex((i) => i.id === lightboxImg.id);
             setLightboxImg(
-              allImages[(idx - 1 + allImages.length) % allImages.length]
+              processedImages[(idx - 1 + processedImages.length) % processedImages.length]
             );
           }}
         />
@@ -225,13 +245,12 @@ Offset(0);
       <ActionBar
         selectedCount={selectedIds.size}
         selectedIds={selectedIds}
-        mediumQualitySize={allImages
-          .filter(img => selectedIds.has(img.id))
-          .reduce((acc, img) => {
-            const fullImage = images.find(i => i.id === img.id);
+        mediumQualitySize={Array.from(selectedIds)
+          .reduce((acc, id) => {
+            const fullImage = images.find(i => i.id === id);
             const variant = fullImage?.variants?.find(v => v.name === 'webp');
-            return acc + (variant?.size || BigInt(0));
-          }, BigInt(0)) // Start with BigInt(0)
+            return acc + (variant?.size || 0);
+          }, 0)
         }
         onClear={() => setSelectedIds(new Set())}
         onDownloadAll={async () => {
@@ -292,18 +311,16 @@ Offset(0);
           }
         }}
         onCancel={() => setShowQualityModal(false)}
-        highQualitySize={allImages
-          .filter(img => selectedIds.has(img.id))
-          .reduce((acc, img) => {
-            const fullImage = images.find(i => i.id === img.id);
+        highQualitySize={Array.from(selectedIds)
+          .reduce((acc, id) => {
+            const fullImage = images.find(i => i.id === id);
             const variant = fullImage?.variants?.find(v => v.name === 'original');
             return acc + (variant?.size || 0);
           }, 0)
         }
-        mediumQualitySize={allImages
-          .filter(img => selectedIds.has(img.id))
-          .reduce((acc, img) => {
-            const fullImage = images.find(i => i.id === img.id);
+        mediumQualitySize={Array.from(selectedIds)
+          .reduce((acc, id) => {
+            const fullImage = images.find(i => i.id === id);
             const variant = fullImage?.variants?.find(v => v.name === 'webp');
             return acc + (variant?.size || 0);
           }, 0)

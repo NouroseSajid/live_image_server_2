@@ -18,7 +18,8 @@ export interface Image {
   id: string;
   width: number;
   height: number;
-  url: string;
+  url: string; // thumbnail for gallery
+  originalUrl?: string; // original quality for lightbox
   category: string;
   title: string;
   meta: string;

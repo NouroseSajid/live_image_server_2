@@ -9,6 +9,7 @@ interface Image {
   width: number;
   height: number;
   url: string;
+  originalUrl?: string;
   category: string;
   title: string;
   meta: string;
@@ -63,6 +64,8 @@ function DownloadModal({ onDownload, onCancel, onSavePreference }) {
 export default function Lightbox({ img, onClose, onNext, onPrev }: LightboxProps) {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [savePreference, setSavePreference] = useState(false);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
 
   if (!img) return null;
 
@@ -83,26 +86,59 @@ export default function Lightbox({ img, onClose, onNext, onPrev }: LightboxProps
     setShowDownloadModal(false);
   };
 
+  // Handle swipe gestures for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    setTouchEnd(e.changedTouches[0].clientX);
+    handleSwipe();
+  };
+
+  const handleSwipe = () => {
+    const minSwipeDistance = 50;
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      onNext();
+    } else if (isRightSwipe) {
+      onPrev();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-2xl flex items-center justify-center animate-in fade-in duration-300">
-      <div className="absolute top-6 left-6 flex items-center gap-4 z-10">
+    <div 
+      className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-2xl flex items-center justify-center animate-in fade-in duration-300"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Mobile Header */}
+      <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex items-center gap-2 sm:gap-4 z-10 w-full sm:w-auto pr-12 sm:pr-0">
         <button
           onClick={onClose}
-          className="p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+          className="p-2 sm:p-3 bg-white/10 hover:bg-white/20 rounded-lg sm:rounded-full text-white transition-colors flex-shrink-0"
+          title="Close"
         >
-          <MdClose size={24} />
+          <MdClose size={20} className="sm:w-6 sm:h-6" />
         </button>
-        <div>
-          <h2 className="text-white font-bold">{img.title}</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-white font-bold text-sm sm:text-base truncate">{img.title}</h2>
           <p className="text-white/40 text-xs">{img.meta}</p>
         </div>
       </div>
 
-      <div className="absolute top-6 right-6 flex items-center gap-2 z-10">
+      {/* Desktop Header - Hidden on Mobile */}
+      <div className="absolute top-3 right-3 sm:top-6 sm:right-6 flex items-center gap-2 z-10">
         <div className="relative">
           <button
             onClick={handleDownloadClick}
-            className="p-3 bg-white/10 hover:bg-white/20 rounded-xl text-white flex items-center gap-2 transition-colors"
+            className="p-2 sm:p-3 bg-white/10 hover:bg-white/20 rounded-lg sm:rounded-xl text-white flex items-center gap-2 transition-colors flex-shrink-0"
+            title="Download"
           >
             <MdDownload size={20} />
             <span className="text-sm font-medium hidden sm:inline">Download</span>
@@ -115,31 +151,36 @@ export default function Lightbox({ img, onClose, onNext, onPrev }: LightboxProps
             />
           )}
         </div>
-        <button className="p-3 bg-white/10 hover:bg-white/20 rounded-xl text-white transition-colors">
-          <MdMoreHoriz size={20} />
-        </button>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation Buttons - Smaller on Mobile */}
       <button
         onClick={onPrev}
-        className="absolute left-6 top-1/2 -translate-y-1/2 p-4 bg-white/5 hover:bg-white/10 rounded-full text-white transition-all hover:scale-110"
+        className="absolute left-2 sm:left-6 top-1/2 -translate-y-1/2 p-2 sm:p-4 bg-white/5 hover:bg-white/10 rounded-lg sm:rounded-full text-white transition-all hover:scale-110 flex-shrink-0"
+        title="Previous image"
       >
-        <BiChevronLeft size={32} />
+        <BiChevronLeft size={24} className="sm:w-8 sm:h-8" />
       </button>
       <button
         onClick={onNext}
-        className="absolute right-6 top-1/2 -translate-y-1/2 p-4 bg-white/5 hover:bg-white/10 rounded-full text-white transition-all hover:scale-110"
+        className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 p-2 sm:p-4 bg-white/5 hover:bg-white/10 rounded-lg sm:rounded-full text-white transition-all hover:scale-110 flex-shrink-0"
+        title="Next image"
       >
-        <BiChevronRight size={32} />
+        <BiChevronRight size={24} className="sm:w-8 sm:h-8" />
       </button>
 
-      <div className="relative max-w-[90vw] max-h-[85vh] group">
+      {/* Image Container */}
+      <div className="relative max-w-[95vw] sm:max-w-[90vw] max-h-[75vh] sm:max-h-[85vh] group px-4 sm:px-0 mt-12 sm:mt-0">
         <img
-          src={img.url}
-          className="max-w-full max-h-[calc(100vh-120px)] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-500"
+          src={img.originalUrl || img.url}
+          className="max-w-full max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-120px)] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-500"
           alt="Preview"
         />
+      </div>
+
+      {/* Swipe hint on mobile */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/40 text-xs sm:hidden">
+        Swipe to navigate
       </div>
     </div>
   );
