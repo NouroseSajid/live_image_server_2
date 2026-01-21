@@ -282,17 +282,24 @@ export default function Gallery() {
         (isVideo ? "/icons/video-placeholder.svg" : image.variants[0]?.path) ||
         "/icons/video-placeholder.svg";
 
+      // Add cache-busting timestamp for newly ingested images
+      const bustCache = (path?: string) => {
+        if (!path) return path;
+        return `${path}?t=${Date.now()}`;
+      };
+
       return {
         id: image.id,
         width: image.width ?? 1920,
         height: image.height ?? 1080,
         // Use compressed thumbnail for grid
-        url: thumbnailPath,
+        url: bustCache(thumbnailPath),
         // Prefer webp for lightbox display; fall back to original
-        originalUrl:
+        originalUrl: bustCache(
           image.variants.find((v) => v.name === "webp")?.path ||
           image.variants.find((v) => v.name === "original")?.path ||
-          image.variants[0]?.path,
+          image.variants[0]?.path
+        ),
         category: image.folderId,
         title: image.fileName,
         meta: `${image.width ?? "?"}x${image.height ?? "?"}`,
