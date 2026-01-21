@@ -6,7 +6,6 @@ import Navbar from "./components/Navbar";
 import { ThemeProvider } from "./components/ThemeProvider";
 import Uploader from "./components/Uploader";
 import UploadToast from "./components/UploadsToast";
-import { AuthProvider } from "./providers/AuthProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -57,20 +56,18 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}
       >
         <ThemeProvider>
-          <AuthProvider>
-            {/* Skip to main content for accessibility */}
-            <a
-              href="#main-content"
-              className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[2000] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-md"
-            >
-              Skip to main content
-            </a>
-            <Uploader />
-            <UploadToast />
-            <Navbar />
-            {children}
-            <Footer />
-          </AuthProvider>
+          {/* Skip to main content for accessibility */}
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[2000] focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-md"
+          >
+            Skip to main content
+          </a>
+          <Uploader />
+          <UploadToast />
+          <Navbar />
+          {children}
+          <Footer />
         </ThemeProvider>
       </body>
     </html>

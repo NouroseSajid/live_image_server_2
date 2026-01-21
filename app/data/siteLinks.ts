@@ -12,24 +12,18 @@ export interface SocialLink {
 }
 
 export const mainNavLinks: NavLink[] = [
-  { label: "Home", href: "#home" },
-  { label: "Services", href: "#services" },
-  { label: "Gallery", href: "#gallery" },
-  { label: "Contact", href: "#contact" },
-  { label: "My Approach", href: "#approach" },
-  { label: "Book Now", href: process.env.NEXT_PUBLIC_BOOKING_LINK || "" },
-
-  { label: "FAQ", href: "/faq", drawerOnly: true },
+  { label: "Go back home", href: "https://nourose.com" },
+ 
 ];
 
 export const footerLinks: NavLink[] = [
-  { label: "Home", href: "#home" },
-  { label: "Services", href: "#services" },
-  { label: "Gallery", href: "#gallery" },
-  { label: "My Approach", href: "#approach" },
-  { label: "Contact", href: "#contact" },
-  { label: "Privacy Policy", href: "/privacy", footerOnly: true },
-  { label: "Terms of Service", href: "/terms", footerOnly: true },
+  { label: "Home", href: "https://nourose.com" },
+  { label: "Services", href: "https://nourose.com/#services" },
+  { label: "Gallery", href: "https://nourose.com/#gallery" },
+  { label: "My Approach", href: "https://nourose.com/#approach" },
+  { label: "Contact", href: "https://nourose.com/#contact" },
+  { label: "Privacy Policy", href: "https://nourose.com/privacy", footerOnly: true },
+  { label: "Terms of Service", href: "https://nourose.com/terms", footerOnly: true },
 ];
 
 export const socialLinks = [
