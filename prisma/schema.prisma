@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,7 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model (kept from the original file)
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
@@ -23,53 +16,46 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
-// ----------  FOLDER  ----------
 model Folder {
-  id                String   @id @default(cuid())
-  name              String   // Changed: removed @unique to allow duplicate names
-  isPrivate         Boolean  @default(true)
-  visible           Boolean  @default(true)
-  uniqueUrl         String   @unique // short slug for share link
-  passphrase        String?  // ← hashed passphrase for security (use bcrypt)
-  inGridView        Boolean  @default(false)
-  folderThumbnailId String?  @unique // FK to File record for thumbnail
-  deletedAt         DateTime? // Soft delete support
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                String        @id @default(cuid())
+  name              String
+  isPrivate         Boolean       @default(true)
+  visible           Boolean       @default(true)
+  uniqueUrl         String        @unique
+  passphrase        String?
+  inGridView        Boolean       @default(false)
+  folderThumbnailId String?       @unique
+  deletedAt         DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  accessLinks       AccessLink[]
+  downloadJobs      DownloadJob[]
+  files             File[]
+  thumbnail         File?         @relation("FolderThumbnail", fields: [folderThumbnailId], references: [id])
 
-  files        File[]
-  accessLinks  AccessLink[]
-  downloadJobs DownloadJob[]
-  thumbnail    File?    @relation("FolderThumbnail", fields: [folderThumbnailId], references: [id], onDelete: SetNull)
-
-  @@index([createdAt]) // Index for sorting
-  @@index([visible])   // Index for filtering
+  @@index([createdAt])
+  @@index([visible])
 }
 
-// ----------  FILE  ----------
 model File {
-  id         String     @id @default(cuid())
-  fileName   String
-  hash       String     @unique // BLAKE3/MD5 for quick dedupe
-  mimeType   String?    // e.g. image/jpeg, video/mp4
-  width      Int?
-  height     Int?
-  duration   Float?     // seconds (video)
-  fileSize   BigInt     // bytes
-  fileType   FileType   // image | video
-  isLive     Boolean    @default(false)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  deletedAt  DateTime?
-
-  folderId   String
-  folder     Folder     @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  
-  // Folder thumbnail relationship (one file can be thumbnail for one folder)
-  thumbnailForFolder Folder? @relation("FolderThumbnail")
-
-  variants   Variant[]
-  downloadJobFiles DownloadJobFile[]
+  id                 String            @id @default(cuid())
+  fileName           String
+  hash               String            @unique
+  mimeType           String?
+  width              Int?
+  height             Int?
+  duration           Float?
+  fileSize           BigInt
+  fileType           FileType
+  isLive             Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  deletedAt          DateTime?
+  folderId           String
+  downloadJobFiles   DownloadJobFile[]
+  folder             Folder            @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  thumbnailForFolder Folder?           @relation("FolderThumbnail")
+  variants           Variant[]
 
   @@unique([folderId, fileName])
   @@index([folderId])
@@ -77,17 +63,15 @@ model File {
   @@index([createdAt])
 }
 
-// ----------  VARIANT (thumb, medium, raw, 4k, webp …) ----------
 model Variant {
   id        String   @id @default(cuid())
-  name      String   // thumb, medium, 4k, webp, mp4_720 etc.
+  name      String
   width     Int?
   height    Int?
-  size      BigInt   // bytes
-  path      String   // object-storage key
-  codec     String?  // h264, hevc, raw …
+  size      BigInt
+  path      String
+  codec     String?
   createdAt DateTime @default(now())
-
   fileId    String
   file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
@@ -95,55 +79,51 @@ model Variant {
   @@index([fileId])
 }
 
-// ----------  SHAREABLE ACCESS LINK (optional, single-use, expires) ----------
 model AccessLink {
-  id         String    @id @default(cuid())
-  token      String    @unique @default(cuid()) // pass this in query-string
-  expiresAt  DateTime?
-  usesLeft   Int       @default(1)
-  createdAt  DateTime  @default(now())
+  id        String    @id @default(cuid())
+  token     String    @unique @default(cuid())
+  expiresAt DateTime?
+  usesLeft  Int       @default(1)
+  createdAt DateTime  @default(now())
+  folderId  String
+  folder    Folder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
 
-  folderId   String
-  folder     Folder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  @@index([folderId], map: "AccessLink_folderId_fkey")
 }
 
-// ----------  BULK DOWNLOAD JOB ----------
 model DownloadJob {
-  id         String        @id @default(cuid())
-  status     JobStatus     @default(PENDING)
-  zipPath    String?       // final object-key of zip
+  id         String            @id @default(cuid())
+  status     JobStatus         @default(PENDING)
+  zipPath    String?
   zipSize    BigInt?
-  progress   Int           @default(0) // 0-100
+  progress   Int               @default(0)
   failReason String?
-
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
   folderId   String
-  folder     Folder        @relation(fields: [folderId], references: [id], onDelete: Cascade)
-
+  folder     Folder            @relation(fields: [folderId], references: [id], onDelete: Cascade)
   files      DownloadJobFile[]
+
+  @@index([folderId], map: "DownloadJob_folderId_fkey")
 }
 
-// ----------  JOIN TABLE: WHICH FILES BELONG TO A DOWNLOAD JOB ----------
 model DownloadJobFile {
-  id        String       @id @default(cuid())
-  status    JobStatus    @default(PENDING) // per-file retry status
-  fileId    String
-  file      File         @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  jobId     String
-  job       DownloadJob  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id     String      @id @default(cuid())
+  status JobStatus   @default(PENDING)
+  fileId String
+  jobId  String
+  file   File        @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  job    DownloadJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@unique([jobId, fileId])
+  @@index([fileId], map: "DownloadJobFile_fileId_fkey")
 }
 
-// ----------  KEY/VALUE SETTINGS ----------
 model Setting {
   key   String @id
   value String
 }
 
-// ----------  ENUMS ----------
 enum FileType {
   image
   video

@@ -56,7 +56,8 @@ function log(message) {
 
 // Simple processing queue controls
 const processingQueue = [];
-let processing = false;
+const MAX_WORKERS = Number.parseInt(process.env.INGEST_WORKERS || "4", 10);
+let activeWorkers = 0;
 
 // --- WebSocket Client Setup ---
 function connectWebSocket() {
@@ -183,20 +184,29 @@ async function updateIngestFolderId() {
 }
 
 // Enqueue file paths to process one by one
+function runNext() {
+  // Fill available worker slots
+  while (activeWorkers < MAX_WORKERS && processingQueue.length > 0) {
+    const nextFile = processingQueue.shift();
+    if (!nextFile) break;
+
+    activeWorkers += 1;
+
+    processFile(nextFile)
+      .catch((error) => {
+        log(`Error processing file in queue: ${error.message}`);
+      })
+      .finally(() => {
+        activeWorkers -= 1;
+        // Continue with next items if any are waiting
+        runNext();
+      });
+  }
+}
+
 async function enqueueFile(filePath) {
   processingQueue.push(filePath);
-  if (!processing) {
-    processing = true;
-    while (processingQueue.length > 0) {
-      const nextFile = processingQueue.shift();
-      try {
-        await processFile(nextFile);
-      } catch (error) {
-        log(`Error processing file in queue: ${error.message}`);
-      }
-    }
-    processing = false;
-  }
+  runNext();
 }
 
 async function processFile(filePath) {
