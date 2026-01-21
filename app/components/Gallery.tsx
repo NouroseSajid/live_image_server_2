@@ -282,30 +282,41 @@ export default function Gallery() {
   const processedImages = useMemo(() => {
     return filteredImages.map((image) => {
       const isVideo = image.fileType === "video";
-      const thumbnailPath =
-        image.variants.find((v) => v.name === "thumbnail")?.path ||
-        image.variants.find((v) => v.name === "thumb")?.path ||
-        (isVideo ? "/icons/video-placeholder.svg" : image.variants[0]?.path) ||
-        "/icons/video-placeholder.svg";
+      const thumbnailVariant =
+        image.variants.find((v) => v.name === "thumbnail") ||
+        image.variants.find((v) => v.name === "thumb");
+      
+      const webpVariant = image.variants.find((v) => v.name === "webp");
+      const originalVariant = image.variants.find((v) => v.name === "original");
 
-      // Add cache-busting timestamp for newly ingested images
-      const bustCache = (path?: string) => {
-        if (!path) return path;
-        return `${path}?t=${Date.now()}`;
+      // Convert database paths to API route URLs
+      // Database paths are like: /images/folderId/thumbs/filename.webp
+      // We need to convert to: /api/images/folderId/thumbs/filename.webp
+      const convertToApiRoute = (dbPath?: string) => {
+        if (!dbPath) return dbPath;
+        if (dbPath.startsWith("/icons/")) return dbPath; // Keep placeholder icons as-is
+        
+        // Replace /images/ with /api/images/
+        return dbPath.replace(/^\/images\//, "/api/images/");
       };
+
+      const thumbnailUrl = isVideo 
+        ? "/icons/video-placeholder.svg"
+        : convertToApiRoute(thumbnailVariant?.path) || convertToApiRoute(image.variants[0]?.path) || "/icons/video-placeholder.svg";
+      
+      const lightboxUrl = convertToApiRoute(webpVariant?.path) ||
+        convertToApiRoute(originalVariant?.path) ||
+        convertToApiRoute(image.variants[0]?.path) ||
+        "/icons/video-placeholder.svg";
 
       return {
         id: image.id,
         width: image.width ?? 1920,
         height: image.height ?? 1080,
-        // Use compressed thumbnail for grid
-        url: bustCache(thumbnailPath),
+        // Use compressed thumbnail for grid via API route (bypasses Next.js caching)
+        url: thumbnailUrl,
         // Prefer webp for lightbox display; fall back to original
-        originalUrl: bustCache(
-          image.variants.find((v) => v.name === "webp")?.path ||
-          image.variants.find((v) => v.name === "original")?.path ||
-          image.variants[0]?.path
-        ),
+        originalUrl: lightboxUrl,
         category: image.folderId,
         title: image.fileName,
         meta: `${image.width ?? "?"}x${image.height ?? "?"}`,
