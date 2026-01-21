@@ -291,13 +291,13 @@ export default function Gallery() {
 
       // Convert database paths to API route URLs
       // Database paths are like: /images/folderId/thumbs/filename.webp
-      // We need to convert to: /api/images/folderId/thumbs/filename.webp
+      // We need to convert to: /api/serve/folderId/thumbs/filename.webp
       const convertToApiRoute = (dbPath?: string) => {
         if (!dbPath) return dbPath;
         if (dbPath.startsWith("/icons/")) return dbPath; // Keep placeholder icons as-is
         
-        // Replace /images/ with /api/images/
-        return dbPath.replace(/^\/images\//, "/api/images/");
+        // Replace /images/ with /api/serve/
+        return dbPath.replace(/^\/images\//, "/api/serve/");
       };
 
       const thumbnailUrl = isVideo 
