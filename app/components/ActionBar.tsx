@@ -1,7 +1,6 @@
 "use client";
 
-import { MdDownload, MdShare, MdOpenInNew, MdDelete, MdClose } from "react-icons/md";
-import { useState, useEffect } from "react";
+import { MdClose, MdDownload, MdShare } from "react-icons/md";
 
 interface ActionBarProps {
   selectedCount: number;
@@ -13,24 +12,24 @@ interface ActionBarProps {
   onShare?: () => void;
 }
 
-export default function ActionBar({ 
-  selectedCount, 
-  selectedIds,
+export default function ActionBar({
+  selectedCount,
+  _selectedIds,
   highQualitySize = 0,
   mediumQualitySize = 0,
   onClear,
   onDownloadAll,
-  onShare
+  onShare,
 }: ActionBarProps) {
   const formatBytes = (bytes: number | bigint): string => {
     // Convert to number if BigInt
-    const bytesNum = typeof bytes === 'bigint' ? Number(bytes) : bytes;
-    
+    const bytesNum = typeof bytes === "bigint" ? Number(bytes) : bytes;
+
     if (bytesNum === 0) return "0 B";
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB", "TB"];
     const i = Math.floor(Math.log(bytesNum) / Math.log(k));
-    return Math.round((bytesNum / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+    return `${Math.round((bytesNum / k ** i) * 100) / 100} ${sizes[i]}`;
   };
 
   const handleDownloadAll = () => {
@@ -55,16 +54,23 @@ export default function ActionBar({
             {selectedCount}
           </div>
           <div className="min-w-0">
-            <span className="text-sm font-bold block leading-none">Selected</span>
+            <span className="text-sm font-bold block leading-none">
+              Selected
+            </span>
             <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-tighter break-words">
-              HQ: {formatBytes(highQualitySize)} | MQ: {formatBytes(mediumQualitySize)}
+              HQ: {formatBytes(highQualitySize)} | MQ:{" "}
+              {formatBytes(mediumQualitySize)}
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto justify-center">
           {[
-            { icon: MdDownload, label: "Download All", action: handleDownloadAll },
+            {
+              icon: MdDownload,
+              label: "Download All",
+              action: handleDownloadAll,
+            },
             { icon: MdShare, label: "Share", action: handleShare },
           ].map((action, i) => (
             <button
@@ -85,6 +91,7 @@ export default function ActionBar({
         </div>
 
         <button
+          type="button"
           onClick={onClear}
           className="ml-0 sm:ml-4 p-2 sm:p-3 hover:bg-white/5 rounded-full text-zinc-600 hover:text-white transition-colors flex-shrink-0"
           title="Clear selection"

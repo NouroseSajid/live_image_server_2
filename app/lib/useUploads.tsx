@@ -1,14 +1,14 @@
 // app/lib/useUploads.ts
-'use client';
+"use client";
 
-import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
+import { create } from "zustand";
+import { immer } from "zustand/middleware/immer";
 
 export type Upload = {
   id: string;
   file: File;
   folderId: string; // Add folderId
-  status: 'pending' | 'uploading' | 'success' | 'error';
+  status: "pending" | "uploading" | "success" | "error";
   progress: number;
   error?: string;
   result?: any;
@@ -22,15 +22,22 @@ type Actions = {
 };
 
 export const useUploads = create<State & Actions>()(
-  immer((set, get) => ({
+  immer((set, _get) => ({
     uploads: [],
 
-    add(files, folderId) { // Update add signature here too
+    add(files, folderId) {
+      // Update add signature here too
       set((state) => {
         for (const file of files) {
           const id = `${file.name}-${file.size}-${file.lastModified}`;
           if (state.uploads.some((u) => u.id === id)) continue; // skip duplicates
-          state.uploads.push({ id, file, folderId, status: 'pending', progress: 0 }); // Add folderId
+          state.uploads.push({
+            id,
+            file,
+            folderId,
+            status: "pending",
+            progress: 0,
+          }); // Add folderId
         }
       });
     },

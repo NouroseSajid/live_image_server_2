@@ -11,8 +11,33 @@ const prisma = new PrismaClient();
 const ingestFolder = path.join(__dirname, "..", "public", "ingest");
 const configPath = path.join(__dirname, "..", "ingest-config.json");
 
+// --- Constants ---
+const _VARIANT_NAMES = {
+  ORIGINAL: "original",
+  WEBP: "webp",
+  THUMB: "thumb",
+};
+const _THUMB_SIZE = 300;
+const _WEBP_QUALITY = 80;
+const _WS_RECONNECT_DELAY = 5000;
+const _CONFIG_UPDATE_INTERVAL = 5000;
+const _FILE_STABLE_THRESHOLD = 1500;
+
 let liveFolderId = null;
 let ws;
+const watcher = null;
+
+// Graceful shutdown
+async function shutdown() {
+  log("Shutting down gracefully...");
+  if (watcher) watcher.close();
+  if (ws) ws.close();
+  await prisma.$disconnect();
+  process.exit(0);
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
 
 // Simple logger used across this script
 function log(message) {
@@ -241,7 +266,7 @@ async function processRawFile(filePath) {
   }
 }
 
-async function processVideo(filePath, fileTypeResult) {
+async function processVideo(filePath, _fileTypeResult) {
   const fileName = path.basename(filePath);
   log(`Processing video file: ${fileName}`);
   const targetFolderId = liveFolderId;
@@ -289,7 +314,11 @@ async function processVideo(filePath, fileTypeResult) {
           create: [
             {
               name: "original",
-              path: "/images/" + targetFolderId + "/original/" + fileName.replace(/\\/g, "/"),
+              path:
+                "/images/" +
+                targetFolderId +
+                "/original/" +
+                fileName.replace(/\\/g, "/"),
               size: BigInt(fileStats.size),
             },
           ],
@@ -305,7 +334,7 @@ async function processVideo(filePath, fileTypeResult) {
   }
 }
 
-async function processImage(filePath, imageBuffer) {
+async function processImage(filePath, _imageBuffer) {
   const fileName = path.basename(filePath);
   log(`Processing image file: ${fileName}`);
 
@@ -367,8 +396,8 @@ async function processImage(filePath, imageBuffer) {
     const rotatedMetadata = await rotatedSharp.metadata();
 
     // Get the final dimensions after rotation
-    let imageWidth = rotatedMetadata.width || null;
-    let imageHeight = rotatedMetadata.height || null;
+    const imageWidth = rotatedMetadata.width || null;
+    const imageHeight = rotatedMetadata.height || null;
 
     // After applying rotate(), set orientation to normal for stored variants
     const imageRotation = 1; // Always 1 after physically rotating
@@ -428,9 +457,9 @@ async function processImage(filePath, imageBuffer) {
       data: {
         fileName,
         hash,
+        mimeType: "image/webp", // Normalized to webp
         width: imageWidth,
         height: imageHeight,
-        rotation: imageRotation,
         fileSize: BigInt(fileStats.size),
         fileType: "image",
         folderId: targetFolderId,
@@ -438,17 +467,29 @@ async function processImage(filePath, imageBuffer) {
           create: [
             {
               name: "original",
-              path: "/images/" + targetFolderId + "/original/" + fileName.replace(/\\/g, "/"),
+              path:
+                "/images/" +
+                targetFolderId +
+                "/original/" +
+                fileName.replace(/\\/g, "/"),
               size: BigInt(fileStats.size),
             },
             {
               name: "webp",
-              path: "/images/" + targetFolderId + "/webp/" + `${fileBaseName}.webp`.replace(/\\/g, "/"),
+              path:
+                "/images/" +
+                targetFolderId +
+                "/webp/" +
+                `${fileBaseName}.webp`.replace(/\\/g, "/"),
               size: BigInt(webpStats.size),
             },
             {
               name: "thumbnail",
-              path: "/images/" + targetFolderId + "/thumbs/" + `${fileBaseName}_thumb.webp`.replace(/\\/g, "/"),
+              path:
+                "/images/" +
+                targetFolderId +
+                "/thumbs/" +
+                `${fileBaseName}_thumb.webp`.replace(/\\/g, "/"),
               size: BigInt(thumbStats.size),
             },
           ],
@@ -477,7 +518,7 @@ async function startWatching() {
 
   chokidar
     .watch(ingestFolder, {
-      ignored: /(^|[\/\\])\../,
+      ignored: /(^|[/\\])\../,
       persistent: true,
       ignoreInitial: false,
       depth: 10,

@@ -1,11 +1,10 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useRef } from 'react';
-import { FiFolder, FiImage, FiEdit2, FiTrash2, FiPlus } from 'react-icons/fi';
-import IngestFolderSelector from './IngestFolderSelector';
-import IngestMonitor from './IngestMonitor';
-import FolderEditorModal from './FolderEditorModal';
-import { useUploads } from '@/app/lib/useUploads';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FiEdit2, FiFolder, FiImage, FiPlus, FiTrash2 } from "react-icons/fi";
+import { useUploads } from "@/app/lib/useUploads";
+import FolderEditorModal from "./FolderEditorModal";
+import IngestFolderSelector from "./IngestFolderSelector";
 
 interface Folder {
   id: string;
@@ -21,7 +20,7 @@ interface Folder {
 interface File {
   id: string;
   fileName: string;
-  fileType: 'image' | 'video';
+  fileType: "image" | "video";
   fileSize: number;
   folderId: string;
   createdAt: string;
@@ -35,78 +34,92 @@ export default function AdminPanel() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const { add } = useUploads();
-  const [dragActive, setDragActive] = useState<boolean>(false); // New state for drag and drop
-  const dragRef = useRef<HTMLLabelElement | null>(null); // Ref for the drag area
+  const [dragActive, setDragActive] = useState<boolean>(false);
+  const dragRef = useRef<HTMLLabelElement | null>(null);
 
   // Form states
-  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderName, setNewFolderName] = useState("");
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [_uploadedFile, _setUploadedFile] = useState<File | null>(null);
+
+  // Clear error/success messages after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
+  const fetchFolders = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/folders");
+      if (!res.ok) throw new Error("Failed to fetch folders");
+      const data = await res.json();
+      setFolders(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error fetching folders");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchFiles = useCallback(async (folderId: string) => {
+    try {
+      const res = await fetch(`/api/folders/${folderId}/files`);
+      if (!res.ok) throw new Error("Failed to fetch files");
+      const data = await res.json();
+      setFiles(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error fetching files");
+    }
+  }, []);
 
   // Fetch folders on mount
   useEffect(() => {
     fetchFolders();
-  }, []);
+  }, [fetchFolders]);
 
   // Fetch files when active folder changes
   useEffect(() => {
     if (activeFolder) {
       fetchFiles(activeFolder);
     }
-  }, [activeFolder]);
-
-  const fetchFolders = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/folders');
-      if (!res.ok) throw new Error('Failed to fetch folders');
-      const data = await res.json();
-      setFolders(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error fetching folders');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchFiles = async (folderId: string) => {
-    try {
-      const res = await fetch(`/api/folders/${folderId}/files`);
-      if (!res.ok) throw new Error('Failed to fetch files');
-      const data = await res.json();
-      setFiles(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error fetching files');
-    }
-  };
+  }, [activeFolder, fetchFiles]);
 
   const createFolder = async () => {
     if (!newFolderName.trim()) {
-      setError('Folder name cannot be empty');
+      setError("Folder name cannot be empty");
       return;
     }
 
     try {
       setLoading(true);
-      const res = await fetch('/api/folders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/folders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newFolderName, visible: true }),
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to create folder');
+        throw new Error(errorData.error || "Failed to create folder");
       }
 
       const newFolder = await res.json();
       setFolders([...folders, newFolder]);
-      setNewFolderName('');
-      setSuccess('Folder created successfully');
-      setTimeout(() => setSuccess(null), 3000);
+      setNewFolderName("");
+      setSuccess("Folder created successfully");
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error creating folder');
+      setError(err instanceof Error ? err.message : "Error creating folder");
     } finally {
       setLoading(false);
     }
@@ -118,52 +131,56 @@ export default function AdminPanel() {
     try {
       setIsSaving(true);
       const res = await fetch(`/api/folders/${editingFolder.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updated),
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to update folder');
+        throw new Error(errorData.error || "Failed to update folder");
       }
 
       const updatedFolder = await res.json();
-      setFolders(folders.map(f => f.id === editingFolder.id ? updatedFolder : f));
-      setSuccess('Folder updated successfully');
+      setFolders(
+        folders.map((f) => (f.id === editingFolder.id ? updatedFolder : f)),
+      );
+      setSuccess("Folder updated successfully");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      throw err instanceof Error ? err : new Error('Error updating folder');
+      throw err instanceof Error ? err : new Error("Error updating folder");
     } finally {
       setIsSaving(false);
     }
   };
 
   const deleteFolder = async (folderId: string) => {
-    if (!confirm('Are you sure you want to delete this folder and all its contents?')) {
-      return;
-    }
+    const folder = folders.find((f) => f.id === folderId);
+    const confirmed = window.confirm(
+      `Delete folder "${folder?.name}" and all its contents?\n\nThis action cannot be undone.`,
+    );
+    if (!confirmed) return;
 
     try {
       setLoading(true);
       const res = await fetch(`/api/folders/${folderId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to delete folder');
+        throw new Error(errorData.error || "Failed to delete folder");
       }
 
-      setFolders(folders.filter(f => f.id !== folderId));
+      setFolders(folders.filter((f) => f.id !== folderId));
       if (activeFolder === folderId) {
         setActiveFolder(null);
         setFiles([]);
       }
-      setSuccess('Folder deleted successfully');
+      setSuccess("Folder deleted successfully");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error deleting folder');
+      setError(err instanceof Error ? err.message : "Error deleting folder");
     } finally {
       setLoading(false);
     }
@@ -186,31 +203,35 @@ export default function AdminPanel() {
     e.stopPropagation();
     setDragActive(false);
     if (!activeFolder) {
-      setError('Please select a folder first');
+      setError("Please select a folder first");
       return;
     }
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      if (activeFolder) { // Ensure activeFolder is not null before adding
+      if (activeFolder) {
+        // Ensure activeFolder is not null before adding
         add(Array.from(e.dataTransfer.files), activeFolder); // Pass activeFolder
-        setSuccess(`Added ${e.dataTransfer.files.length} file(s) from drop to upload queue.`);
+        setSuccess(
+          `Added ${e.dataTransfer.files.length} file(s) from drop to upload queue.`,
+        );
         setTimeout(() => setSuccess(null), 3000);
       } else {
-        setError('Please select a folder first to drop files.');
+        setError("Please select a folder first to drop files.");
       }
     }
   };
 
   const uploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!activeFolder) {
-      setError('Please select a folder first');
+      setError("Please select a folder first");
       return;
     }
 
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    e.target.value = ''; // Clear the input so same file can be selected again
-    if (activeFolder) { // Ensure activeFolder is not null before adding
+    e.target.value = ""; // Clear the input so same file can be selected again
+    if (activeFolder) {
+      // Ensure activeFolder is not null before adding
       add(Array.from(files), activeFolder); // Pass activeFolder
       // The headless Uploader.tsx will now handle the actual upload
       // and UploadsToast will display the progress and notifications.
@@ -221,43 +242,47 @@ export default function AdminPanel() {
   };
 
   const deleteFile = async (fileId: string) => {
-    if (!confirm('Are you sure you want to delete this image?')) {
-      return;
-    }
+    const file = files.find((f) => f.id === fileId);
+    const confirmed = window.confirm(
+      `Delete "${file?.fileName}"?\n\nThis action cannot be undone.`,
+    );
+    if (!confirmed) return;
 
     try {
       setLoading(true);
       const res = await fetch(`/api/images/${fileId}`, {
-        method: 'DELETE',
+        method: "DELETE",
       });
 
       if (!res.ok) {
         const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to delete image');
+        throw new Error(errorData.error || "Failed to delete image");
       }
 
-      setFiles(files.filter(f => f.id !== fileId));
-      setSuccess('Image deleted successfully');
+      setFiles(files.filter((f) => f.id !== fileId));
+      setSuccess("Image deleted successfully");
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error deleting image');
+      setError(err instanceof Error ? err.message : "Error deleting image");
     } finally {
       setLoading(false);
     }
   };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    return `${Math.round((bytes / k ** i) * 100) / 100} ${sizes[i]}`;
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-8">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">Admin Panel</h1>
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-8">
+          Admin Panel
+        </h1>
 
         {/* Alert Messages */}
         {error && (
@@ -276,18 +301,15 @@ export default function AdminPanel() {
           <IngestFolderSelector folders={folders} />
         </div>
 
-        {/* Ingest Monitor Section */}
-        <div className="mb-8">
-          <IngestMonitor />
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Folder Management */}
           <div className="lg:col-span-1">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
               <div className="flex items-center mb-6">
                 <FiFolder className="mr-2 text-blue-500" size={24} />
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Folders</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Folders
+                </h2>
               </div>
 
               {/* Create Folder */}
@@ -298,7 +320,7 @@ export default function AdminPanel() {
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 mb-2"
-                  onKeyPress={(e) => e.key === 'Enter' && createFolder()}
+                  onKeyPress={(e) => e.key === "Enter" && createFolder()}
                 />
                 <button
                   onClick={createFolder}
@@ -312,24 +334,32 @@ export default function AdminPanel() {
               {/* Folder List */}
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {loading && folders.length === 0 ? (
-                  <div className="text-gray-500 dark:text-gray-400">Loading folders...</div>
+                  <div className="text-gray-500 dark:text-gray-400">
+                    Loading folders...
+                  </div>
                 ) : folders.length === 0 ? (
-                  <div className="text-gray-500 dark:text-gray-400">No folders yet</div>
+                  <div className="text-gray-500 dark:text-gray-400">
+                    No folders yet
+                  </div>
                 ) : (
                   folders.map((folder) => (
                     <div
                       key={folder.id}
                       className={`p-3 rounded-lg cursor-pointer transition-colors ${
                         activeFolder === folder.id
-                          ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-500'
-                          : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600'
+                          ? "bg-blue-50 dark:bg-blue-900/30 border border-blue-500"
+                          : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
                       }`}
                       onClick={() => setActiveFolder(folder.id)}
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-semibold text-gray-900 dark:text-white">{folder.name}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{folder.uniqueUrl}</p>
+                          <p className="font-semibold text-gray-900 dark:text-white">
+                            {folder.name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {folder.uniqueUrl}
+                          </p>
                         </div>
                         <div className="flex gap-2">
                           <button
@@ -367,7 +397,9 @@ export default function AdminPanel() {
               <div className="flex items-center mb-6">
                 <FiImage className="mr-2 text-purple-500" size={24} />
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {activeFolder ? `Images - ${folders.find(f => f.id === activeFolder)?.name}` : 'Select a folder'}
+                  {activeFolder
+                    ? `Images - ${folders.find((f) => f.id === activeFolder)?.name}`
+                    : "Select a folder"}
                 </h2>
               </div>
 
@@ -378,7 +410,7 @@ export default function AdminPanel() {
                     <label
                       ref={dragRef} // Assign the ref
                       className={`block border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
-                        ${dragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 dark:border-gray-600 hover:border-blue-500'}`}
+                        ${dragActive ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-300 dark:border-gray-600 hover:border-blue-500"}`}
                       onDragEnter={handleDrag}
                       onDragLeave={handleDrag}
                       onDragOver={handleDrag}
@@ -395,9 +427,13 @@ export default function AdminPanel() {
                       <div className="text-gray-600 dark:text-gray-400">
                         <FiImage className="mx-auto mb-2" size={32} />
                         <p className="font-semibold">
-                          {dragActive ? 'Drop your files here' : 'Drop images or click to upload'}
+                          {dragActive
+                            ? "Drop your files here"
+                            : "Drop images or click to upload"}
                         </p>
-                        <p className="text-sm">PNG, JPG, GIF, WebP, or video files</p>
+                        <p className="text-sm">
+                          PNG, JPG, GIF, WebP, or video files
+                        </p>
                       </div>
                     </label>
                   </div>
@@ -405,16 +441,21 @@ export default function AdminPanel() {
                   {/* Files List */}
                   {files.length > 0 ? (
                     <div className="space-y-2 max-h-96 overflow-y-auto">
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{files.length} files</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        {files.length} files
+                      </p>
                       {files.map((file) => (
                         <div
                           key={file.id}
                           className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
                         >
                           <div className="flex-1">
-                            <p className="font-medium text-gray-900 dark:text-white truncate">{file.fileName}</p>
+                            <p className="font-medium text-gray-900 dark:text-white truncate">
+                              {file.fileName}
+                            </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {formatFileSize(Number(file.fileSize))} • {file.fileType}
+                              {formatFileSize(Number(file.fileSize))} •{" "}
+                              {file.fileType}
                             </p>
                           </div>
                           <button

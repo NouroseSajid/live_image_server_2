@@ -57,7 +57,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-function broadcast(data) {
+function _broadcast(data) {
   wss.clients.forEach((client) => {
     if (client.readyState === 1) {
       client.send(data);

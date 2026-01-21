@@ -33,21 +33,24 @@ export default function ImageGrid({
 }: ImageGridProps) {
   return (
     <div className="space-y-[14px]">
-      {rows.map((row, rIdx) => (
-        <div key={rIdx} className="flex gap-[14px] justify-center">
-          {row.map(({ img, w, h }) => (
-            <ImageCard
-              key={img.id}
-              img={img}
-              width={w}
-              height={h}
-              selected={selectedIds.has(img.id)}
-              onToggle={() => onToggleSelect(img.id)}
-              onOpen={onOpenImage}
-            />
-          ))}
-        </div>
-      ))}
+      {rows.map((row, _rIdx) => {
+        const rowKey = row.map((item) => item.img.id).join("-");
+        return (
+          <div key={rowKey} className="flex gap-[14px] justify-center">
+            {row.map(({ img, w, h }) => (
+              <ImageCard
+                key={img.id}
+                img={img}
+                width={w}
+                height={h}
+                selected={selectedIds.has(img.id)}
+                onToggle={() => onToggleSelect(img.id)}
+                onOpen={onOpenImage}
+              />
+            ))}
+          </div>
+        );
+      })}
     </div>
   );
 }

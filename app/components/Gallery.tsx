@@ -1,14 +1,14 @@
 "use client";
-import { useEffect, useRef, useMemo, useState } from "react";
-import { MdFolder, MdInfo } from "react-icons/md";
-import ImageCard from "./ImageCard";
-import Lightbox from "./Lightbox";
-import CategoryNavigation from "./CategoryNavigation";
-import ActionBar from "./ActionBar";
-import ImageGrid from "./ImageGrid";
-import LoadMoreButton from "./LoadMoreButton";
-import QualityModal from "./QualityModal";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { MdInfo } from "react-icons/md";
 import { buildRows, type Image } from "../lib/imageData";
+import { useFetch } from "../lib/useFetch";
+import ActionBar from "./ActionBar";
+import CategoryNavigation from "./CategoryNavigation";
+import ImageGrid from "./ImageGrid";
+import Lightbox from "./Lightbox";
+import QualityModal from "./QualityModal";
+
 interface FetchedImage {
   id: string;
   fileName: string;
@@ -28,6 +28,12 @@ interface FetchedImage {
 interface Folder {
   id: string;
   name: string;
+  isPrivate?: boolean;
+  passphrase?: string | null;
+  inGridView?: boolean;
+  _count?: {
+    files: number;
+  };
 }
 export default function Gallery() {
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -39,23 +45,107 @@ export default function Gallery() {
   const [width, setWidth] = useState(0);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [lightboxImg, setLightboxImg] = useState<Image | null>(null);
-  const [scrolled, setScrolled] = useState(false);
+  const [_scrolled, setScrolled] = useState(false);
   const [showQualityModal, setShowQualityModal] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [_isDownloading, setIsDownloading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [folderPassphrases, setFolderPassphrases] = useState<Record<string, string>>({});
+  const [passphraseModal, setPassphraseModal] = useState<{
+    folderId: string;
+    name: string;
+  } | null>(null);
+  const [passphraseInput, setPassphraseInput] = useState("");
+  const [passphraseError, setPassphraseError] = useState<string>("");
   const containerRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const BATCH_SIZE = 20;
+  const _ROW_HEIGHT = 260;
+  const _ROW_GAP = 14;
+  const _RESIZE_DEBOUNCE = 200;
+
+  // Fetch folders with SWR (auto-retry, caching, revalidation)
+  const { data: foldersData, error: foldersError } =
+    useFetch<Folder[]>("/api/folders");
+
+  // Update local state when SWR data changes
   useEffect(() => {
-    const fetchFolders = async () => {
-      const res = await fetch("/api/folders");
-      if (res.ok) {
-        const data: Folder[] = await res.json();
-        setFolders(data);
-      } else {
-        console.error("Failed to fetch folders");
+    if (foldersData) {
+      setFolders(foldersData);
+    }
+    if (foldersError) {
+      setError("Failed to load folders. Retrying automatically...");
+    }
+  }, [foldersData, foldersError]);
+
+  // Hydrate stored passphrases from localStorage (per-folder caching)
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem("folderPassphrases");
+      if (cached) {
+        setFolderPassphrases(JSON.parse(cached));
+      }
+    } catch (err) {
+      console.error("[Gallery] Failed to load cached passphrases", err);
+    }
+  }, []);
+
+  // Persist passphrases when they change
+  useEffect(() => {
+    try {
+      localStorage.setItem("folderPassphrases", JSON.stringify(folderPassphrases));
+    } catch (err) {
+      console.error("[Gallery] Failed to persist passphrases", err);
+    }
+  }, [folderPassphrases]);
+
+  // WebSocket connection for live updates
+  useEffect(() => {
+    const ws = new WebSocket("ws://localhost:8080");
+
+    ws.onopen = () => {
+      console.log("[Gallery] Connected to WebSocket server");
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === "new-file" && message.payload) {
+          const newFile = message.payload;
+          console.log("[Gallery] Received new file:", newFile.fileName);
+          
+          // Transform the file to match our FetchedImage format
+          const newImage: FetchedImage = {
+            id: newFile.id,
+            fileName: newFile.fileName,
+            folderId: newFile.folderId,
+            variants: newFile.variants || [],
+            width: newFile.width,
+            height: newFile.height,
+            url: newFile.variants?.find((v: any) => v.name === "thumb")?.path || "",
+            category: newFile.folderId,
+            title: newFile.fileName,
+            meta: `${newFile.width}x${newFile.height}`,
+          };
+
+          // Add to the beginning of images array (newest first)
+          setImages((prev) => [newImage, ...prev]);
+        }
+      } catch (error) {
+        console.error("[Gallery] Error processing WebSocket message:", error);
       }
     };
-    fetchFolders();
+
+    ws.onerror = (error) => {
+      console.error("[Gallery] WebSocket error:", error);
+    };
+
+    ws.onclose = () => {
+      console.log("[Gallery] WebSocket disconnected");
+    };
+
+    return () => {
+      ws.close();
+    };
   }, []);
 
   // Fetch initial batch and new batches as offset changes
@@ -63,7 +153,17 @@ export default function Gallery() {
     const fetchImages = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch(`/api/images/repo?limit=${BATCH_SIZE}&offset=${offset}`);
+        const currentFolder = folders.find((f) => f.id === activeFolder);
+        const pass =
+          activeFolder !== "all" && currentFolder?.isPrivate
+            ? folderPassphrases[activeFolder]
+            : undefined;
+        const passQuery = pass ? `&passphrase=${encodeURIComponent(pass)}` : "";
+        const folderQuery =
+          activeFolder !== "all" ? `&folderId=${activeFolder}` : "";
+        const res = await fetch(
+          `/api/images/repo?limit=${BATCH_SIZE}&offset=${offset}${folderQuery}${passQuery}`,
+        );
         if (res.ok) {
           const data: FetchedImage[] = await res.json();
           if (offset === 0) {
@@ -72,18 +172,31 @@ export default function Gallery() {
             setImages((prev) => [...prev, ...data]);
           }
           setHasMore(data.length === BATCH_SIZE);
+        } else if (res.status === 401 || res.status === 403) {
+          setError("Passphrase required or invalid for this folder.");
+          setFolderPassphrases((prev) => {
+            const next = { ...prev };
+            delete next[activeFolder];
+            return next;
+          });
+          const folder = folders.find((f) => f.id === activeFolder);
+          if (folder) {
+            setPassphraseModal({ folderId: folder.id, name: folder.name });
+            setPassphraseInput("");
+            setPassphraseError("Passphrase required");
+          }
         } else {
-          console.error("Failed to fetch images");
+          setError("Failed to load images. Please try again.");
         }
-      } catch (error) {
-        console.error("Error fetching images:", error);
+      } catch (_err) {
+        setError("Network error loading images. Please check your connection.");
       } finally {
         setIsLoading(false);
       }
     };
-    
+
     fetchImages();
-  }, [offset, activeFolder]);
+  }, [offset, activeFolder, folders, folderPassphrases]);
 
   // Infinite scroll detection using Intersection Observer
   useEffect(() => {
@@ -93,7 +206,7 @@ export default function Gallery() {
           setOffset((prev) => prev + BATCH_SIZE);
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     if (sentinelRef.current) {
@@ -133,7 +246,7 @@ export default function Gallery() {
       activeFolder === "all"
         ? images
         : images.filter((i) => i.folderId === activeFolder),
-    [images, activeFolder]
+    [images, activeFolder],
   );
 
   // Transform raw images to processed format for buildRows
@@ -143,13 +256,15 @@ export default function Gallery() {
       width: image.width,
       height: image.height,
       // Use thumbnail for initial display (lazy loading)
-      url: image.variants.find((v) => v.name === "thumb")?.path || 
-           image.variants[0]?.path || 
-           "/placeholder-image.jpg",
+      url:
+        image.variants.find((v) => v.name === "thumb")?.path ||
+        image.variants[0]?.path ||
+        "/placeholder-image.jpg",
       // Use WebP for lightbox (like WhatsApp - compressed but high quality)
-      originalUrl: image.variants.find((v) => v.name === "webp")?.path ||
-                   image.variants.find((v) => v.name === "original")?.path ||
-                   image.variants[0]?.path,
+      originalUrl:
+        image.variants.find((v) => v.name === "webp")?.path ||
+        image.variants.find((v) => v.name === "original")?.path ||
+        image.variants[0]?.path,
       category: image.folderId,
       title: image.fileName,
       meta: `${image.width}x${image.height}`,
@@ -158,7 +273,7 @@ export default function Gallery() {
 
   const rows = useMemo(
     () => buildRows(processedImages, width, 260, 14),
-    [processedImages, width]
+    [processedImages, width],
   );
 
   const toggleSelect = (id: string) => {
@@ -177,20 +292,77 @@ export default function Gallery() {
     }
   };
 
+  const closePassphraseModal = () => {
+    setPassphraseModal(null);
+    setPassphraseError("");
+    setPassphraseInput("");
+  };
+
+  const submitPassphrase = () => {
+    if (!passphraseModal) return;
+    if (!passphraseInput.trim()) {
+      setPassphraseError("Passphrase required");
+      return;
+    }
+    setFolderPassphrases((prev) => ({
+      ...prev,
+      [passphraseModal.folderId]: passphraseInput.trim(),
+    }));
+    setActiveFolder(passphraseModal.folderId);
+    setError(null);
+    closePassphraseModal();
+  };
+
   const categories = useMemo(() => {
     return [{ id: "all", name: "All" }, ...folders];
   }, [folders]);
+
+  const handleSelectCategory = (folderId: string) => {
+    if (folderId === "all") {
+      setActiveFolder(folderId);
+      return;
+    }
+
+    const folder = folders.find((f) => f.id === folderId);
+    if (folder?.isPrivate) {
+      const existing = folderPassphrases[folderId] || "";
+      if (existing) {
+        setActiveFolder(folderId);
+        return;
+      }
+      setPassphraseModal({ folderId, name: folder.name });
+      setPassphraseInput("");
+      setPassphraseError("Enter passphrase to unlock");
+      return;
+    }
+
+    setActiveFolder(folderId);
+  };
   return (
     <div className="min-h-screen bg-transparent text-zinc-100 font-sans selection:bg-blue-500/30 pb-24">
       {/* Header */}
-      
 
       <main ref={containerRef} className="max-w-[1400px] mx-auto px-6 mt-8">
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 flex items-center gap-3">
+            <MdInfo className="text-xl flex-shrink-0" />
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="ml-auto text-red-300 hover:text-red-100 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Category Navigation */}
         <CategoryNavigation
           categories={categories}
           activeFolder={activeFolder}
-          onSelectCategory={setActiveFolder}
+          onSelectCategory={handleSelectCategory}
           totalImages={processedImages.length}
           selectedCount={selectedIds.size}
           onSelectAll={handleSelectAll}
@@ -223,19 +395,101 @@ export default function Gallery() {
         )}
       </main>
 
+      {/* Passphrase Modal */}
+      {passphraseModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={closePassphraseModal}
+          />
+          <div className="relative w-full max-w-md bg-zinc-900/90 border border-white/10 rounded-2xl shadow-[0_30px_60px_rgba(0,0,0,0.5)] p-6 sm:p-7 animate-in fade-in duration-200">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-blue-500/30">
+                🔒
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm uppercase tracking-[0.15em] text-zinc-500 font-black mb-1">
+                  Private Folder
+                </p>
+                <h3 className="text-lg font-bold text-white leading-tight">
+                  {passphraseModal.name}
+                </h3>
+                <p className="text-sm text-zinc-400 mt-1">
+                  Enter the passphrase to view this folder and its images.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closePassphraseModal}
+                className="p-2 rounded-full hover:bg-white/5 text-zinc-500 hover:text-white transition-colors"
+                aria-label="Close passphrase dialog"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-5">
+              <label className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-500 block mb-2">
+                Passphrase
+              </label>
+              <input
+                type="password"
+                value={passphraseInput}
+                onChange={(e) => {
+                  setPassphraseInput(e.target.value);
+                  setPassphraseError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitPassphrase();
+                }}
+                className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500/60 transition"
+                placeholder="Enter passphrase"
+                autoFocus
+              />
+              {passphraseError && (
+                <p className="text-xs text-red-400 mt-2">{passphraseError}</p>
+              )}
+            </div>
+
+            <div className="mt-6 flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={submitPassphrase}
+                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-blue-500 text-white font-bold uppercase text-xs tracking-[0.14em] hover:bg-blue-400 active:scale-[0.99] transition shadow-lg shadow-blue-500/30"
+              >
+                Unlock Folder
+              </button>
+              <button
+                type="button"
+                onClick={closePassphraseModal}
+                className="w-full sm:w-auto px-5 py-3 rounded-xl border border-white/10 text-zinc-300 font-bold uppercase text-xs tracking-[0.14em] hover:border-white/30 hover:text-white active:scale-[0.99] transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Lightbox Modal */}
       {lightboxImg && (
         <Lightbox
-          img={lightboxImg}
+          image={lightboxImg}
           onClose={() => setLightboxImg(null)}
           onNext={() => {
-            const idx = processedImages.findIndex((i) => i.id === lightboxImg.id);
+            const idx = processedImages.findIndex(
+              (i) => i.id === lightboxImg.id,
+            );
             setLightboxImg(processedImages[(idx + 1) % processedImages.length]);
           }}
           onPrev={() => {
-            const idx = processedImages.findIndex((i) => i.id === lightboxImg.id);
+            const idx = processedImages.findIndex(
+              (i) => i.id === lightboxImg.id,
+            );
             setLightboxImg(
-              processedImages[(idx - 1 + processedImages.length) % processedImages.length]
+              processedImages[
+                (idx - 1 + processedImages.length) % processedImages.length
+              ],
             );
           }}
         />
@@ -245,13 +499,11 @@ export default function Gallery() {
       <ActionBar
         selectedCount={selectedIds.size}
         selectedIds={selectedIds}
-        mediumQualitySize={Array.from(selectedIds)
-          .reduce((acc, id) => {
-            const fullImage = images.find(i => i.id === id);
-            const variant = fullImage?.variants?.find(v => v.name === 'webp');
-            return acc + (variant?.size || 0);
-          }, 0)
-        }
+        mediumQualitySize={Array.from(selectedIds).reduce((acc, id) => {
+          const fullImage = images.find((i) => i.id === id);
+          const variant = fullImage?.variants?.find((v) => v.name === "webp");
+          return acc + (variant?.size || 0);
+        }, 0)}
         onClear={() => setSelectedIds(new Set())}
         onDownloadAll={async () => {
           if (selectedIds.size === 0) {
@@ -263,10 +515,10 @@ export default function Gallery() {
         }}
         onShare={() => {
           // Share functionality
-          const selectedList = Array.from(selectedIds).join(',');
+          const selectedList = Array.from(selectedIds).join(",");
           const shareUrl = `${window.location.origin}?selected=${selectedList}`;
           navigator.clipboard.writeText(shareUrl);
-          alert('Shared URL copied to clipboard!');
+          alert("Shared URL copied to clipboard!");
         }}
       />
 
@@ -278,53 +530,58 @@ export default function Gallery() {
           setIsDownloading(true);
 
           try {
-            const response = await fetch('/api/images/download-zip', {
-              method: 'POST',
+            const response = await fetch("/api/images/download-zip", {
+              method: "POST",
               headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
               },
-              body: JSON.stringify({ imageIds: Array.from(selectedIds), quality }),
+              body: JSON.stringify({
+                imageIds: Array.from(selectedIds),
+                quality,
+              }),
             });
 
             if (response.ok) {
               const blob = await response.blob();
               const url = window.URL.createObjectURL(blob);
-              const a = document.createElement('a');
+              const a = document.createElement("a");
               a.href = url;
-              a.download = 'selected_images.zip';
+              a.download = "selected_images.zip";
               document.body.appendChild(a);
               a.click();
               window.URL.revokeObjectURL(url);
               a.remove();
               // Clear selection after download initiated
               setSelectedIds(new Set());
-              alert("Your download has started! For iOS users, you can find the ZIP file in your 'Files' app, usually under 'Downloads' or 'On My iPhone/iPad'.");
+              alert(
+                "Your download has started! For iOS users, you can find the ZIP file in your 'Files' app, usually under 'Downloads' or 'On My iPhone/iPad'.",
+              );
             } else {
               const errorData = await response.json();
-              alert(`Failed to download images: ${errorData.error || response.statusText}`);
+              alert(
+                `Failed to download images: ${errorData.error || response.statusText}`,
+              );
             }
           } catch (error) {
-            console.error('Error initiating zip download:', error);
-            alert('An unexpected error occurred during download.');
+            console.error("Error initiating zip download:", error);
+            alert("An unexpected error occurred during download.");
           } finally {
             setIsDownloading(false);
           }
         }}
         onCancel={() => setShowQualityModal(false)}
-        highQualitySize={Array.from(selectedIds)
-          .reduce((acc, id) => {
-            const fullImage = images.find(i => i.id === id);
-            const variant = fullImage?.variants?.find(v => v.name === 'original');
-            return acc + (variant?.size || 0);
-          }, 0)
-        }
-        mediumQualitySize={Array.from(selectedIds)
-          .reduce((acc, id) => {
-            const fullImage = images.find(i => i.id === id);
-            const variant = fullImage?.variants?.find(v => v.name === 'webp');
-            return acc + (variant?.size || 0);
-          }, 0)
-        }
+        highQualitySize={Array.from(selectedIds).reduce((acc, id) => {
+          const fullImage = images.find((i) => i.id === id);
+          const variant = fullImage?.variants?.find(
+            (v) => v.name === "original",
+          );
+          return acc + (variant?.size || 0);
+        }, 0)}
+        mediumQualitySize={Array.from(selectedIds).reduce((acc, id) => {
+          const fullImage = images.find((i) => i.id === id);
+          const variant = fullImage?.variants?.find((v) => v.name === "webp");
+          return acc + (variant?.size || 0);
+        }, 0)}
       />
 
       <style>{`

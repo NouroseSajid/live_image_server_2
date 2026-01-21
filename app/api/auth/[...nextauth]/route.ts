@@ -1,5 +1,4 @@
-
-import NextAuth, { NextAuthOptions } from "next-auth";
+import NextAuth, { type NextAuthOptions, type User } from "next-auth";
 import GithubProvider from "next-auth/providers/github";
 
 export const authOptions: NextAuthOptions = {
@@ -12,9 +11,11 @@ export const authOptions: NextAuthOptions = {
     // ...add more providers here
   ],
   callbacks: {
-    async signIn({ user, account, profile, email, credentials }) {
+    async signIn({ user }: { user: User }) {
       if (user.email) {
-        const authorizedEmails = (process.env.AUTHORIZED_EMAILS || '').split(',');
+        const authorizedEmails = (process.env.AUTHORIZED_EMAILS || "").split(
+          ",",
+        );
         if (authorizedEmails.includes(user.email)) {
           return true;
         }

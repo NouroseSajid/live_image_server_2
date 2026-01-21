@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { MdClose } from "react-icons/md";
 
 interface QualityModalProps {
@@ -23,7 +22,7 @@ export default function QualityModal({
     const k = 1024;
     const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+    return `${Math.round((bytes / k ** i) * 100) / 100} ${sizes[i]}`;
   };
 
   if (!isOpen) return null;
@@ -44,7 +43,8 @@ export default function QualityModal({
         </div>
 
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-          Choose the quality for your download. Higher quality means larger file sizes.
+          Choose the quality for your download. Higher quality means larger file
+          sizes.
         </p>
 
         <div className="space-y-3">

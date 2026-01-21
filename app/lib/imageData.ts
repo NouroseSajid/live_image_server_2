@@ -35,7 +35,7 @@ export const buildRows = (
   images: Image[],
   containerWidth: number,
   targetRowHeight: number = 280,
-  gap: number = 14
+  gap: number = 14,
 ): LayoutItem[][] => {
   if (!containerWidth || containerWidth <= 0) return [];
 
@@ -58,7 +58,7 @@ export const buildRows = (
           img: i,
           w: height * (i.width / i.height),
           h: height,
-        }))
+        })),
       );
       currentRow = [];
       currentAspectSum = 0;
@@ -71,7 +71,7 @@ export const buildRows = (
         img: i,
         w: targetRowHeight * (i.width / i.height),
         h: targetRowHeight,
-      }))
+      })),
     );
   }
 

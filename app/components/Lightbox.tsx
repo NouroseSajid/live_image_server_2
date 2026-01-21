@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { MdClose, MdDownload, MdMoreHoriz } from "react-icons/md";
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BiChevronLeft, BiChevronRight } from "react-icons/bi";
+import { MdClose, MdDownload, MdVolumeOff, MdVolumeUp } from "react-icons/md";
 
-interface Image {
+interface ImageData {
   id: string;
   width: number;
   height: number;
@@ -13,16 +14,27 @@ interface Image {
   category: string;
   title: string;
   meta: string;
+  mimeType?: string; // Added for proper media type detection
 }
 
 interface LightboxProps {
-  img: Image | null;
+  image: ImageData | null;
   onClose: () => void;
   onNext: () => void;
   onPrev: () => void;
 }
 
-function DownloadModal({ onDownload, onCancel, onSavePreference }) {
+interface DownloadModalProps {
+  onDownload: (quality: string) => void;
+  onCancel: () => void;
+  onSavePreference: (save: boolean) => void;
+}
+
+function DownloadModal({
+  onDownload,
+  onCancel,
+  onSavePreference,
+}: DownloadModalProps) {
   return (
     <div className="absolute top-16 right-0 bg-zinc-800 rounded-lg shadow-lg p-4 z-20">
       <p className="text-white text-sm mb-2">Choose download quality:</p>
@@ -61,13 +73,72 @@ function DownloadModal({ onDownload, onCancel, onSavePreference }) {
   );
 }
 
-export default function Lightbox({ img, onClose, onNext, onPrev }: LightboxProps) {
+export default function Lightbox({
+  image,
+  onClose,
+  onNext,
+  onPrev,
+}: LightboxProps) {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [savePreference, setSavePreference] = useState(false);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
 
-  if (!img) return null;
+  // Pinch-to-zoom states
+  const [scale, setScale] = useState(1);
+  const [positionX, setPositionX] = useState(0);
+  const [positionY, setPositionY] = useState(0);
+  const [initialDistance, setInitialDistance] = useState(0);
+  const [isPinching, setIsPinching] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const _imageRef = useRef<HTMLImageElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isMuted, setIsMuted] = useState(true);
+
+  // Detect if media is a video
+  const isVideo = useMemo(() => {
+    return (
+      image?.mimeType?.startsWith("video/") ||
+      image?.url?.match(/\.(mp4|webm|ogg|mov)$/i) ||
+      image?.originalUrl?.match(/\.(mp4|webm|ogg|mov)$/i)
+    );
+  }, [image?.mimeType, image?.url, image?.originalUrl]);
+
+  // Reset zoom when image changes
+  useEffect(() => {
+    setScale(1);
+    setPositionX(0);
+    setPositionY(0);
+    setIsMuted(true);
+  }, []);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      switch (e.key) {
+        case "Escape":
+          onClose();
+          break;
+        case "ArrowLeft":
+          onPrev();
+          break;
+        case "ArrowRight":
+          onNext();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, onNext, onPrev]);
 
   const handleDownloadClick = () => {
     const savedPreference = localStorage.getItem("downloadPreference");
@@ -82,25 +153,82 @@ export default function Lightbox({ img, onClose, onNext, onPrev }: LightboxProps
     if (savePreference) {
       localStorage.setItem("downloadPreference", quality);
     }
-    window.open(`/api/images/${img.id}/download?quality=${quality}`, "_blank");
+    window.open(
+      `/api/images/${image?.id}/download?quality=${quality}`,
+      "_blank",
+    );
     setShowDownloadModal(false);
   };
 
-  // Handle swipe gestures for mobile
+  // Calculate distance between two touch points
+  const getDistance = (touches: React.TouchList) => {
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    const dx = touch2.clientX - touch1.clientX;
+    const dy = touch2.clientY - touch1.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // Handle swipe gestures for mobile (only when not zoomed)
   const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchStart(e.targetTouches[0].clientX);
+    if (e.touches.length === 2) {
+      // Pinch gesture
+      setIsPinching(true);
+      const distance = getDistance(e.touches);
+      setInitialDistance(distance);
+    } else if (e.touches.length === 1) {
+      if (scale > 1) {
+        // Dragging when zoomed
+        setIsDragging(true);
+        setTouchStart(e.touches[0].clientX);
+        setTouchEnd(e.touches[0].clientY);
+      } else {
+        // Swipe to navigate
+        setTouchStart(e.touches[0].clientX);
+      }
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && isPinching) {
+      // Pinch zoom
+      e.preventDefault();
+      const currentDistance = getDistance(e.touches);
+      const scaleChange = currentDistance / initialDistance;
+      const newScale = Math.max(1, Math.min(scale * scaleChange, 5));
+      setScale(newScale);
+      setInitialDistance(currentDistance);
+    } else if (e.touches.length === 1 && isDragging && scale > 1) {
+      // Pan when zoomed
+      e.preventDefault();
+      const deltaX = e.touches[0].clientX - touchStart;
+      const deltaY = e.touches[0].clientY - touchEnd;
+      setPositionX(positionX + deltaX);
+      setPositionY(positionY + deltaY);
+      setTouchStart(e.touches[0].clientX);
+      setTouchEnd(e.touches[0].clientY);
+    }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    setTouchEnd(e.changedTouches[0].clientX);
-    handleSwipe();
+    if (isPinching) {
+      setIsPinching(false);
+    } else if (isDragging) {
+      setIsDragging(false);
+    } else if (scale === 1 && e.changedTouches.length === 1) {
+      // Only handle swipe if not zoomed
+      const endX = e.changedTouches[0].clientX;
+      handleSwipe(endX);
+      // Handle double-tap for zoom
+      handleDoubleTap(e);
+    }
   };
 
-  const handleSwipe = () => {
+  const handleSwipe = (endX: number) => {
     const minSwipeDistance = 50;
-    if (!touchStart || !touchEnd) return;
-    
-    const distance = touchStart - touchEnd;
+    if (!touchStart || !endX) return;
+
+    const distance = touchStart - endX;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
 
@@ -111,12 +239,35 @@ export default function Lightbox({ img, onClose, onNext, onPrev }: LightboxProps
     }
   };
 
+  const toggleMute = () => {
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    if (videoRef.current) {
+      videoRef.current.muted = newMutedState;
+    }
+  };
+
+  // Double tap to reset zoom (touch only)
+  const [lastTap, setLastTap] = useState(0);
+  const handleDoubleTap = (_e: React.TouchEvent) => {
+    const currentTime = Date.now();
+    const tapLength = currentTime - lastTap;
+    if (tapLength < 300 && tapLength > 0) {
+      if (scale > 1) {
+        setScale(1);
+        setPositionX(0);
+        setPositionY(0);
+      } else {
+        setScale(2);
+      }
+    }
+    setLastTap(currentTime);
+  };
+
+  if (!image) return null;
+
   return (
-    <div 
-      className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-2xl flex items-center justify-center animate-in fade-in duration-300"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-2xl flex items-center justify-center animate-in fade-in duration-300">
       {/* Mobile Header */}
       <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex items-center gap-2 sm:gap-4 z-10 w-full sm:w-auto pr-12 sm:pr-0">
         <button
@@ -127,8 +278,10 @@ export default function Lightbox({ img, onClose, onNext, onPrev }: LightboxProps
           <MdClose size={20} className="sm:w-6 sm:h-6" />
         </button>
         <div className="min-w-0 flex-1">
-          <h2 className="text-white font-bold text-sm sm:text-base truncate">{img.title}</h2>
-          <p className="text-white/40 text-xs">{img.meta}</p>
+          <h2 className="text-white font-bold text-sm sm:text-base truncate">
+            {image.title}
+          </h2>
+          <p className="text-white/40 text-xs">{image.meta}</p>
         </div>
       </div>
 
@@ -141,7 +294,9 @@ export default function Lightbox({ img, onClose, onNext, onPrev }: LightboxProps
             title="Download"
           >
             <MdDownload size={20} />
-            <span className="text-sm font-medium hidden sm:inline">Download</span>
+            <span className="text-sm font-medium hidden sm:inline">
+              Download
+            </span>
           </button>
           {showDownloadModal && (
             <DownloadModal
@@ -169,18 +324,64 @@ export default function Lightbox({ img, onClose, onNext, onPrev }: LightboxProps
         <BiChevronRight size={24} className="sm:w-8 sm:h-8" />
       </button>
 
-      {/* Image Container */}
-      <div className="relative max-w-[95vw] sm:max-w-[90vw] max-h-[75vh] sm:max-h-[85vh] group px-4 sm:px-0 mt-12 sm:mt-0">
-        <img
-          src={img.originalUrl || img.url}
-          className="max-w-full max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-120px)] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-500"
-          alt="Preview"
-        />
+      {/* Media Container */}
+      <div
+        className="relative max-w-[95vw] sm:max-w-[90vw] max-h-[75vh] sm:max-h-[85vh] group px-4 sm:px-0 mt-12 sm:mt-0 overflow-hidden touch-none"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {isVideo ? (
+          <>
+            <video
+              ref={videoRef}
+              src={image.originalUrl || image.url}
+              className="max-w-full max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-120px)] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-500 transition-transform"
+              style={{
+                transform: `scale(${scale}) translate(${positionX / scale}px, ${positionY / scale}px)`,
+                cursor: scale > 1 ? "grab" : "default",
+              }}
+              autoPlay
+              loop
+              muted={isMuted}
+              playsInline
+              controls={false}
+            />
+            {/* Volume Toggle for Videos */}
+            <button
+              onClick={toggleMute}
+              className="absolute bottom-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-10"
+              title={isMuted ? "Unmute" : "Mute"}
+            >
+              {isMuted ? <MdVolumeOff size={24} /> : <MdVolumeUp size={24} />}
+            </button>
+          </>
+        ) : (
+          <div
+            className="relative"
+            style={{
+              transform: `scale(${scale}) translate(${positionX / scale}px, ${positionY / scale}px)`,
+              cursor: scale > 1 ? "grab" : "default",
+              transition: "transform 0.2s ease-out",
+            }}
+          >
+            <Image
+              src={image.originalUrl || image.url}
+              alt={image.title || "Preview"}
+              width={image.width || 1920}
+              height={image.height || 1080}
+              className="max-w-full max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-120px)] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-500"
+              unoptimized
+            />
+          </div>
+        )}
       </div>
 
       {/* Swipe hint on mobile */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/40 text-xs sm:hidden">
-        Swipe to navigate
+        {scale > 1
+          ? "Pinch to zoom • Double tap to reset"
+          : "Swipe to navigate • Pinch to zoom"}
       </div>
     </div>
   );

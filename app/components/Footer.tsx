@@ -1,10 +1,13 @@
-import Link from 'next/link';
-import Image from 'next/image';
-import { footerLinks, socialLinks } from '../data/siteLinks';
-import { FaInstagram, FaYoutube, FaWhatsapp } from 'react-icons/fa';
-import { SiTiktok } from 'react-icons/si';
+"use client";
 
-const iconMap: Record<string, any> = {
+import Image from "next/image";
+import Link from "next/link";
+import { useMemo } from "react";
+import { FaInstagram, FaWhatsapp, FaYoutube } from "react-icons/fa";
+import { SiTiktok } from "react-icons/si";
+import { footerLinks, socialLinks } from "../data/siteLinks";
+
+const iconMap: Record<string, React.ComponentType<{ size?: number }>> = {
   FaInstagram,
   FaYoutube,
   FaWhatsapp,
@@ -12,6 +15,7 @@ const iconMap: Record<string, any> = {
 };
 
 export default function Footer() {
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
   return (
     <footer className="bg-[var(--background)] text-[var(--foreground)] pt-12 pb-8 border-t border-[var(--border)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -20,7 +24,12 @@ export default function Footer() {
           <div>
             <Link href="/" className="flex items-center gap-3">
               <div className="p-1 dark:bg-white dark:rounded-md">
-                <Image src="/icons/Logo.svg" alt="Logo" width={40} height={40} />
+                <Image
+                  src="/icons/Logo.svg"
+                  alt="Logo"
+                  width={40}
+                  height={40}
+                />
               </div>
               <span className="text-2xl font-bold"> Nourose </span>
             </Link>
@@ -35,7 +44,7 @@ export default function Footer() {
                     key={s.label}
                     href={s.href}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     aria-label={s.label}
                     className="p-2 rounded-md bg-[var(--card)] text-[var(--foreground)] hover:bg-[var(--primary)] hover:text-[var(--primary_dark)] transition-colors"
                   >
@@ -55,7 +64,10 @@ export default function Footer() {
                   .filter((l) => !l.footerOnly)
                   .map((l) => (
                     <li key={l.href}>
-                      <Link href={l.href} className="hover:text-[var(--primary)] transition-colors">
+                      <Link
+                        href={l.href}
+                        className="hover:text-[var(--primary)] transition-colors"
+                      >
                         {l.label}
                       </Link>
                     </li>
@@ -70,7 +82,10 @@ export default function Footer() {
                   .filter((l) => l.footerOnly)
                   .map((l) => (
                     <li key={l.href}>
-                      <Link href={l.href} className="hover:text-[var(--primary)] transition-colors">
+                      <Link
+                        href={l.href}
+                        className="hover:text-[var(--primary)] transition-colors"
+                      >
                         {l.label}
                       </Link>
                     </li>
@@ -82,7 +97,7 @@ export default function Footer() {
 
         {/* Bottom */}
         <div className="border-t border-[var(--border)] mt-8 pt-6 text-center text-sm opacity-70">
-          &copy; {new Date().getFullYear()} ImageShare. All rights reserved.
+          &copy; {currentYear} Nourose. All rights reserved.
         </div>
       </div>
     </footer>

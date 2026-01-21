@@ -26,19 +26,23 @@ model User {
 // ----------  FOLDER  ----------
 model Folder {
   id           String   @id @default(cuid())
-  name         String   @unique
+  name         String   // Changed: removed @unique to allow duplicate names
   isPrivate    Boolean  @default(true)
   visible      Boolean  @default(true)
   uniqueUrl    String   @unique // short slug for share link
-  passphrase   String?  // ← plain-text mini-padlock. NULL = public folder
+  passphrase   String?  // ← hashed passphrase for security (use bcrypt)
   inGridView   Boolean  @default(false)
   folderThumb  String?  // key/path to a thumbnail image
+  deletedAt    DateTime? // Soft delete support
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   files        File[]
   accessLinks  AccessLink[]
   downloadJobs DownloadJob[]
+
+  @@index([createdAt]) // Index for sorting
+  @@index([visible])   // Index for filtering
 }
 
 // ----------  FILE  ----------
@@ -46,6 +50,7 @@ model File {
   id         String     @id @default(cuid())
   fileName   String
   hash       String     @unique // BLAKE3/MD5 for quick dedupe
+  mimeType   String?    // e.g. image/jpeg, video/mp4
   width      Int?
   height     Int?
   duration   Float?     // seconds (video)
@@ -63,22 +68,27 @@ model File {
   downloadJobFiles DownloadJobFile[]
 
   @@unique([folderId, fileName])
+  @@index([folderId])
+  @@index([fileType])
+  @@index([createdAt])
 }
 
 // ----------  VARIANT (thumb, medium, raw, 4k, webp …) ----------
 model Variant {
-  id      String   @id @default(cuid())
-  name    String   // thumb, medium, 4k, webp, mp4_720 etc.
-  width   Int?
-  height  Int?
-  size    BigInt   // bytes
-  path    String   // object-storage key
-  codec   String?  // h264, hevc, raw …
+  id        String   @id @default(cuid())
+  name      String   // thumb, medium, 4k, webp, mp4_720 etc.
+  width     Int?
+  height    Int?
+  size      BigInt   // bytes
+  path      String   // object-storage key
+  codec     String?  // h264, hevc, raw …
+  createdAt DateTime @default(now())
 
-  fileId  String
-  file    File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  fileId    String
+  file      File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
 
   @@unique([fileId, name])
+  @@index([fileId])
 }
 
 // ----------  SHAREABLE ACCESS LINK (optional, single-use, expires) ----------
