@@ -286,9 +286,9 @@ export default function Gallery() {
         id: image.id,
         width: image.width ?? 1920,
         height: image.height ?? 1080,
-        // Use thumbnail for initial display (lazy loading)
+        // Use compressed thumbnail for grid
         url: thumbnailPath,
-        // Use WebP for lightbox (like WhatsApp - compressed but high quality)
+        // Prefer webp for lightbox display; fall back to original
         originalUrl:
           image.variants.find((v) => v.name === "webp")?.path ||
           image.variants.find((v) => v.name === "original")?.path ||
@@ -542,11 +542,31 @@ export default function Gallery() {
       {/* Contextual Action Bar */}
       <ActionBar
         selectedCount={selectedIds.size}
-        selectedIds={selectedIds}
         mediumQualitySize={Array.from(selectedIds).reduce((acc, id) => {
           const fullImage = images.find((i) => i.id === id);
           const variant = fullImage?.variants?.find((v) => v.name === "webp");
-          return acc + (variant?.size || 0);
+          const sizeVal = variant?.size;
+          const numeric =
+            typeof sizeVal === "bigint"
+              ? Number(sizeVal)
+              : typeof sizeVal === "string"
+                ? Number(sizeVal)
+                : sizeVal || 0;
+          return acc + (Number.isFinite(numeric) ? numeric : 0);
+        }, 0)}
+        highQualitySize={Array.from(selectedIds).reduce((acc, id) => {
+          const fullImage = images.find((i) => i.id === id);
+          const variant = fullImage?.variants?.find(
+            (v) => v.name === "original",
+          );
+          const sizeVal = variant?.size;
+          const numeric =
+            typeof sizeVal === "bigint"
+              ? Number(sizeVal)
+              : typeof sizeVal === "string"
+                ? Number(sizeVal)
+                : sizeVal || 0;
+          return acc + (Number.isFinite(numeric) ? numeric : 0);
         }, 0)}
         onClear={() => setSelectedIds(new Set())}
         onDownloadAll={async () => {
@@ -556,13 +576,6 @@ export default function Gallery() {
           }
 
           setShowQualityModal(true);
-        }}
-        onShare={() => {
-          // Share functionality
-          const selectedList = Array.from(selectedIds).join(",");
-          const shareUrl = `${window.location.origin}?selected=${selectedList}`;
-          navigator.clipboard.writeText(shareUrl);
-          alert("Shared URL copied to clipboard!");
         }}
       />
 
@@ -619,12 +632,26 @@ export default function Gallery() {
           const variant = fullImage?.variants?.find(
             (v) => v.name === "original",
           );
-          return acc + (variant?.size || 0);
+          const sizeVal = variant?.size;
+          const numeric =
+            typeof sizeVal === "bigint"
+              ? Number(sizeVal)
+              : typeof sizeVal === "string"
+                ? Number(sizeVal)
+                : sizeVal || 0;
+          return acc + (Number.isFinite(numeric) ? numeric : 0);
         }, 0)}
         mediumQualitySize={Array.from(selectedIds).reduce((acc, id) => {
           const fullImage = images.find((i) => i.id === id);
           const variant = fullImage?.variants?.find((v) => v.name === "webp");
-          return acc + (variant?.size || 0);
+          const sizeVal = variant?.size;
+          const numeric =
+            typeof sizeVal === "bigint"
+              ? Number(sizeVal)
+              : typeof sizeVal === "string"
+                ? Number(sizeVal)
+                : sizeVal || 0;
+          return acc + (Number.isFinite(numeric) ? numeric : 0);
         }, 0)}
       />
 

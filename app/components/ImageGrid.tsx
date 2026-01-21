@@ -31,6 +31,7 @@ export default function ImageGrid({
   onToggleSelect,
   onOpenImage,
 }: ImageGridProps) {
+  const hasSelection = selectedIds.size > 0;
   return (
     <div className="space-y-[14px]">
       {rows.map((row, _rIdx) => {
@@ -44,6 +45,7 @@ export default function ImageGrid({
                 width={w}
                 height={h}
                 selected={selectedIds.has(img.id)}
+                hasSelection={hasSelection}
                 onToggle={() => onToggleSelect(img.id)}
                 onOpen={onOpenImage}
               />

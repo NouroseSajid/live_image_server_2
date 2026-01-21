@@ -19,6 +19,7 @@ interface ImageCardProps {
   width: number;
   height: number;
   selected: boolean;
+  hasSelection: boolean;
   onToggle: () => void;
   onOpen: (img: Image) => void;
 }
@@ -28,6 +29,7 @@ export default function ImageCard({
   width,
   height,
   selected,
+  hasSelection,
   onToggle,
   onOpen,
 }: ImageCardProps) {
@@ -73,24 +75,27 @@ export default function ImageCard({
         }`}
       />
 
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggle();
-        }}
-        className={`absolute top-4 left-4 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-md border ${
-          selected
-            ? "bg-blue-500 border-blue-400 scale-110"
-            : "bg-black/20 border-white/20 opacity-0 group-hover:opacity-100 hover:bg-black/40"
-        }`}
-      >
-        <MdCheckCircle
-          size={16}
-          className={`text-white transition-transform ${
-            selected ? "scale-100" : "scale-0"
+      {hasSelection && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+          className={`absolute top-4 left-4 z-20 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-md border ${
+            selected
+              ? "bg-blue-500 border-blue-400 scale-110"
+              : "bg-black/40 border-white/30 hover:bg-black/50"
           }`}
-        />
-      </button>
+        >
+          <MdCheckCircle
+            size={16}
+            className={`text-white transition-transform ${
+              selected ? "scale-100" : "scale-0"
+            }`}
+          />
+        </button>
+      )}
+
 
       <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
         <div className="bg-black/20 backdrop-blur-md border border-white/10 p-2 rounded-xl text-white/70">
