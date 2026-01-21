@@ -534,6 +534,8 @@ export default function Gallery() {
           }}
           nextImage={nextImage}
           prevImage={prevImage}
+          isSelected={selectedIds.has(lightboxImg.id)}
+          onToggleSelect={toggleSelect}
         />
           );
         })()

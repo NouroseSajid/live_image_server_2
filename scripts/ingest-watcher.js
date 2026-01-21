@@ -23,11 +23,12 @@ const _VARIANT_NAMES = {
   WEBP: "webp",
   THUMB: "thumb",
 };
-const _THUMB_SIZE = 300;
-const _WEBP_QUALITY = 80;
+// Get configuration from environment variables with fallback defaults
+const _THUMB_SIZE = Number.parseInt(process.env.THUMB_WIDTH || "300", 10);
+const _WEBP_QUALITY = Number.parseInt(process.env.WEBP_QUALITY || "80", 10);
 const _WS_RECONNECT_DELAY = 5000;
-const _CONFIG_UPDATE_INTERVAL = 5000;
-const _FILE_STABLE_THRESHOLD = 1500;
+const _CONFIG_UPDATE_INTERVAL = Number.parseInt(process.env.CONFIG_UPDATE_INTERVAL || "5000", 10);
+const _FILE_STABLE_THRESHOLD = Number.parseInt(process.env.FILE_STABLE_THRESHOLD || "1500", 10);
 const _VIDEO_PLACEHOLDER = "/icons/video-placeholder.svg";
 const _VIDEO_FALLBACK_WIDTH = 1920;
 const _VIDEO_FALLBACK_HEIGHT = 1080;

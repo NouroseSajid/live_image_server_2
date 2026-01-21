@@ -27,6 +27,8 @@ interface LightboxProps {
   onPrev: () => void;
   nextImage?: ImageData | null;
   prevImage?: ImageData | null;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 /* ---------- CONFIG ---------- */
@@ -173,6 +175,8 @@ export default function Lightbox({
   onPrev,
   nextImage,
   prevImage,
+  isSelected = false,
+  onToggleSelect,
 }: LightboxProps) {
   /* ---------- STATE ---------- */
   const [showDL, setShowDL] = useState(false);
@@ -207,11 +211,18 @@ export default function Lightbox({
   /* ---------- PRELOAD ---------- */
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const images: HTMLImageElement[] = [];
     [nextImage, prevImage].forEach((item) => {
       if (!item || isVideo(item)) return;
       const img = new Image();
       img.src = item.originalUrl || item.url;
+      images.push(img);
     });
+    return () => {
+      images.forEach(img => {
+        img.src = ""; // Cancel loading
+      });
+    };
   }, [nextImage, prevImage]);
 
   /* ---------- FOCUS TRAP + SCROLL LOCK ---------- */
@@ -306,6 +317,12 @@ export default function Lightbox({
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isDraggingRef.current || isAnimatingRef.current) return;
     const dx = e.touches[0].clientX - touchStartXRef.current;
+    
+    // Prevent default if horizontal swipe is detected
+    if (Math.abs(dx) > 10) {
+      e.preventDefault();
+    }
+    
     const max = width * 0.5;
     let clamped = dx;
     if (dx > 0 && !prevImage) clamped = Math.min(dx, RUBBERBAND);
@@ -426,6 +443,32 @@ export default function Lightbox({
           </h2>
           <p className="text-white/40 text-xs">{image.meta}</p>
         </div>
+        {onToggleSelect && (
+          <button
+            onClick={() => onToggleSelect(image.id)}
+            className={`ml-auto p-2 sm:p-3 rounded-lg sm:rounded-full transition-all flex-shrink-0 ${
+              isSelected
+                ? "bg-blue-500 hover:bg-blue-600 text-white"
+                : "bg-white/10 hover:bg-white/20 text-white"
+            }`}
+            title={isSelected ? "Deselect" : "Select"}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              {isSelected ? (
+                <path d="M20 6L9 17l-5-5" />
+              ) : (
+                <circle cx="12" cy="12" r="9" />
+              )}
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* ------ DOWNLOAD ------ */}

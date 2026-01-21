@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { BiExpand } from "react-icons/bi";
+import { useRef, useState } from "react";
 import { MdCheckCircle } from "react-icons/md";
 
 interface Image {
@@ -34,6 +33,42 @@ export default function ImageCard({
   onOpen,
 }: ImageCardProps) {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const longPressRef = useRef<NodeJS.Timeout | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartRef.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+
+    longPressRef.current = setTimeout(() => {
+      // Long press detected - toggle selection
+      onToggle();
+    }, 500); // 500ms for long press
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+
+    const dx = Math.abs(e.touches[0].clientX - touchStartRef.current.x);
+    const dy = Math.abs(e.touches[0].clientY - touchStartRef.current.y);
+
+    // If user moved too much, cancel long press
+    if (dx > 10 || dy > 10) {
+      if (longPressRef.current) {
+        clearTimeout(longPressRef.current);
+        longPressRef.current = null;
+      }
+    }
+  };
 
   return (
     <div
@@ -50,6 +85,11 @@ export default function ImageCard({
           onOpen(img);
         }
       }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchMove={handleTouchMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div
         className={`absolute inset-0 bg-zinc-800 transition-opacity duration-700 ${
@@ -75,7 +115,7 @@ export default function ImageCard({
         }`}
       />
 
-      {hasSelection && (
+      {(hasSelection || selected || isHovered) && (
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -95,13 +135,6 @@ export default function ImageCard({
           />
         </button>
       )}
-
-
-      <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-        <div className="bg-black/20 backdrop-blur-md border border-white/10 p-2 rounded-xl text-white/70">
-          <BiExpand size={14} />
-        </div>
-      </div>
 
       <div className="absolute bottom-4 left-4 right-4 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
         <p className="text-white text-sm font-bold truncate">{img.title}</p>
