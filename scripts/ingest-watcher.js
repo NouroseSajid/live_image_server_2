@@ -346,7 +346,7 @@ async function processVideo(filePath, fileTypeResult) {
                 "/images/" +
                 targetFolderId +
                 "/original/" +
-                fileName.replace(/\\/g, "/"),
+                encodeURIComponent(fileName),
               size: BigInt(fileStats.size),
             },
             {
@@ -504,7 +504,7 @@ async function processImage(filePath, _imageBuffer) {
                 "/images/" +
                 targetFolderId +
                 "/original/" +
-                fileName.replace(/\\/g, "/"),
+                encodeURIComponent(fileName),
               size: BigInt(fileStats.size),
             },
             {
@@ -513,7 +513,7 @@ async function processImage(filePath, _imageBuffer) {
                 "/images/" +
                 targetFolderId +
                 "/webp/" +
-                `${fileBaseName}.webp`.replace(/\\/g, "/"),
+                encodeURIComponent(`${fileBaseName}.webp`),
               size: BigInt(webpStats.size),
             },
             {
@@ -522,7 +522,7 @@ async function processImage(filePath, _imageBuffer) {
                 "/images/" +
                 targetFolderId +
                 "/thumbs/" +
-                `${fileBaseName}_thumb.webp`.replace(/\\/g, "/"),
+                encodeURIComponent(`${fileBaseName}_thumb.webp`),
               size: BigInt(thumbStats.size),
             },
           ],
