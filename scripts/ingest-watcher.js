@@ -168,7 +168,6 @@ async function updateIngestFolderId() {
           isPrivate: false,
           visible: true,
           inGridView: true,
-          folderThumb: "/placeholder-folder.jpg",
         },
       });
       log(`'LIVE 1' folder created with ID: ${folder.id}`);
