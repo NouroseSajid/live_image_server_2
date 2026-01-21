@@ -116,9 +116,15 @@ export default function Gallery() {
           console.log("[Gallery] Connected to WebSocket server at", wsUrl);
         };
 
-        ws.onmessage = (event) => {
+        ws.onmessage = async (event) => {
           try {
-            const message = JSON.parse(event.data);
+            // Handle both string and Blob messages (Cloudflare Tunnel sends Blobs)
+            let data = event.data;
+            if (data instanceof Blob) {
+              data = await data.text();
+            }
+            
+            const message = JSON.parse(data);
             if (message.type === "new-file" && message.payload) {
               const newFile = message.payload;
               console.log("[Gallery] Received new file:", newFile.fileName);
