@@ -1,0 +1,14 @@
+<svg width="400" height="250" viewBox="0 0 400 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Video Placeholder</title>
+  <desc id="desc">A dark gradient card with a play icon</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1f2937" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="400" height="250" rx="20" fill="url(#bg)" />
+  <rect x="24" y="24" width="352" height="202" rx="16" fill="#111827" stroke="#334155" stroke-width="2" />
+  <path d="M185 105 L185 145 L225 125 Z" fill="#60a5fa" />
+  <circle cx="205" cy="125" r="56" fill="none" stroke="#60a5fa" stroke-width="10" opacity="0.8" />
+</svg>

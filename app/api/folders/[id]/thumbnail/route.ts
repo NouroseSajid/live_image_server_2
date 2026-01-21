@@ -4,14 +4,13 @@ import path, { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import sharp from "sharp";
-import prisma from "../../../../prisma/client";
-import { authOptions } from "../../auth/[...nextauth]/route";
+import prisma from "../../../../../prisma/client";
+import { authOptions } from "../../../auth/[...nextauth]/route";
 
-const VIDEO_THUMB_PLACEHOLDER = "/icons/video-placeholder.svg";
-const VIDEO_FALLBACK_WIDTH = 1920;
-const VIDEO_FALLBACK_HEIGHT = 1080;
-
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } },
+) {
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user) {
@@ -21,21 +20,13 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    const folderId = formData.get("folderId") as string;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    if (!folderId) {
-      return NextResponse.json(
-        { error: "No folder ID provided" },
-        { status: 400 },
-      );
-    }
-
     // Verify folder exists
-    const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+    const folder = await prisma.folder.findUnique({ where: { id: params.id } });
     if (!folder) {
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
@@ -66,6 +57,21 @@ export async function POST(request: NextRequest) {
     // Check if file already exists (by hash)
     const existingFile = await prisma.file.findFirst({ where: { hash } });
     if (existingFile) {
+      // If it's already being used as a thumbnail, update the folder to use it
+      if (existingFile.folderId === params.id) {
+        await prisma.folder.update({
+          where: { id: params.id },
+          data: { folderThumbnailId: existingFile.id },
+        });
+        return NextResponse.json(
+          {
+            id: existingFile.id,
+            message: "Folder thumbnail updated with existing file",
+          },
+          { status: 200 },
+        );
+      }
+
       return NextResponse.json(
         {
           error: "This file already exists in another folder",
@@ -79,7 +85,7 @@ export async function POST(request: NextRequest) {
       process.cwd(),
       "public",
       "images",
-      folderId,
+      params.id,
     );
 
     if (fileType === "image") {
@@ -141,28 +147,34 @@ export async function POST(request: NextRequest) {
           height: imageHeight,
           fileSize: BigInt(buffer.length),
           fileType,
-          folderId,
+          folderId: params.id,
           variants: {
             create: [
               {
                 name: "original",
-                path: `/images/${folderId}/original/${fileName.replace(/\\/g, "/")}`,
+                path: `/images/${params.id}/original/${fileName.replace(/\\/g, "/")}`,
                 size: BigInt(originalStats.size),
               },
               {
                 name: "webp",
-                path: `/images/${folderId}/webp/${`${fileBaseName}.webp`.replace(/\\/g, "/")}`,
+                path: `/images/${params.id}/webp/${`${fileBaseName}.webp`.replace(/\\/g, "/")}`,
                 size: BigInt(webpStats.size),
               },
               {
                 name: "thumbnail",
-                path: `/images/${folderId}/thumbs/${`${fileBaseName}_thumb.webp`.replace(/\\/g, "/")}`,
+                path: `/images/${params.id}/thumbs/${`${fileBaseName}_thumb.webp`.replace(/\\/g, "/")}`,
                 size: BigInt(thumbStats.size),
               },
             ],
           },
         },
         include: { variants: true },
+      });
+
+      // Update the folder to use this file as its thumbnail
+      await prisma.folder.update({
+        where: { id: params.id },
+        data: { folderThumbnailId: newFile.id },
       });
 
       const serializedVariants = newFile.variants.map((variant) => ({
@@ -186,44 +198,30 @@ export async function POST(request: NextRequest) {
       await writeFile(originalPath, buffer);
       const originalStats = await stat(originalPath);
 
-      const placeholderAbsolute = join(process.cwd(), "public", VIDEO_THUMB_PLACEHOLDER);
-      let placeholderSize = BigInt(0);
-      try {
-        const placeholderStats = await stat(placeholderAbsolute);
-        placeholderSize = BigInt(placeholderStats.size);
-      } catch (err) {
-        console.warn(
-          `[upload] Video thumbnail placeholder missing at ${placeholderAbsolute}:`,
-          err,
-        );
-      }
-
       const newFile = await prisma.file.create({
         data: {
           fileName,
           hash,
-          mimeType,
-          width: VIDEO_FALLBACK_WIDTH,
-          height: VIDEO_FALLBACK_HEIGHT,
-          fileSize: BigInt(originalStats.size),
+          fileSize: BigInt(buffer.length),
           fileType,
-          folderId,
+          folderId: params.id,
           variants: {
             create: [
               {
                 name: "original",
-                path: `/images/${folderId}/original/${fileName.replace(/\\/g, "/")}`,
+                path: `/images/${params.id}/original/${fileName.replace(/\\/g, "/")}`,
                 size: BigInt(originalStats.size),
-              },
-              {
-                name: "thumbnail",
-                path: VIDEO_THUMB_PLACEHOLDER,
-                size: placeholderSize,
               },
             ],
           },
         },
         include: { variants: true },
+      });
+
+      // Update the folder to use this file as its thumbnail
+      await prisma.folder.update({
+        where: { id: params.id },
+        data: { folderThumbnailId: newFile.id },
       });
 
       const serializedVariants = newFile.variants.map((variant) => ({
@@ -241,7 +239,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error("Error uploading image:", error);
+    console.error("Error uploading folder thumbnail:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },

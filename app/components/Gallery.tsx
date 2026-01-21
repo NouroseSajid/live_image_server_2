@@ -13,6 +13,7 @@ interface FetchedImage {
   id: string;
   fileName: string;
   folderId: string;
+  fileType: "image" | "video";
   variants: {
     name: string;
     path: string;
@@ -100,51 +101,73 @@ export default function Gallery() {
 
   // WebSocket connection for live updates
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:8080");
+    let ws: WebSocket | null = null;
 
-    ws.onopen = () => {
-      console.log("[Gallery] Connected to WebSocket server");
-    };
-
-    ws.onmessage = (event) => {
+    const connectWebSocket = async () => {
       try {
-        const message = JSON.parse(event.data);
-        if (message.type === "new-file" && message.payload) {
-          const newFile = message.payload;
-          console.log("[Gallery] Received new file:", newFile.fileName);
-          
-          // Transform the file to match our FetchedImage format
-          const newImage: FetchedImage = {
-            id: newFile.id,
-            fileName: newFile.fileName,
-            folderId: newFile.folderId,
-            variants: newFile.variants || [],
-            width: newFile.width,
-            height: newFile.height,
-            url: newFile.variants?.find((v: any) => v.name === "thumb")?.path || "",
-            category: newFile.folderId,
-            title: newFile.fileName,
-            meta: `${newFile.width}x${newFile.height}`,
-          };
+        // Fetch the WebSocket URL from config endpoint
+        const configRes = await fetch("/api/config");
+        const config = await configRes.json();
+        const wsUrl = config.wsUrl || "ws://localhost:8080";
 
-          // Add to the beginning of images array (newest first)
-          setImages((prev) => [newImage, ...prev]);
-        }
-      } catch (error) {
-        console.error("[Gallery] Error processing WebSocket message:", error);
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          console.log("[Gallery] Connected to WebSocket server at", wsUrl);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            if (message.type === "new-file" && message.payload) {
+              const newFile = message.payload;
+              console.log("[Gallery] Received new file:", newFile.fileName);
+              
+              // Transform the file to match our FetchedImage format
+              const newImage: FetchedImage = {
+                id: newFile.id,
+                fileName: newFile.fileName,
+                folderId: newFile.folderId,
+                fileType: newFile.fileType,
+                variants: newFile.variants || [],
+                width: newFile.width ?? 1920,
+                height: newFile.height ?? 1080,
+                url:
+                  newFile.variants?.find((v: any) => v.name === "thumbnail")?.path ||
+                  newFile.variants?.find((v: any) => v.name === "thumb")?.path ||
+                  newFile.variants?.[0]?.path ||
+                  "/icons/video-placeholder.svg",
+                category: newFile.folderId,
+                title: newFile.fileName,
+                meta: `${newFile.width ?? "?"}x${newFile.height ?? "?"}`,
+              };
+
+              // Add to the beginning of images array (newest first)
+              setImages((prev) => [newImage, ...prev]);
+            }
+          } catch (error) {
+            console.error("[Gallery] Error processing WebSocket message:", error);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error("[Gallery] WebSocket error:", error);
+        };
+
+        ws.onclose = () => {
+          console.log("[Gallery] WebSocket disconnected");
+        };
+      } catch (err) {
+        console.error("[Gallery] Failed to get WebSocket config:", err);
       }
     };
 
-    ws.onerror = (error) => {
-      console.error("[Gallery] WebSocket error:", error);
-    };
-
-    ws.onclose = () => {
-      console.log("[Gallery] WebSocket disconnected");
-    };
+    connectWebSocket();
 
     return () => {
-      ws.close();
+      if (ws) {
+        ws.close();
+      }
     };
   }, []);
 
@@ -251,24 +274,30 @@ export default function Gallery() {
 
   // Transform raw images to processed format for buildRows
   const processedImages = useMemo(() => {
-    return filteredImages.map((image) => ({
-      id: image.id,
-      width: image.width,
-      height: image.height,
-      // Use thumbnail for initial display (lazy loading)
-      url:
+    return filteredImages.map((image) => {
+      const isVideo = image.fileType === "video";
+      const thumbnailPath =
+        image.variants.find((v) => v.name === "thumbnail")?.path ||
         image.variants.find((v) => v.name === "thumb")?.path ||
-        image.variants[0]?.path ||
-        "/placeholder-image.jpg",
-      // Use WebP for lightbox (like WhatsApp - compressed but high quality)
-      originalUrl:
-        image.variants.find((v) => v.name === "webp")?.path ||
-        image.variants.find((v) => v.name === "original")?.path ||
-        image.variants[0]?.path,
-      category: image.folderId,
-      title: image.fileName,
-      meta: `${image.width}x${image.height}`,
-    }));
+        (isVideo ? "/icons/video-placeholder.svg" : image.variants[0]?.path) ||
+        "/icons/video-placeholder.svg";
+
+      return {
+        id: image.id,
+        width: image.width ?? 1920,
+        height: image.height ?? 1080,
+        // Use thumbnail for initial display (lazy loading)
+        url: thumbnailPath,
+        // Use WebP for lightbox (like WhatsApp - compressed but high quality)
+        originalUrl:
+          image.variants.find((v) => v.name === "webp")?.path ||
+          image.variants.find((v) => v.name === "original")?.path ||
+          image.variants[0]?.path,
+        category: image.folderId,
+        title: image.fileName,
+        meta: `${image.width ?? "?"}x${image.height ?? "?"}`,
+      };
+    });
   }, [filteredImages]);
 
   const rows = useMemo(
@@ -473,6 +502,17 @@ export default function Gallery() {
 
       {/* Lightbox Modal */}
       {lightboxImg && (
+        (() => {
+          const idx = processedImages.findIndex((i) => i.id === lightboxImg.id);
+          const hasImages = processedImages.length > 0 && idx !== -1;
+          const nextImage = hasImages
+            ? processedImages[(idx + 1) % processedImages.length]
+            : null;
+          const prevImage = hasImages
+            ? processedImages[(idx - 1 + processedImages.length) % processedImages.length]
+            : null;
+
+          return (
         <Lightbox
           image={lightboxImg}
           onClose={() => setLightboxImg(null)}
@@ -492,7 +532,11 @@ export default function Gallery() {
               ],
             );
           }}
+          nextImage={nextImage}
+          prevImage={prevImage}
         />
+          );
+        })()
       )}
 
       {/* Contextual Action Bar */}

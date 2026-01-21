@@ -42,7 +42,7 @@ const Navbar = () => {
             href="/"
             className="ml-2 text-2xl font-bold text-[var(--foreground)]"
           >
-            Nourose
+            Nourose Repository
           </Link>
         </div>
 

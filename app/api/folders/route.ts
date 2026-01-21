@@ -22,6 +22,17 @@ export async function GET() {
         passphrase: true,
         uniqueUrl: true,
         inGridView: true,
+        thumbnail: {
+          select: {
+            id: true,
+            variants: {
+              where: { name: "thumbnail" },
+              select: {
+                path: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             files: true,
@@ -52,7 +63,7 @@ export async function POST(request: Request) {
       uniqueUrl,
       passphrase,
       inGridView,
-      folderThumb,
+      folderThumbnailId,
     } = body;
 
     if (!name) {
@@ -92,7 +103,7 @@ export async function POST(request: Request) {
         uniqueUrl,
         passphrase,
         inGridView: inGridView || false,
-        folderThumb,
+        folderThumbnailId,
       },
     });
 

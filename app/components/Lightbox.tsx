@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import NextImage from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BiChevronLeft, BiChevronRight } from "react-icons/bi";
 import { MdClose, MdDownload, MdVolumeOff, MdVolumeUp } from "react-icons/md";
@@ -22,6 +22,8 @@ interface LightboxProps {
   onClose: () => void;
   onNext: () => void;
   onPrev: () => void;
+  nextImage?: ImageData | null;
+  prevImage?: ImageData | null;
 }
 
 interface DownloadModalProps {
@@ -78,20 +80,12 @@ export default function Lightbox({
   onClose,
   onNext,
   onPrev,
+  nextImage,
+  prevImage,
 }: LightboxProps) {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [savePreference, setSavePreference] = useState(false);
-  const [touchStart, setTouchStart] = useState(0);
-  const [touchEnd, setTouchEnd] = useState(0);
-
-  // Pinch-to-zoom states
-  const [scale, setScale] = useState(1);
-  const [positionX, setPositionX] = useState(0);
-  const [positionY, setPositionY] = useState(0);
-  const [initialDistance, setInitialDistance] = useState(0);
-  const [isPinching, setIsPinching] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const _imageRef = useRef<HTMLImageElement>(null);
+  const touchStartXRef = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
 
@@ -104,13 +98,36 @@ export default function Lightbox({
     );
   }, [image?.mimeType, image?.url, image?.originalUrl]);
 
-  // Reset zoom when image changes
+  // Reset media state when image changes
   useEffect(() => {
-    setScale(1);
-    setPositionX(0);
-    setPositionY(0);
     setIsMuted(true);
   }, []);
+
+  // Preload neighboring images (images only, skip videos)
+  useEffect(() => {
+    const candidates = [image, nextImage, prevImage].filter(Boolean) as ImageData[];
+    const loaders: HTMLImageElement[] = [];
+
+    candidates.forEach((item) => {
+      const isVideo =
+        item.mimeType?.startsWith("video/") ||
+        item.url.match(/\.(mp4|webm|ogg|mov)$/i) ||
+        item.originalUrl?.match(/\.(mp4|webm|ogg|mov)$/i);
+      if (isVideo) return;
+      const src = item.originalUrl || item.url;
+      if (!src) return;
+      if (typeof window === "undefined" || !window.Image) return;
+      const img = new window.Image();
+      img.src = src;
+      loaders.push(img);
+    });
+
+    return () => {
+      loaders.forEach((img) => {
+        img.src = "";
+      });
+    };
+  }, [image, nextImage, prevImage]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -160,75 +177,29 @@ export default function Lightbox({
     setShowDownloadModal(false);
   };
 
-  // Calculate distance between two touch points
-  const getDistance = (touches: React.TouchList) => {
-    const touch1 = touches[0];
-    const touch2 = touches[1];
-    const dx = touch2.clientX - touch1.clientX;
-    const dy = touch2.clientY - touch1.clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  };
-
-  // Handle swipe gestures for mobile (only when not zoomed)
+  // Handle swipe gestures for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length === 2) {
-      // Pinch gesture
-      setIsPinching(true);
-      const distance = getDistance(e.touches);
-      setInitialDistance(distance);
-    } else if (e.touches.length === 1) {
-      if (scale > 1) {
-        // Dragging when zoomed
-        setIsDragging(true);
-        setTouchStart(e.touches[0].clientX);
-        setTouchEnd(e.touches[0].clientY);
-      } else {
-        // Swipe to navigate
-        setTouchStart(e.touches[0].clientX);
-      }
+    if (e.touches.length === 1) {
+      touchStartXRef.current = e.touches[0].clientX;
     }
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (e.touches.length === 2 && isPinching) {
-      // Pinch zoom
-      e.preventDefault();
-      const currentDistance = getDistance(e.touches);
-      const scaleChange = currentDistance / initialDistance;
-      const newScale = Math.max(1, Math.min(scale * scaleChange, 5));
-      setScale(newScale);
-      setInitialDistance(currentDistance);
-    } else if (e.touches.length === 1 && isDragging && scale > 1) {
-      // Pan when zoomed
-      e.preventDefault();
-      const deltaX = e.touches[0].clientX - touchStart;
-      const deltaY = e.touches[0].clientY - touchEnd;
-      setPositionX(positionX + deltaX);
-      setPositionY(positionY + deltaY);
-      setTouchStart(e.touches[0].clientX);
-      setTouchEnd(e.touches[0].clientY);
-    }
+  const handleTouchMove = (_e: React.TouchEvent) => {
+    // Intentionally empty; we only need start/end for swipe
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (isPinching) {
-      setIsPinching(false);
-    } else if (isDragging) {
-      setIsDragging(false);
-    } else if (scale === 1 && e.changedTouches.length === 1) {
-      // Only handle swipe if not zoomed
+    if (e.changedTouches.length === 1) {
       const endX = e.changedTouches[0].clientX;
       handleSwipe(endX);
-      // Handle double-tap for zoom
-      handleDoubleTap(e);
     }
   };
 
   const handleSwipe = (endX: number) => {
     const minSwipeDistance = 50;
-    if (!touchStart || !endX) return;
+    if (!touchStartXRef.current || !endX) return;
 
-    const distance = touchStart - endX;
+    const distance = touchStartXRef.current - endX;
     const isLeftSwipe = distance > minSwipeDistance;
     const isRightSwipe = distance < -minSwipeDistance;
 
@@ -247,22 +218,6 @@ export default function Lightbox({
     }
   };
 
-  // Double tap to reset zoom (touch only)
-  const [lastTap, setLastTap] = useState(0);
-  const handleDoubleTap = (_e: React.TouchEvent) => {
-    const currentTime = Date.now();
-    const tapLength = currentTime - lastTap;
-    if (tapLength < 300 && tapLength > 0) {
-      if (scale > 1) {
-        setScale(1);
-        setPositionX(0);
-        setPositionY(0);
-      } else {
-        setScale(2);
-      }
-    }
-    setLastTap(currentTime);
-  };
 
   if (!image) return null;
 
@@ -336,11 +291,7 @@ export default function Lightbox({
             <video
               ref={videoRef}
               src={image.originalUrl || image.url}
-              className="max-w-full max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-120px)] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-500 transition-transform"
-              style={{
-                transform: `scale(${scale}) translate(${positionX / scale}px, ${positionY / scale}px)`,
-                cursor: scale > 1 ? "grab" : "default",
-              }}
+              className="max-w-full max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-120px)] object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-500"
               autoPlay
               loop
               muted={isMuted}
@@ -357,15 +308,8 @@ export default function Lightbox({
             </button>
           </>
         ) : (
-          <div
-            className="relative"
-            style={{
-              transform: `scale(${scale}) translate(${positionX / scale}px, ${positionY / scale}px)`,
-              cursor: scale > 1 ? "grab" : "default",
-              transition: "transform 0.2s ease-out",
-            }}
-          >
-            <Image
+          <div className="relative">
+            <NextImage
               src={image.originalUrl || image.url}
               alt={image.title || "Preview"}
               width={image.width || 1920}
@@ -379,9 +323,7 @@ export default function Lightbox({
 
       {/* Swipe hint on mobile */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/40 text-xs sm:hidden">
-        {scale > 1
-          ? "Pinch to zoom • Double tap to reset"
-          : "Swipe to navigate • Pinch to zoom"}
+        Swipe left or right to navigate
       </div>
     </div>
   );

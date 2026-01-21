@@ -19,14 +19,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nourose - Secure Image & Video Sharing Platform",
+  title: "Nourose Repository - Secure Image & Video Sharing Platform",
   description:
     "Share your photos and videos securely with friends and family. Upload, organize, and share your media with ease.",
   keywords: "image sharing, photo gallery, video sharing, secure upload",
   openGraph: {
-    title: "Nourose - Secure Image & Video Sharing",
+    title: "Nourose Repository - Secure Image & Video Sharing",
     description: "Share your photos and videos securely",
     type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    nocache: true,
+    noimageindex: true,
+    // Block AI bots and crawlers
+    "googlebot-news": "noindex",
+    "bingbot": "noindex",
   },
 };
 

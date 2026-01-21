@@ -31,7 +31,7 @@ export default function Footer() {
                   height={40}
                 />
               </div>
-              <span className="text-2xl font-bold"> Nourose </span>
+              <span className="text-2xl font-bold"> Nourose Repository </span>
             </Link>
             <p className="text-sm mt-2 opacity-80">
               Share your images securely
@@ -97,7 +97,7 @@ export default function Footer() {
 
         {/* Bottom */}
         <div className="border-t border-[var(--border)] mt-8 pt-6 text-center text-sm opacity-70">
-          &copy; {currentYear} Nourose. All rights reserved.
+          &copy; {currentYear} Nourose Repository. All rights reserved.
         </div>
       </div>
     </footer>

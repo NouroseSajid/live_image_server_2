@@ -6,10 +6,16 @@ const { PrismaClient } = require("@prisma/client");
 const { fileTypeFromBuffer } = require("file-type");
 const crypto = require("node:crypto");
 const WebSocket = require("ws");
+require("dotenv").config({ path: ".env.local" });
 
 const prisma = new PrismaClient();
 const ingestFolder = path.join(__dirname, "..", "public", "ingest");
 const configPath = path.join(__dirname, "..", "ingest-config.json");
+
+// Get WebSocket configuration from environment
+const WS_HOST = process.env.WS_SERVER_HOST || "localhost";
+const WS_PORT = process.env.WS_SERVER_PORT || "8080";
+const WS_URL = `ws://${WS_HOST}:${WS_PORT}`;
 
 // --- Constants ---
 const _VARIANT_NAMES = {
@@ -22,6 +28,9 @@ const _WEBP_QUALITY = 80;
 const _WS_RECONNECT_DELAY = 5000;
 const _CONFIG_UPDATE_INTERVAL = 5000;
 const _FILE_STABLE_THRESHOLD = 1500;
+const _VIDEO_PLACEHOLDER = "/icons/video-placeholder.svg";
+const _VIDEO_FALLBACK_WIDTH = 1920;
+const _VIDEO_FALLBACK_HEIGHT = 1080;
 
 let liveFolderId = null;
 let ws;
@@ -50,10 +59,10 @@ let processing = false;
 
 // --- WebSocket Client Setup ---
 function connectWebSocket() {
-  ws = new WebSocket("ws://localhost:8080");
+  ws = new WebSocket(WS_URL);
 
   ws.on("open", () => {
-    log("[WS] Connected to WebSocket server");
+    log(`[WS] Connected to WebSocket server at ${WS_URL}`);
   });
 
   ws.on("error", (error) => {
@@ -266,8 +275,10 @@ async function processRawFile(filePath) {
   }
 }
 
-async function processVideo(filePath, _fileTypeResult) {
+async function processVideo(filePath, fileTypeResult) {
   const fileName = path.basename(filePath);
+  const fileExtension = path.extname(fileName);
+  const fileBaseName = path.basename(fileName, fileExtension);
   log(`Processing video file: ${fileName}`);
   const targetFolderId = liveFolderId;
 
@@ -280,6 +291,22 @@ async function processVideo(filePath, _fileTypeResult) {
     String(targetFolderId),
   );
   const originalFolder = path.join(permanentFolderBase, "original");
+  const placeholderAbsolutePath = path.join(
+    __dirname,
+    "..",
+    "public",
+    _VIDEO_PLACEHOLDER,
+  );
+
+  let placeholderSize = BigInt(0);
+  try {
+    const placeholderStats = await fs.stat(placeholderAbsolutePath);
+    placeholderSize = BigInt(placeholderStats.size);
+  } catch (err) {
+    log(
+      `Warning: video placeholder missing at ${placeholderAbsolutePath}. Thumbnails will use zero size. ${err.message}`,
+    );
+  }
 
   try {
     await fs.mkdir(originalFolder, { recursive: true });
@@ -304,9 +331,9 @@ async function processVideo(filePath, _fileTypeResult) {
       data: {
         fileName,
         hash,
-        width: null,
-        height: null,
-        rotation: 0,
+        mimeType: fileTypeResult?.mime || null,
+        width: _VIDEO_FALLBACK_WIDTH,
+        height: _VIDEO_FALLBACK_HEIGHT,
         fileSize: BigInt(fileStats.size),
         fileType: "video",
         folderId: targetFolderId,
@@ -320,6 +347,11 @@ async function processVideo(filePath, _fileTypeResult) {
                 "/original/" +
                 fileName.replace(/\\/g, "/"),
               size: BigInt(fileStats.size),
+            },
+            {
+              name: "thumbnail",
+              path: _VIDEO_PLACEHOLDER,
+              size: placeholderSize,
             },
           ],
         },

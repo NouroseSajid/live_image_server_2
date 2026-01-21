@@ -25,21 +25,22 @@ model User {
 
 // ----------  FOLDER  ----------
 model Folder {
-  id           String   @id @default(cuid())
-  name         String   // Changed: removed @unique to allow duplicate names
-  isPrivate    Boolean  @default(true)
-  visible      Boolean  @default(true)
-  uniqueUrl    String   @unique // short slug for share link
-  passphrase   String?  // ← hashed passphrase for security (use bcrypt)
-  inGridView   Boolean  @default(false)
-  folderThumb  String?  // key/path to a thumbnail image
-  deletedAt    DateTime? // Soft delete support
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(cuid())
+  name              String   // Changed: removed @unique to allow duplicate names
+  isPrivate         Boolean  @default(true)
+  visible           Boolean  @default(true)
+  uniqueUrl         String   @unique // short slug for share link
+  passphrase        String?  // ← hashed passphrase for security (use bcrypt)
+  inGridView        Boolean  @default(false)
+  folderThumbnailId String?  @unique // FK to File record for thumbnail
+  deletedAt         DateTime? // Soft delete support
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   files        File[]
   accessLinks  AccessLink[]
   downloadJobs DownloadJob[]
+  thumbnail    File?    @relation("FolderThumbnail", fields: [folderThumbnailId], references: [id], onDelete: SetNull)
 
   @@index([createdAt]) // Index for sorting
   @@index([visible])   // Index for filtering
@@ -63,6 +64,9 @@ model File {
 
   folderId   String
   folder     Folder     @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  
+  // Folder thumbnail relationship (one file can be thumbnail for one folder)
+  thumbnailForFolder Folder? @relation("FolderThumbnail")
 
   variants   Variant[]
   downloadJobFiles DownloadJobFile[]

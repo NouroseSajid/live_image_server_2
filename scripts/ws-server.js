@@ -1,12 +1,19 @@
 const { WebSocketServer } = require("ws");
 const http = require("node:http");
+require("dotenv").config({ path: ".env.local" });
+
+// Get configuration from environment variables
+const WS_HOST = process.env.WS_SERVER_HOST || "localhost";
+const WS_PORT = parseInt(process.env.WS_SERVER_PORT || "8080", 10);
+const NEXT_APP_HOST = process.env.NEXT_APP_HOST || "localhost";
+const NEXT_APP_PORT = parseInt(process.env.NEXT_APP_PORT || "3000", 10);
 
 // helper: forward a message to the SSE endpoint
 function forwardToSSE(payload) {
   const body = JSON.stringify(payload);
   const req = http.request({
-    hostname: "localhost",
-    port: 3000,
+    hostname: NEXT_APP_HOST,
+    port: NEXT_APP_PORT,
     path: "/api/events",
     method: "POST",
     headers: {
@@ -21,9 +28,9 @@ function forwardToSSE(payload) {
   req.end();
 }
 
-const wss = new WebSocketServer({ port: 8080 });
+const wss = new WebSocketServer({ host: WS_HOST, port: WS_PORT });
 
-console.log("WebSocket server started on port 8080");
+console.log(`[WS Server] WebSocket server started on ws://${WS_HOST}:${WS_PORT}`);
 
 wss.on("connection", (ws) => {
   console.log("Client connected");

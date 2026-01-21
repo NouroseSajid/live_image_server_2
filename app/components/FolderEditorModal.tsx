@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FiEye, FiEyeOff, FiLock, FiSave, FiUnlock, FiX } from "react-icons/fi";
+import axios from "axios";
 
 interface FolderEditorModalProps {
   folder: {
@@ -12,7 +13,7 @@ interface FolderEditorModalProps {
     visible: boolean;
     passphrase: string | null;
     inGridView: boolean;
-    folderThumb: string | null;
+    folderThumbnailId?: string | null;
   };
   onClose: () => void;
   onSave: (updated: Partial<Folder>) => Promise<void>;
@@ -26,6 +27,7 @@ export default function FolderEditorModal({
   isLoading,
 }: FolderEditorModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: folder.name,
     uniqueUrl: folder.uniqueUrl,
@@ -33,11 +35,13 @@ export default function FolderEditorModal({
     visible: folder.visible,
     passphrase: folder.passphrase || "",
     inGridView: folder.inGridView,
-    folderThumb: folder.folderThumb || "",
   });
 
   const [error, setError] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [thumbnailUploading, setThumbnailUploading] = useState(false);
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
 
   // Focus on close button for accessibility
   useEffect(() => {
@@ -56,17 +60,60 @@ export default function FolderEditorModal({
     setIsDirty(true);
   };
 
+  const handleThumbnailSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setThumbnailFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setThumbnailPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+      setIsDirty(true);
+    }
+  };
+
+  const handleThumbnailUpload = async () => {
+    if (!thumbnailFile) return;
+
+    try {
+      setThumbnailUploading(true);
+      setError(null);
+
+      const formDataToSend = new FormData();
+      formDataToSend.append("file", thumbnailFile);
+
+      const res = await axios.post(
+        `/api/folders/${folder.id}/thumbnail`,
+        formDataToSend,
+      );
+
+      // Clear the thumbnail state
+      setThumbnailFile(null);
+      setThumbnailPreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to upload thumbnail";
+      setError(message);
+    } finally {
+      setThumbnailUploading(false);
+    }
+  };
+
   // Warn before closing if form has unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (isDirty && !isLoading) {
+      if (isDirty && !isLoading && !thumbnailUploading) {
         e.preventDefault();
         e.returnValue = "";
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty, isLoading]);
+  }, [isDirty, isLoading, thumbnailUploading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,7 +180,7 @@ export default function FolderEditorModal({
           <button
             ref={closeButtonRef}
             onClick={onClose}
-            disabled={isLoading}
+            disabled={isLoading || thumbnailUploading}
             className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-50"
             aria-label="Close modal"
           >
@@ -292,24 +339,53 @@ export default function FolderEditorModal({
           {/* Thumbnail */}
           <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Thumbnail
+              Folder Thumbnail
             </h3>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Folder Thumbnail URL (Optional)
+                Upload Thumbnail Image (Optional)
               </label>
-              <textarea
-                name="folderThumb"
-                value={formData.folderThumb}
-                onChange={handleChange}
-                placeholder="Path to folder thumbnail image"
-                rows={2}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Image to display as folder thumbnail in galleries
-              </p>
+              <div className="flex flex-col gap-4">
+                {/* File input */}
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleThumbnailSelect}
+                    disabled={thumbnailUploading}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Image will be processed with the same variants as regular
+                    uploads
+                  </p>
+                </div>
+
+                {/* Preview */}
+                {thumbnailPreview && (
+                  <div className="relative w-full h-40 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
+                    <img
+                      src={thumbnailPreview}
+                      alt="Thumbnail preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+
+                {/* Upload button */}
+                {thumbnailFile && (
+                  <button
+                    type="button"
+                    onClick={handleThumbnailUpload}
+                    disabled={thumbnailUploading}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg font-semibold transition-colors"
+                  >
+                    {thumbnailUploading ? "Uploading..." : "Upload Thumbnail"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -318,14 +394,14 @@ export default function FolderEditorModal({
             <button
               type="button"
               onClick={onClose}
-              disabled={isLoading}
+              disabled={isLoading || thumbnailUploading}
               className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || thumbnailUploading}
               className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg font-semibold flex items-center justify-center gap-2"
             >
               <FiSave size={18} />

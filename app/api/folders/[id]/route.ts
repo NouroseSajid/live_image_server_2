@@ -49,7 +49,7 @@ export async function PUT(
       uniqueUrl,
       passphrase,
       inGridView,
-      folderThumb,
+      folderThumbnailId,
     } = body;
 
     if (!name) {
@@ -97,7 +97,7 @@ export async function PUT(
         uniqueUrl,
         passphrase,
         inGridView,
-        folderThumb,
+        folderThumbnailId,
       },
     });
 

@@ -1,0 +1,51 @@
+# Block AI scrubbers and training bots
+# Nourose Repository - Protect user content from AI training
+
+# Block OpenAI and ChatGPT
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+# Block Google AI
+User-agent: Google-Extended
+Disallow: /
+
+# Block Anthropic Claude
+User-agent: Claude-Web
+Disallow: /
+
+# Block Meta AI
+User-agent: facebookexternalhit
+Disallow: /
+
+# Block Microsoft Copilot and other Bing scrapers
+User-agent: Copilot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+# Block other AI/ML bots
+User-agent: CCBot
+Disallow: /
+
+User-agent: anthropic-ai
+Disallow: /
+
+User-agent: Claude-Web
+Disallow: /
+
+User-agent: diffbot
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+# Block generic user agents that might be used for scraping
+User-agent: *
+Allow: /
+
+# Sitemap (if needed)
+# Sitemap: https://yourdomain.com/sitemap.xml

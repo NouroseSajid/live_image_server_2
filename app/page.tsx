@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Gallery from "./components/Gallery";
 
 export const metadata: Metadata = {
-  title: "Gallery - Nourose",
+  title: "Gallery - Nourose Repository",
   description: "Browse and manage your photo and video gallery",
 };
 
