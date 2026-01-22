@@ -180,6 +180,11 @@ export default function Gallery() {
   // Fetch initial batch and new batches as offset changes
   useEffect(() => {
     const fetchImages = async () => {
+      // Don't fetch if passphrase modal is open - prevents infinite loop
+      if (passphraseModal) {
+        return;
+      }
+
       setIsLoading(true);
       try {
         const currentFolder = folders.find((f) => f.id === activeFolder);
@@ -209,7 +214,7 @@ export default function Gallery() {
             return next;
           });
           const folder = folders.find((f) => f.id === activeFolder);
-          if (folder) {
+          if (folder && !passphraseModal) {
             setPassphraseModal({ folderId: folder.id, name: folder.name });
             setPassphraseInput("");
             setPassphraseError("Passphrase required");
@@ -225,7 +230,7 @@ export default function Gallery() {
     };
 
     fetchImages();
-  }, [offset, activeFolder, folders, folderPassphrases]);
+  }, [offset, activeFolder, folders, folderPassphrases, passphraseModal]);
 
   // Infinite scroll detection using Intersection Observer
   useEffect(() => {
