@@ -36,10 +36,15 @@ interface Folder {
     files: number;
   };
 }
-export default function Gallery() {
+
+interface GalleryProps {
+  initialFolderId?: string;
+}
+
+export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   const [folders, setFolders] = useState<Folder[]>([]);
   const [images, setImages] = useState<FetchedImage[]>([]);
-  const [activeFolder, setActiveFolder] = useState<string>("all");
+  const [activeFolder, setActiveFolder] = useState<string>(initialFolderId || "all");
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
@@ -78,12 +83,49 @@ export default function Gallery() {
     }
   }, [foldersData, foldersError]);
 
+  // Parse URL params and restore passphrase state from sessionStorage or URL
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const folderParam = params.get("f");
+    const passphraseParam = params.get("p");
+
+    // Restore from sessionStorage (set by /f/[slug] page)
+    try {
+      const sessionStored = sessionStorage.getItem("folderPassphrases");
+      if (sessionStored) {
+        const sessionPassphrases = JSON.parse(sessionStored);
+        setFolderPassphrases((prev) => ({ ...prev, ...sessionPassphrases }));
+        // Clear session storage after reading
+        sessionStorage.removeItem("folderPassphrases");
+      }
+    } catch (err) {
+      console.error("[Gallery] Failed to restore session passphrases", err);
+    }
+
+    // If folder param in URL, auto-select it
+    if (folderParam) {
+      setActiveFolder(folderParam);
+
+      // If passphrase in URL, add it to state
+      if (passphraseParam) {
+        setFolderPassphrases((prev) => ({
+          ...prev,
+          [folderParam]: decodeURIComponent(passphraseParam),
+        }));
+        // Clean up URL to hide passphrase
+        window.history.replaceState({}, "", `?f=${folderParam}`);
+      }
+    }
+  }, []);
+
   // Hydrate stored passphrases from localStorage (per-folder caching)
   useEffect(() => {
     try {
       const cached = localStorage.getItem("folderPassphrases");
       if (cached) {
-        setFolderPassphrases(JSON.parse(cached));
+        setFolderPassphrases((prev) => ({ ...prev, ...JSON.parse(cached) }));
       }
     } catch (err) {
       console.error("[Gallery] Failed to load cached passphrases", err);
@@ -367,6 +409,10 @@ export default function Gallery() {
       [passphraseModal.folderId]: passphraseInput.trim(),
     }));
     setActiveFolder(passphraseModal.folderId);
+    // Update URL after successful passphrase
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, "", `?f=${passphraseModal.folderId}`);
+    }
     setError(null);
     closePassphraseModal();
   };
@@ -378,6 +424,10 @@ export default function Gallery() {
   const handleSelectCategory = (folderId: string) => {
     if (folderId === "all") {
       setActiveFolder(folderId);
+      // Update URL to home
+      if (typeof window !== "undefined") {
+        window.history.replaceState({}, "", "/");
+      }
       return;
     }
 
@@ -386,6 +436,10 @@ export default function Gallery() {
       const existing = folderPassphrases[folderId] || "";
       if (existing) {
         setActiveFolder(folderId);
+        // Update URL with folder slug
+        if (typeof window !== "undefined" && folder) {
+          window.history.replaceState({}, "", `?f=${folder.id}`);
+        }
         return;
       }
       setPassphraseModal({ folderId, name: folder.name });
@@ -395,6 +449,10 @@ export default function Gallery() {
     }
 
     setActiveFolder(folderId);
+    // Update URL with folder slug
+    if (typeof window !== "undefined" && folder) {
+      window.history.replaceState({}, "", `?f=${folder.id}`);
+    }
   };
   return (
     <div className="min-h-screen bg-transparent text-zinc-100 font-sans selection:bg-blue-500/30 pb-24">
