@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get("offset") || "0", 10);
     const folderId = searchParams.get("folderId");
     const passphrase = searchParams.get("passphrase");
+    const tokenParam = searchParams.get("t") || searchParams.get("token");
 
     // Validate pagination params
     const validLimit = Math.min(Math.max(limit, 1), 100); // Between 1-100
@@ -47,18 +48,49 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(serializedImages);
     }
 
-    // With folderId: enforce passphrase for private folders
+    // With folderId: enforce access
     const folder = await prisma.folder.findUnique({ where: { id: folderId } });
     if (!folder) {
       return new NextResponse("Folder not found", { status: 404 });
     }
 
+    const cookieName = `access_folder_${folderId}`;
+    const tokenFromCookie = request.cookies.get(cookieName)?.value;
+    let accessGranted = false;
+    let setAccessCookie = false;
+    let tokenToPersist: string | null = null;
+
+    const validateToken = async (token: string | null) => {
+      if (!token) return false;
+      const link = await prisma.accessLink.findUnique({ where: { token } });
+      if (!link) return false;
+      if (link.folderId !== folderId) return false;
+      if (link.expiresAt && link.expiresAt < new Date()) return false;
+      return true;
+    };
+
     if (folder.isPrivate && folder.passphrase) {
-      if (!passphrase) {
-        return new NextResponse("Passphrase required", { status: 401 });
+      // Passphrase path
+      if (passphrase && passphrase === folder.passphrase) {
+        accessGranted = true;
       }
-      if (passphrase !== folder.passphrase) {
-        return new NextResponse("Invalid passphrase", { status: 403 });
+
+      // Token via query param
+      if (!accessGranted && (await validateToken(tokenParam))) {
+        accessGranted = true;
+        setAccessCookie = true;
+        tokenToPersist = tokenParam;
+      }
+
+      // Cookie path
+      if (!accessGranted && (await validateToken(tokenFromCookie || null))) {
+        accessGranted = true;
+      }
+
+      if (!accessGranted) {
+        return new NextResponse("Passphrase or valid token required", {
+          status: passphrase ? 403 : 401,
+        });
       }
     }
 
@@ -84,7 +116,20 @@ export async function GET(request: NextRequest) {
       })),
     }));
 
-    return NextResponse.json(serializedImages);
+    const res = NextResponse.json(serializedImages);
+
+    if (setAccessCookie && tokenToPersist) {
+      const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+      res.cookies.set(cookieName, tokenToPersist, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+        expires,
+      });
+    }
+
+    return res;
   } catch (error) {
     console.error("Error fetching repository images:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
