@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface FetchedImage {
   id: string;
@@ -53,8 +53,32 @@ export function useImageFetch({
   const [images, setImages] = useState<FetchedImage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  
+  // Use refs to access folders and passphrases without triggering re-fetches
+  const foldersRef = useRef(folders);
+  const passphraseRef = useRef(folderPassphrases);
+  const onErrorRef = useRef(onError);
+  const onPassphraseRequiredRef = useRef(onPassphraseRequired);
+
+  // Keep refs in sync
+  useEffect(() => {
+    foldersRef.current = folders;
+    passphraseRef.current = folderPassphrases;
+    onErrorRef.current = onError;
+    onPassphraseRequiredRef.current = onPassphraseRequired;
+  }, [folders, folderPassphrases, onError, onPassphraseRequired]);
 
   useEffect(() => {
+    // Don't fetch if offset is 0 and images already loaded (prevent duplicate first fetch)
+    if (offset === 0 && images.length > 0) {
+      return;
+    }
+
+    // Don't fetch if no more results to load
+    if (!hasMore && offset > 0) {
+      return;
+    }
+
     const fetchImages = async () => {
       // Don't fetch if passphrase modal is open - prevents infinite loop
       if (passphraseModal) {
@@ -63,10 +87,10 @@ export function useImageFetch({
 
       setIsLoading(true);
       try {
-        const currentFolder = folders.find((f) => f.id === activeFolder);
+        const currentFolder = foldersRef.current.find((f) => f.id === activeFolder);
         const pass =
           activeFolder !== "all" && currentFolder?.isPrivate
-            ? folderPassphrases[activeFolder]
+            ? passphraseRef.current[activeFolder]
             : undefined;
         const passQuery = pass ? `&passphrase=${encodeURIComponent(pass)}` : "";
         const folderQuery =
@@ -82,34 +106,26 @@ export function useImageFetch({
           } else {
             setImages((prev) => [...prev, ...data]);
           }
+          // Only set hasMore to true if we got a full batch, false if we got less
           setHasMore(data.length === batchSize);
         } else if (res.status === 401 || res.status === 403) {
-          onError("Passphrase required or invalid for this folder.");
-          const folder = folders.find((f) => f.id === activeFolder);
+          onErrorRef.current("Passphrase required or invalid for this folder.");
+          const folder = foldersRef.current.find((f) => f.id === activeFolder);
           if (folder && !passphraseModal) {
-            onPassphraseRequired(folder.id, folder.name);
+            onPassphraseRequiredRef.current(folder.id, folder.name);
           }
         } else {
-          onError("Failed to load images. Please try again.");
+          onErrorRef.current("Failed to load images. Please try again.");
         }
       } catch (_err) {
-        onError("Network error loading images. Please check your connection.");
+        onErrorRef.current("Network error loading images. Please check your connection.");
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchImages();
-  }, [
-    offset,
-    activeFolder,
-    folders,
-    folderPassphrases,
-    passphraseModal,
-    batchSize,
-    onPassphraseRequired,
-    onError,
-  ]);
+  }, [offset, activeFolder, passphraseModal, batchSize]);
 
   // Reset when changing folder
   useEffect(() => {
