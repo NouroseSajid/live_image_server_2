@@ -5,6 +5,7 @@ import { buildRows, type Image } from "../lib/imageData";
 import { useFetch } from "../lib/useFetch";
 import ActionBar from "./ActionBar";
 import CategoryNavigation from "./CategoryNavigation";
+import DownloadProgress from "./DownloadProgress";
 import ImageGrid from "./ImageGrid";
 import Lightbox from "./Lightbox";
 import QualityModal from "./QualityModal";
@@ -54,6 +55,10 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   const [_scrolled, setScrolled] = useState(false);
   const [showQualityModal, setShowQualityModal] = useState(false);
   const [_isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{
+    id: string;
+    totalFiles: number;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [folderPassphrases, setFolderPassphrases] = useState<Record<string, string>>({});
   const [passphraseModal, setPassphraseModal] = useState<{
@@ -707,12 +712,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
               `[Download] Starting download of ${selectedIds.size} images (quality: ${quality})`,
             );
 
-            // Show processing toast
-            const processingToastId = `download-${Date.now()}`;
-            alert(
-              `⏳ Processing large file...\n\nPreparing ${selectedIds.size} images for download.\nThis may take a moment...`,
-            );
-
             const response = await fetch("/api/images/download-zip", {
               method: "POST",
               headers: {
@@ -728,6 +727,15 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
             console.log(
               `[Download] Response received: status=${response.status}`,
             );
+
+            // Get download ID from response headers
+            const downloadId = response.headers.get("X-Download-ID") || `dl-${Date.now()}`;
+            
+            // Show progress UI
+            setDownloadProgress({
+              id: downloadId,
+              totalFiles: selectedIds.size,
+            });
 
             if (!response.ok) {
               let errorMsg = `Download failed (HTTP ${response.status})`;
@@ -782,24 +790,22 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
             setError(null);
             setShowQualityModal(false);
 
-            const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
             const sizeStr = (blob.size / 1024 / 1024).toFixed(1);
             
             console.log(
-              `[Download] Success! File size: ${sizeStr}MB on ${isMobile ? "mobile" : "desktop"}`,
+              `[Download] Success! File size: ${sizeStr}MB`,
             );
 
-            if (isMobile) {
-              alert(
-                `✓ Download ready!\n\nSize: ${sizeStr}MB\nImages: ${selectedIds.size}\n\niOS: Check Files app → Downloads\nAndroid: Check Downloads folder`,
-              );
-            } else {
-              alert(`✓ Download ready! (${selectedIds.size} images, ${sizeStr}MB)`);
-            }
+            // Keep progress UI visible for 2 seconds after completion
+            setTimeout(() => {
+              setDownloadProgress(null);
+            }, 2000);
           } catch (error) {
             const errorMsg =
               error instanceof Error ? error.message : "Unknown error";
             console.error("[Download] Exception:", errorMsg, error);
+
+            setDownloadProgress(null);
 
             if (errorMsg.includes("timeout")) {
               setError(
@@ -846,6 +852,14 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
           return acc + (Number.isFinite(numeric) ? numeric : 0);
         }, 0)}
       />
+
+      {downloadProgress && (
+        <DownloadProgress
+          downloadId={downloadProgress.id}
+          totalFiles={downloadProgress.totalFiles}
+          onClose={() => setDownloadProgress(null)}
+        />
+      )}
 
       <style>{`
         .scrollbar-hide::-webkit-scrollbar { display: none; }

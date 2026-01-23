@@ -1,11 +1,47 @@
 // app/api/images/download-zip/route.ts
 
 import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
 import { PassThrough } from "node:stream";
 import { PrismaClient } from "@prisma/client";
 import archiver from "archiver";
 import { type NextRequest, NextResponse } from "next/server";
+
+const WS_SERVER_HOST = process.env.WS_SERVER_HOST || "localhost";
+const WS_SERVER_PORT = parseInt(process.env.WS_SERVER_PORT || "8080", 10);
+
+// Send download progress to WebSocket server
+function broadcastDownloadProgress(
+  downloadId: string,
+  current: number,
+  total: number,
+  percent: number,
+) {
+  const payload = {
+    type: "download-progress",
+    payload: { downloadId, current, total, percent },
+  };
+
+  const body = JSON.stringify(payload);
+  const req = http.request({
+    hostname: "localhost",
+    port: 3000,
+    path: "/api/events",
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Internal-Secret": "ingest-123",
+    },
+  });
+
+  req.on("error", (err) => {
+    // Silent fail - don't break download if WS broadcast fails
+  });
+
+  req.write(body);
+  req.end();
+}
 
 const prisma = new PrismaClient();
 
@@ -101,6 +137,7 @@ export async function POST(req: NextRequest) {
 
     let bytesStreamed = 0;
     let fileCount = 0;
+    const downloadId = `dl-${Date.now()}`;
 
     // Handle archive warnings and errors
     archive.on("warning", (err) => {
@@ -114,14 +151,6 @@ export async function POST(req: NextRequest) {
     archive.on("error", (err) => {
       console.error("[Download] Archive critical error:", err);
       passthrough.destroy(err);
-    });
-
-    // Monitor streaming progress
-    passthrough.on("data", (chunk) => {
-      bytesStreamed += chunk.length;
-      console.log(
-        `[Download] Streamed ${(bytesStreamed / 1024 / 1024).toFixed(1)}MB...`,
-      );
     });
 
     passthrough.on("error", (err) => {
@@ -178,6 +207,14 @@ export async function POST(req: NextRequest) {
           if (streamClosed) return;
           try {
             controller.enqueue(chunk);
+            bytesStreamed += chunk.length;
+            
+            // Send WebSocket progress update every 100KB to avoid spam
+            if (bytesStreamed % (100 * 1024) < chunk.length) {
+              const progress = Math.round((bytesStreamed / totalSize) * 100);
+              broadcastDownloadProgress(downloadId, bytesStreamed, totalSize, progress);
+            }
+            
             resetTimeout(); // Reset timeout on each chunk received
           } catch (err) {
             console.error("[Download] Error enqueuing chunk:", err);
@@ -227,8 +264,14 @@ export async function POST(req: NextRequest) {
     headers.set("Transfer-Encoding", "chunked");
 
     console.log("[Download] Starting ZIP stream response");
+    
+    // Send initial progress event
+    broadcastDownloadProgress(downloadId, 0, totalSize, 0);
+    
     return new NextResponse(webStream, {
-      headers,
+      headers: Object.assign(headers, {
+        "X-Download-ID": downloadId,
+      }),
       status: 200,
     });
   } catch (error) {
