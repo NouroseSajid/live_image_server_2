@@ -277,17 +277,12 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     setSelectedIds(new Set());
   }, [activeFolder]);
 
-  // Handle resize for responsive layout
+  // Handle scroll
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
-    const handleResize = () =>
-      containerRef.current && setWidth(containerRef.current.offsetWidth);
     window.addEventListener("scroll", handleScroll);
-    window.addEventListener("resize", handleResize);
-    handleResize();
     return () => {
       window.removeEventListener("scroll", handleScroll);
-      window.removeEventListener("resize", handleResize);
     };
   }, []);
 
