@@ -33,7 +33,10 @@ export async function GET(request: NextRequest) {
         },
         skip: validOffset,
         take: validLimit,
-        orderBy: { createdAt: "desc" },
+        orderBy: [
+          { order: "asc" },
+          { createdAt: "desc" },
+        ],
       });
 
       const serializedImages = repoImages.map((image) => ({
@@ -102,9 +105,10 @@ export async function GET(request: NextRequest) {
       },
       skip: validOffset,
       take: validLimit,
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: [
+        { order: "asc" },
+        { createdAt: "desc" },
+      ],
     });
 
     const serializedImages = repoImages.map((image) => ({

@@ -55,7 +55,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   const [lightboxImg, setLightboxImg] = useState<Image | null>(null);
   const [_scrolled, setScrolled] = useState(false);
   const [showQualityModal, setShowQualityModal] = useState(false);
-  const [_isDownloading, setIsDownloading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<{
     id: string;
     totalFiles: number;
@@ -67,6 +67,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     name: string;
   } | null>(null);
   const [passphraseError, setPassphraseError] = useState<string>("");
+  const BATCH_SIZE = 20;
   const { containerRef, width } = useContainerWidth();
 
   const { images, setImages, isLoading, hasMore } = useImageFetch({
@@ -525,6 +526,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
           prevImage={prevImage}
           isSelected={selectedIds.has(lightboxImg.id)}
           onToggleSelect={toggleSelect}
+          isDownloading={isDownloading}
         />
           );
         })()
@@ -568,6 +570,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
 
           setShowQualityModal(true);
         }}
+        isDownloading={isDownloading}
       />
 
       {/* Quality Selection Modal */}

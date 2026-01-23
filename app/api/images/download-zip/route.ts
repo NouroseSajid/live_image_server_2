@@ -160,6 +160,16 @@ export async function POST(req: NextRequest) {
     // Pipe archive data to the passthrough stream with backpressure handling
     archive.pipe(passthrough);
 
+    const abortDownload = (reason?: string) => {
+      console.error("[Download] Aborting download", reason || "");
+      archive.abort();
+      passthrough.destroy(new Error(reason || "Client aborted download"));
+    };
+
+    req.signal.addEventListener("abort", () => {
+      abortDownload("Request aborted by client");
+    });
+
     // Add files to archive with progress logging
     for (const file of filesWithPaths) {
       if (fs.existsSync(file.filePath)) {

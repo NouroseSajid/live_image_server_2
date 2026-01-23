@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FiEdit2, FiFolder, FiImage, FiPlus, FiTrash2 } from "react-icons/fi";
+import {
+  FiEdit2,
+  FiFolder,
+  FiImage,
+  FiMove,
+  FiPlus,
+  FiTrash2,
+} from "react-icons/fi";
 import { useUploads } from "@/app/lib/useUploads";
 import FolderEditorModal from "./FolderEditorModal";
 import IngestFolderSelector from "./IngestFolderSelector";
@@ -24,6 +31,7 @@ interface File {
   fileSize: number;
   folderId: string;
   createdAt: string;
+  order?: number;
 }
 
 export default function AdminPanel() {
@@ -36,6 +44,8 @@ export default function AdminPanel() {
   const { add } = useUploads();
   const [dragActive, setDragActive] = useState<boolean>(false);
   const dragRef = useRef<HTMLLabelElement | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
 
   // Form states
   const [newFolderName, setNewFolderName] = useState("");
@@ -269,6 +279,57 @@ export default function AdminPanel() {
     }
   };
 
+  const moveFileLocally = (fromId: string, toId: string) => {
+    setFiles((prev) => {
+      const next = [...prev];
+      const fromIdx = next.findIndex((f) => f.id === fromId);
+      const toIdx = next.findIndex((f) => f.id === toId);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+      return next.map((f, idx) => ({ ...f, order: idx }));
+    });
+  };
+
+  const persistOrder = async () => {
+    if (!activeFolder) return;
+    setIsReordering(true);
+    try {
+      const orders = files.map((f, idx) => ({ id: f.id, order: idx }));
+      const res = await fetch(`/api/folders/${activeFolder}/files`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orders }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save order");
+      }
+      setSuccess("Order saved");
+      setTimeout(() => setSuccess(null), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error saving order");
+    } finally {
+      setIsReordering(false);
+      setDraggingId(null);
+    }
+  };
+
+  const handleDragStart = (id: string) => {
+    setDraggingId(id);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, id: string) => {
+    e.preventDefault();
+    if (!draggingId || draggingId === id) return;
+    moveFileLocally(draggingId, id);
+  };
+
+  const handleDragEnd = () => {
+    if (!draggingId) return;
+    persistOrder();
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -441,22 +502,35 @@ export default function AdminPanel() {
                   {/* Files List */}
                   {files.length > 0 ? (
                     <div className="space-y-2 max-h-96 overflow-y-auto">
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                        {files.length} files
-                      </p>
+                      <div className="flex items-center justify-between mb-4 text-sm text-gray-500 dark:text-gray-400">
+                        <span>{files.length} files</span>
+                        {isReordering && (
+                          <span className="text-blue-500">Saving order…</span>
+                        )}
+                      </div>
                       {files.map((file) => (
                         <div
                           key={file.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600"
+                          draggable
+                          onDragStart={() => handleDragStart(file.id)}
+                          onDragOver={(e) => handleDragOver(e, file.id)}
+                          onDragEnd={handleDragEnd}
+                          className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                            draggingId === file.id
+                              ? "bg-blue-50 dark:bg-blue-900/30 border-blue-400"
+                              : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+                          }`}
                         >
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900 dark:text-white truncate">
-                              {file.fileName}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {formatFileSize(Number(file.fileSize))} •{" "}
-                              {file.fileType}
-                            </p>
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <FiMove className="text-gray-400" />
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-900 dark:text-white truncate">
+                                {file.fileName}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                {formatFileSize(Number(file.fileSize))} • {file.fileType}
+                              </p>
+                            </div>
                           </div>
                           <button
                             onClick={() => deleteFile(file.id)}

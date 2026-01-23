@@ -8,6 +8,7 @@ interface ActionBarProps {
   mediumQualitySize?: number | bigint;
   onClear: () => void;
   onDownloadAll?: () => void;
+  isDownloading?: boolean;
 }
 
 export default function ActionBar({
@@ -16,6 +17,7 @@ export default function ActionBar({
   mediumQualitySize = 0,
   onClear,
   onDownloadAll,
+  isDownloading = false,
 }: ActionBarProps) {
   const formatBytes = (bytes: number | bigint): string => {
     // Convert to number if BigInt
@@ -58,6 +60,7 @@ export default function ActionBar({
           onClick={handleDownloadAll}
           className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl transition-all hover:bg-white/5 active:scale-95 group text-zinc-400 flex-shrink-0"
           title="Download Selected"
+          disabled={isDownloading}
         >
           <MdDownload
             size={20}
@@ -66,6 +69,11 @@ export default function ActionBar({
           <span className="text-xs sm:text-sm font-bold group-hover:text-white transition-colors">
             Download
           </span>
+          {isDownloading && (
+            <span className="text-[10px] text-blue-400 font-semibold ml-1">
+              Starting…
+            </span>
+          )}
         </button>
 
         <button

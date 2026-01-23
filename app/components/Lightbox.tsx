@@ -29,6 +29,7 @@ interface LightboxProps {
   prevImage?: ImageData | null;
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
+  isDownloading?: boolean;
 }
 
 /* ---------- CONFIG ---------- */
@@ -185,6 +186,7 @@ export default function Lightbox({
   const [dragOffset, setDragOffset] = useState(0);
   const [width, setWidth] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [localDownloading, setLocalDownloading] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -406,8 +408,10 @@ export default function Lightbox({
   };
   const triggerDownload = (quality: string) => {
     if (savePref) localStorage.setItem("downloadPreference", quality);
+    setLocalDownloading(true);
     window.open(`/api/images/${image?.id}/download?quality=${quality}`, "_blank");
     setShowDL(false);
+    setTimeout(() => setLocalDownloading(false), 1500);
   };
 
   const toggleMute = () => {
@@ -472,7 +476,7 @@ export default function Lightbox({
       </div>
 
       {/* ------ DOWNLOAD ------ */}
-      <div className="absolute top-3 right-3 sm:top-6 sm:right-6 z-20">
+      <div className="absolute top-3 right-3 sm:top-6 sm:right-6 z-20 flex flex-col items-end gap-1">
         <button
           aria-label="Download image"
           onClick={handleDownloadClick}
@@ -481,6 +485,11 @@ export default function Lightbox({
           <DownloadIcon />
           <span className="text-sm font-medium hidden sm:inline">Download</span>
         </button>
+        {(isDownloading || localDownloading) && (
+          <span className="text-xs text-blue-300 font-semibold bg-white/10 px-2 py-1 rounded-full">
+            Download starting…
+          </span>
+        )}
         {showDL && (
           <DownloadModal
             onDownload={triggerDownload}
