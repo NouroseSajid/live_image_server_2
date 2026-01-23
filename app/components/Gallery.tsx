@@ -1,11 +1,16 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MdInfo } from "react-icons/md";
 import { buildRows, type Image } from "../lib/imageData";
 import { useFetch } from "../lib/useFetch";
 import ActionBar from "./ActionBar";
 import CategoryNavigation from "./CategoryNavigation";
 import DownloadProgress from "./DownloadProgress";
+import ErrorDisplay from "./gallerycomponents/ErrorDisplay";
+import PassphraseModal from "./gallerycomponents/PassphraseModal";
+import { useContainerWidth } from "./gallerycomponents/useContainerWidth";
+import { useImageFetch } from "./gallerycomponents/useImageFetch";
+import { useInfiniteScroll } from "./gallerycomponents/useInfiniteScroll";
 import ImageGrid from "./ImageGrid";
 import Lightbox from "./Lightbox";
 import QualityModal from "./QualityModal";
@@ -44,12 +49,8 @@ interface GalleryProps {
 
 export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   const [folders, setFolders] = useState<Folder[]>([]);
-  const [images, setImages] = useState<FetchedImage[]>([]);
   const [activeFolder, setActiveFolder] = useState<string>(initialFolderId || "all");
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
-  const [width, setWidth] = useState(0);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [lightboxImg, setLightboxImg] = useState<Image | null>(null);
   const [_scrolled, setScrolled] = useState(false);
@@ -65,14 +66,33 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     folderId: string;
     name: string;
   } | null>(null);
-  const [passphraseInput, setPassphraseInput] = useState("");
   const [passphraseError, setPassphraseError] = useState<string>("");
-  const containerRef = useRef<HTMLDivElement>(null);
-  const sentinelRef = useRef<HTMLDivElement>(null);
-  const BATCH_SIZE = 20;
-  const _ROW_HEIGHT = 260;
-  const _ROW_GAP = 14;
-  const _RESIZE_DEBOUNCE = 200;
+  const { containerRef, width } = useContainerWidth();
+
+  const { images, setImages, isLoading, hasMore } = useImageFetch({
+    activeFolder,
+    offset,
+    batchSize: BATCH_SIZE,
+    folders,
+    folderPassphrases,
+    passphraseModal,
+    onPassphraseRequired: (folderId, folderName) => {
+      setFolderPassphrases((prev) => {
+        const next = { ...prev };
+        delete next[folderId];
+        return next;
+      });
+      setPassphraseModal({ folderId, name: folderName });
+      setPassphraseError("Passphrase required");
+    },
+    onError: setError,
+  });
+
+  const { sentinelRef } = useInfiniteScroll({
+    isLoading,
+    hasMore,
+    onLoadMore: () => setOffset((prev) => prev + BATCH_SIZE),
+  });
 
   // Fetch folders with SWR (auto-retry, caching, revalidation)
   const { data: foldersData, error: foldersError } =
@@ -248,89 +268,12 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         ws.close();
       }
     };
-  }, []);
+  }, [setImages]);
 
-  // Fetch initial batch and new batches as offset changes
-  useEffect(() => {
-    const fetchImages = async () => {
-      // Don't fetch if passphrase modal is open - prevents infinite loop
-      if (passphraseModal) {
-        return;
-      }
-
-      setIsLoading(true);
-      try {
-        const currentFolder = folders.find((f) => f.id === activeFolder);
-        const pass =
-          activeFolder !== "all" && currentFolder?.isPrivate
-            ? folderPassphrases[activeFolder]
-            : undefined;
-        const passQuery = pass ? `&passphrase=${encodeURIComponent(pass)}` : "";
-        const folderQuery =
-          activeFolder !== "all" ? `&folderId=${activeFolder}` : "";
-        const res = await fetch(
-          `/api/images/repo?limit=${BATCH_SIZE}&offset=${offset}${folderQuery}${passQuery}`,
-        );
-        if (res.ok) {
-          const data: FetchedImage[] = await res.json();
-          if (offset === 0) {
-            setImages(data);
-          } else {
-            setImages((prev) => [...prev, ...data]);
-          }
-          setHasMore(data.length === BATCH_SIZE);
-        } else if (res.status === 401 || res.status === 403) {
-          setError("Passphrase required or invalid for this folder.");
-          setFolderPassphrases((prev) => {
-            const next = { ...prev };
-            delete next[activeFolder];
-            return next;
-          });
-          const folder = folders.find((f) => f.id === activeFolder);
-          if (folder && !passphraseModal) {
-            setPassphraseModal({ folderId: folder.id, name: folder.name });
-            setPassphraseInput("");
-            setPassphraseError("Passphrase required");
-          }
-        } else {
-          setError("Failed to load images. Please try again.");
-        }
-      } catch (_err) {
-        setError("Network error loading images. Please check your connection.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchImages();
-  }, [offset, activeFolder, folders, folderPassphrases, passphraseModal]);
-
-  // Infinite scroll detection using Intersection Observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !isLoading && hasMore) {
-          setOffset((prev) => prev + BATCH_SIZE);
-        }
-      },
-      { threshold: 0.1 },
-    );
-
-    if (sentinelRef.current) {
-      observer.observe(sentinelRef.current);
-    }
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [isLoading, hasMore]);
-
-  // Reset when changing folder
+  // Reset offset and selection when changing folder
   useEffect(() => {
     setOffset(0);
-    setImages([]);
     setSelectedIds(new Set());
-    setHasMore(true);
   }, [activeFolder]);
 
   // Handle resize for responsive layout
@@ -421,31 +364,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     } else {
       setSelectedIds(new Set(processedImages.map((i) => i.id)));
     }
-  };
-
-  const closePassphraseModal = () => {
-    setPassphraseModal(null);
-    setPassphraseError("");
-    setPassphraseInput("");
-  };
-
-  const submitPassphrase = () => {
-    if (!passphraseModal) return;
-    if (!passphraseInput.trim()) {
-      setPassphraseError("Passphrase required");
-      return;
-    }
-    setFolderPassphrases((prev) => ({
-      ...prev,
-      [passphraseModal.folderId]: passphraseInput.trim(),
-    }));
-    setActiveFolder(passphraseModal.folderId);
-    // Update URL after successful passphrase
-    if (typeof window !== "undefined") {
-      window.history.replaceState({}, "", `?f=${passphraseModal.folderId}`);
-    }
-    setError(null);
-    closePassphraseModal();
   };
 
   const categories = useMemo(() => {
@@ -542,80 +460,33 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         )}
       </main>
 
+      {/* Error Display */}
+      {error && <ErrorDisplay error={error} onClose={() => setError(null)} />}
+
       {/* Passphrase Modal */}
       {passphraseModal && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={closePassphraseModal}
-          />
-          <div className="relative w-full max-w-md bg-zinc-900/90 border border-white/10 rounded-2xl shadow-[0_30px_60px_rgba(0,0,0,0.5)] p-6 sm:p-7 animate-in fade-in duration-200">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-sm shadow-lg shadow-blue-500/30">
-                🔒
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm uppercase tracking-[0.15em] text-zinc-500 font-black mb-1">
-                  Private Folder
-                </p>
-                <h3 className="text-lg font-bold text-white leading-tight">
-                  {passphraseModal.name}
-                </h3>
-                <p className="text-sm text-zinc-400 mt-1">
-                  Enter the passphrase to view this folder and its images.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closePassphraseModal}
-                className="p-2 rounded-full hover:bg-white/5 text-zinc-500 hover:text-white transition-colors"
-                aria-label="Close passphrase dialog"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="mt-5">
-              <label className="text-xs font-bold uppercase tracking-[0.12em] text-zinc-500 block mb-2">
-                Passphrase
-              </label>
-              <input
-                type="password"
-                value={passphraseInput}
-                onChange={(e) => {
-                  setPassphraseInput(e.target.value);
-                  setPassphraseError("");
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submitPassphrase();
-                }}
-                className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500/60 transition"
-                placeholder="Enter passphrase"
-                autoFocus
-              />
-              {passphraseError && (
-                <p className="text-xs text-red-400 mt-2">{passphraseError}</p>
-              )}
-            </div>
-
-            <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <button
-                type="button"
-                onClick={submitPassphrase}
-                className="w-full sm:w-auto px-5 py-3 rounded-xl bg-blue-500 text-white font-bold uppercase text-xs tracking-[0.14em] hover:bg-blue-400 active:scale-[0.99] transition shadow-lg shadow-blue-500/30"
-              >
-                Unlock Folder
-              </button>
-              <button
-                type="button"
-                onClick={closePassphraseModal}
-                className="w-full sm:w-auto px-5 py-3 rounded-xl border border-white/10 text-zinc-300 font-bold uppercase text-xs tracking-[0.14em] hover:border-white/30 hover:text-white active:scale-[0.99] transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <PassphraseModal
+          folderName={passphraseModal.name}
+          error={passphraseError}
+          onSubmit={(passphrase) => {
+            setFolderPassphrases((prev) => ({
+              ...prev,
+              [passphraseModal.folderId]: passphrase,
+            }));
+            setActiveFolder(passphraseModal.folderId);
+            // Update URL after successful passphrase
+            if (typeof window !== "undefined") {
+              window.history.replaceState({}, "", `?f=${passphraseModal.folderId}`);
+            }
+            setError(null);
+            setPassphraseModal(null);
+            setPassphraseError("");
+          }}
+          onCancel={() => {
+            setPassphraseModal(null);
+            setPassphraseError("");
+          }}
+        />
       )}
 
       {/* Lightbox Modal */}
