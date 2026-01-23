@@ -700,8 +700,19 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         onSelect={async (quality) => {
           setShowQualityModal(false);
           setIsDownloading(true);
+          setError(null);
 
           try {
+            console.log(
+              `[Download] Starting download of ${selectedIds.size} images (quality: ${quality})`,
+            );
+
+            // Show processing toast
+            const processingToastId = `download-${Date.now()}`;
+            alert(
+              `⏳ Processing large file...\n\nPreparing ${selectedIds.size} images for download.\nThis may take a moment...`,
+            );
+
             const response = await fetch("/api/images/download-zip", {
               method: "POST",
               headers: {
@@ -711,32 +722,98 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
                 imageIds: Array.from(selectedIds),
                 quality,
               }),
+              signal: AbortSignal.timeout(20 * 60 * 1000), // 20 minute client timeout
             });
 
-            if (response.ok) {
-              const blob = await response.blob();
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "selected_images.zip";
-              document.body.appendChild(a);
-              a.click();
+            console.log(
+              `[Download] Response received: status=${response.status}`,
+            );
+
+            if (!response.ok) {
+              let errorMsg = `Download failed (HTTP ${response.status})`;
+              try {
+                const errorData = await response.json();
+                errorMsg = errorData.error || errorMsg;
+              } catch {
+                errorMsg = `${errorMsg}: ${response.statusText}`;
+              }
+              console.error("[Download] Error:", errorMsg);
+              setError(errorMsg);
+              return;
+            }
+
+            // Check content type
+            const contentType = response.headers.get("content-type");
+            console.log(`[Download] Content-Type: ${contentType}`);
+            if (!contentType?.includes("application/zip")) {
+              setError("Unexpected response format. Please try again.");
+              return;
+            }
+
+            console.log("[Download] Reading blob...");
+            const blob = await response.blob();
+            console.log(
+              `[Download] Blob received: ${(blob.size / 1024 / 1024).toFixed(1)}MB`,
+            );
+
+            // Validate blob size
+            if (blob.size === 0) {
+              setError("Downloaded file is empty. Please try again.");
+              return;
+            }
+
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "selected_images.zip";
+            document.body.appendChild(a);
+            
+            console.log("[Download] Triggering browser download...");
+            a.click();
+
+            // Cleanup
+            setTimeout(() => {
               window.URL.revokeObjectURL(url);
               a.remove();
-              // Clear selection after download initiated
-              setSelectedIds(new Set());
+            }, 100);
+
+            // Clear selection after download initiated
+            setSelectedIds(new Set());
+            setError(null);
+            setShowQualityModal(false);
+
+            const isMobile = /iPhone|iPad|Android/i.test(navigator.userAgent);
+            const sizeStr = (blob.size / 1024 / 1024).toFixed(1);
+            
+            console.log(
+              `[Download] Success! File size: ${sizeStr}MB on ${isMobile ? "mobile" : "desktop"}`,
+            );
+
+            if (isMobile) {
               alert(
-                "Your download has started! For iOS users, you can find the ZIP file in your 'Files' app, usually under 'Downloads' or 'On My iPhone/iPad'.",
+                `✓ Download ready!\n\nSize: ${sizeStr}MB\nImages: ${selectedIds.size}\n\niOS: Check Files app → Downloads\nAndroid: Check Downloads folder`,
               );
             } else {
-              const errorData = await response.json();
-              alert(
-                `Failed to download images: ${errorData.error || response.statusText}`,
-              );
+              alert(`✓ Download ready! (${selectedIds.size} images, ${sizeStr}MB)`);
             }
           } catch (error) {
-            console.error("Error initiating zip download:", error);
-            alert("An unexpected error occurred during download.");
+            const errorMsg =
+              error instanceof Error ? error.message : "Unknown error";
+            console.error("[Download] Exception:", errorMsg, error);
+
+            if (errorMsg.includes("timeout")) {
+              setError(
+                "Download took too long (20 min). Network may be slow. Try again or select fewer images.",
+              );
+            } else if (errorMsg.includes("abort")) {
+              setError("Download was cancelled or interrupted.");
+            } else if (errorMsg.includes("network")) {
+              setError(
+                "Network error. Check your connection and try again.",
+              );
+            } else {
+              setError(`Download failed: ${errorMsg}`);
+            }
           } finally {
             setIsDownloading(false);
           }

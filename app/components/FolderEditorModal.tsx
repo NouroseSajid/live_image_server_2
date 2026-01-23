@@ -138,21 +138,6 @@ export default function FolderEditorModal({
       return;
     }
 
-    // Warn about destructive changes
-    if (formData.isPrivate !== folder.isPrivate && formData.isPrivate) {
-      const confirmed = window.confirm(
-        "Making this folder private will restrict access. Continue?",
-      );
-      if (!confirmed) return;
-    }
-
-    if (formData.visible !== folder.visible && !formData.visible) {
-      const confirmed = window.confirm(
-        "Hiding this folder will remove it from public galleries. Continue?",
-      );
-      if (!confirmed) return;
-    }
-
     try {
       await onSave(formData);
       onClose();

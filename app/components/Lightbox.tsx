@@ -429,7 +429,7 @@ export default function Lightbox({
       className="fixed inset-0 z-[1000] bg-black/95 backdrop-blur-2xl flex items-center justify-center animate-in fade-in duration-300"
     >
       {/* ------ HEADER ------ */}
-      <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex items-center gap-2 sm:gap-4 z-20 w-full sm:w-auto pr-12 sm:pr-0">
+      <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex items-center gap-2 sm:gap-4 z-20 w-full sm:w-auto pr-20 sm:pr-0">
         <button
           aria-label="Close lightbox"
           onClick={onClose}
@@ -446,7 +446,7 @@ export default function Lightbox({
         {onToggleSelect && (
           <button
             onClick={() => onToggleSelect(image.id)}
-            className={`ml-auto p-2 sm:p-3 rounded-lg sm:rounded-full transition-all flex-shrink-0 ${
+            className={`flex-shrink-0 p-2 sm:p-3 rounded-lg sm:rounded-full transition-all ${
               isSelected
                 ? "bg-blue-500 hover:bg-blue-600 text-white"
                 : "bg-white/10 hover:bg-white/20 text-white"
