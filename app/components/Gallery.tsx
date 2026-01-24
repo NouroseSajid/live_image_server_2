@@ -388,7 +388,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         return;
       }
       setPassphraseModal({ folderId, name: folder.name });
-      setPassphraseInput("");
       setPassphraseError("Enter passphrase to unlock");
       return;
     }

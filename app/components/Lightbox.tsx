@@ -178,6 +178,7 @@ export default function Lightbox({
   prevImage,
   isSelected = false,
   onToggleSelect,
+  isDownloading = false,
 }: LightboxProps) {
   /* ---------- STATE ---------- */
   const [showDL, setShowDL] = useState(false);
