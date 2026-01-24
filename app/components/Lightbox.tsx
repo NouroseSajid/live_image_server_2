@@ -184,7 +184,7 @@ export default function Lightbox({
   const [savePref, setSavePref] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [dragOffset, setDragOffset] = useState(0);
-  const [width, setWidth] = useState(0);
+  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 0);
   const [mounted, setMounted] = useState(false);
   const [localDownloading, setLocalDownloading] = useState(false);
 
