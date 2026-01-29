@@ -5,6 +5,7 @@ interface FetchedImage {
   fileName: string;
   folderId: string;
   fileType: "image" | "video";
+  mimeType?: string;
   variants: {
     name: string;
     path: string;

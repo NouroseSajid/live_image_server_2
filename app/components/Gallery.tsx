@@ -20,6 +20,7 @@ interface FetchedImage {
   fileName: string;
   folderId: string;
   fileType: "image" | "video";
+  mimeType?: string;
   variants: {
     name: string;
     path: string;
@@ -317,9 +318,16 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         return dbPath.replace(/^\/images\//, "/api/serve/");
       };
 
-      const thumbnailUrl = isVideo 
-        ? "/icons/video-placeholder.svg"
-        : convertToApiRoute(thumbnailVariant?.path) || convertToApiRoute(image.variants[0]?.path) || "/icons/video-placeholder.svg";
+      const videoUrl = isVideo
+        ? convertToApiRoute(originalVariant?.path) ||
+          convertToApiRoute(image.variants[0]?.path)
+        : undefined;
+
+      const thumbnailUrl = isVideo
+        ? convertToApiRoute(thumbnailVariant?.path) || "/icons/video-placeholder.svg"
+        : convertToApiRoute(thumbnailVariant?.path) ||
+          convertToApiRoute(image.variants[0]?.path) ||
+          "/icons/video-placeholder.svg";
       
       const lightboxUrl = convertToApiRoute(webpVariant?.path) ||
         convertToApiRoute(originalVariant?.path) ||
@@ -332,8 +340,12 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         height: image.height ?? 1080,
         // Use compressed thumbnail for grid via API route (bypasses Next.js caching)
         url: thumbnailUrl,
+        thumbnailUrl,
+        videoUrl,
+        isVideo,
+        mimeType: image.mimeType,
         // Prefer webp for lightbox display; fall back to original
-        originalUrl: lightboxUrl,
+        originalUrl: isVideo ? videoUrl || lightboxUrl : lightboxUrl,
         category: image.folderId,
         title: image.fileName,
         meta: `${image.width ?? "?"}x${image.height ?? "?"}`,

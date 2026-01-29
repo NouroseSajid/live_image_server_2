@@ -20,6 +20,10 @@ export interface Image {
   height: number;
   url: string; // thumbnail for gallery
   originalUrl?: string; // original quality for lightbox
+  thumbnailUrl?: string;
+  videoUrl?: string;
+  mimeType?: string;
+  isVideo?: boolean;
   category: string;
   title: string;
   meta: string;

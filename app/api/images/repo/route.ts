@@ -3,6 +3,20 @@ import { getServerSession } from "next-auth/next";
 import prisma from "../../../../prisma/client";
 import { authOptions } from "../../auth/[...nextauth]/route";
 
+const fileNameCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
+const compareByFileName = (
+  a: { fileName: string; createdAt: Date },
+  b: { fileName: string; createdAt: Date },
+) => {
+  const nameCompare = fileNameCollator.compare(a.fileName, b.fileName);
+  if (nameCompare !== 0) return nameCompare;
+  return b.createdAt.getTime() - a.createdAt.getTime();
+};
+
 export async function GET(request: NextRequest) {
   const _session = await getServerSession(authOptions);
 
@@ -31,15 +45,13 @@ export async function GET(request: NextRequest) {
           folder: true,
           variants: true,
         },
-        skip: validOffset,
-        take: validLimit,
-        orderBy: [
-          { order: "asc" },
-          { createdAt: "desc" },
-        ],
       });
 
-      const serializedImages = repoImages.map((image) => ({
+      const pagedImages = repoImages
+        .sort(compareByFileName)
+        .slice(validOffset, validOffset + validLimit);
+
+      const serializedImages = pagedImages.map((image) => ({
         ...image,
         fileSize: image.fileSize.toString(),
         variants: image.variants.map((variant) => ({
@@ -103,15 +115,13 @@ export async function GET(request: NextRequest) {
         folder: true,
         variants: true,
       },
-      skip: validOffset,
-      take: validLimit,
-      orderBy: [
-        { order: "asc" },
-        { createdAt: "desc" },
-      ],
     });
 
-    const serializedImages = repoImages.map((image) => ({
+    const pagedImages = repoImages
+      .sort(compareByFileName)
+      .slice(validOffset, validOffset + validLimit);
+
+    const serializedImages = pagedImages.map((image) => ({
       ...image,
       fileSize: image.fileSize.toString(),
       variants: image.variants.map((variant) => ({

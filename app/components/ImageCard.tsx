@@ -8,6 +8,10 @@ interface Image {
   width: number;
   height: number;
   url: string;
+  thumbnailUrl?: string;
+  videoUrl?: string;
+  mimeType?: string;
+  isVideo?: boolean;
   category: string;
   title: string;
   meta: string;
@@ -70,6 +74,12 @@ export default function ImageCard({
     }
   };
 
+  const isVideo =
+    img.isVideo ||
+    img.mimeType?.startsWith("video/") ||
+    /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(img.videoUrl || "") ||
+    /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(img.url || "");
+
   return (
     <div
       className={`relative rounded-2xl overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group select-none shadow-md cursor-pointer ${
@@ -99,15 +109,31 @@ export default function ImageCard({
         <div className="w-8 h-8 border-2 border-zinc-700 border-t-zinc-400 rounded-full animate-spin" />
       </div>
 
-      <img
-        src={img.url}
-        alt={img.category}
-        onLoad={() => setIsLoaded(true)}
-        className={`w-full h-full object-cover transition-all duration-1000 group-hover:scale-110 ${
-          isLoaded ? "opacity-100" : "opacity-0"
-        }`}
-        loading="lazy"
-      />
+      {isVideo ? (
+        <video
+          src={img.videoUrl || img.url}
+          poster={img.thumbnailUrl || img.url}
+          onLoadedData={() => setIsLoaded(true)}
+          className={`w-full h-full object-cover transition-all duration-1000 group-hover:scale-110 ${
+            isLoaded ? "opacity-100" : "opacity-0"
+          }`}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+        />
+      ) : (
+        <img
+          src={img.url}
+          alt={img.category}
+          onLoad={() => setIsLoaded(true)}
+          className={`w-full h-full object-cover transition-all duration-1000 group-hover:scale-110 ${
+            isLoaded ? "opacity-100" : "opacity-0"
+          }`}
+          loading="lazy"
+        />
+      )}
 
       <div
         className={`absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 transition-opacity duration-300 ${

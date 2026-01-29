@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth/next";
 import prisma from "../../../../../prisma/client";
 import { authOptions } from "../../../auth/[...nextauth]/route";
 
+const fileNameCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -17,10 +22,12 @@ export async function GET(
     const { id } = await params;
     const files = await prisma.file.findMany({
       where: { folderId: id },
-      orderBy: [
-        { order: "asc" },
-        { createdAt: "desc" },
-      ],
+    });
+
+    files.sort((a, b) => {
+      const nameCompare = fileNameCollator.compare(a.fileName, b.fileName);
+      if (nameCompare !== 0) return nameCompare;
+      return b.createdAt.getTime() - a.createdAt.getTime();
     });
 
     // Serialize BigInt to string for JSON

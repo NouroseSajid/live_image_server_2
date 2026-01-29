@@ -30,6 +30,8 @@ export default function AdminFolders() {
   const [creating, setCreating] = useState(false);
   const [_updating, setUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [generatingLinkId, setGeneratingLinkId] = useState<string | null>(null);
+  const [accessLinks, setAccessLinks] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -38,6 +40,59 @@ export default function AdminFolders() {
   useEffect(() => {
     fetchFolders();
   }, [fetchFolders]);
+
+  const getOrigin = () =>
+    typeof window !== "undefined" ? window.location.origin : "";
+
+  const buildShareLinks = (folder: Folder) => {
+    const base = `${getOrigin()}/f/${encodeURIComponent(folder.uniqueUrl)}`;
+    const unlocked = folder.passphrase
+      ? `${base}?p=${encodeURIComponent(folder.passphrase)}`
+      : base;
+    return { base, unlocked };
+  };
+
+  const buildAccessLinkUrl = (token: string) =>
+    `${getOrigin()}/?t=${encodeURIComponent(token)}`;
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatusMessage({ type: "success", text: "Link copied" });
+    } catch {
+      setStatusMessage({ type: "error", text: "Failed to copy link" });
+    }
+  };
+
+  const generateAccessLink = async (folderId: string) => {
+    setGeneratingLinkId(folderId);
+    setStatusMessage(null);
+    try {
+      const res = await fetch("/api/access-links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folderId }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || "Failed to create access link");
+      }
+      const link = await res.json();
+      if (link?.token) {
+        setAccessLinks((prev) => ({ ...prev, [folderId]: link.token }));
+        await copyToClipboard(buildAccessLinkUrl(link.token));
+      } else {
+        setStatusMessage({ type: "error", text: "No token returned" });
+      }
+    } catch (err) {
+      setStatusMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to create access link",
+      });
+    } finally {
+      setGeneratingLinkId(null);
+    }
+  };
 
   const fetchFolders = async () => {
     const res = await fetch("/api/folders");
@@ -296,8 +351,69 @@ export default function AdminFolders() {
                 <div className="text-sm text-muted-foreground">
                   {folder.uniqueUrl}
                 </div>
+                <div className="text-xs text-muted-foreground">
+                  Passphrase: {folder.passphrase || "(none)"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Share: {buildShareLinks(folder).base}
+                </div>
+                {folder.passphrase && (
+                  <div className="text-xs text-muted-foreground">
+                    Unlocked: {buildShareLinks(folder).unlocked}
+                  </div>
+                )}
+                {accessLinks[folder.id] && (
+                  <div className="text-xs text-muted-foreground">
+                    Access link: {buildAccessLinkUrl(accessLinks[folder.id])}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="px-2 py-1 rounded border"
+                  onClick={() => generateAccessLink(folder.id)}
+                  style={{ borderColor: "var(--admin-border)" }}
+                  disabled={generatingLinkId === folder.id}
+                >
+                  {generatingLinkId === folder.id
+                    ? "Generating…"
+                    : "Access Link"}
+                </button>
+                {accessLinks[folder.id] && (
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded border"
+                    onClick={() =>
+                      copyToClipboard(
+                        buildAccessLinkUrl(accessLinks[folder.id]),
+                      )
+                    }
+                    style={{ borderColor: "var(--admin-border)" }}
+                  >
+                    Copy Access Link
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="px-2 py-1 rounded border"
+                  onClick={() => copyToClipboard(buildShareLinks(folder).base)}
+                  style={{ borderColor: "var(--admin-border)" }}
+                >
+                  Copy Link
+                </button>
+                {folder.passphrase && (
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded border"
+                    onClick={() =>
+                      copyToClipboard(buildShareLinks(folder).unlocked)
+                    }
+                    style={{ borderColor: "var(--admin-border)" }}
+                  >
+                    Copy Unlocked
+                  </button>
+                )}
                 <button
                   type="button"
                   className="px-2 py-1 rounded border"
@@ -402,6 +518,19 @@ export default function AdminFolders() {
                 })
               }
             />
+            <div className="md:col-span-2 text-sm text-muted-foreground">
+              Share link: {buildShareLinks(editingFolder).base}
+            </div>
+            {editingFolder.passphrase && (
+              <div className="md:col-span-2 text-sm text-muted-foreground">
+                Unlocked link: {buildShareLinks(editingFolder).unlocked}
+              </div>
+            )}
+            {accessLinks[editingFolder.id] && (
+              <div className="md:col-span-2 text-sm text-muted-foreground">
+                Access link: {buildAccessLinkUrl(accessLinks[editingFolder.id])}
+              </div>
+            )}
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -432,6 +561,34 @@ export default function AdminFolders() {
                 })
               }
             />
+
+            <div className="md:col-span-2 flex gap-2">
+              <button
+                type="button"
+                className="px-3 py-2 rounded border"
+                onClick={() => generateAccessLink(editingFolder.id)}
+                style={{ borderColor: "var(--admin-border)" }}
+                disabled={generatingLinkId === editingFolder.id}
+              >
+                {generatingLinkId === editingFolder.id
+                  ? "Generating…"
+                  : "Generate Access Link"}
+              </button>
+              {accessLinks[editingFolder.id] && (
+                <button
+                  type="button"
+                  className="px-3 py-2 rounded border"
+                  onClick={() =>
+                    copyToClipboard(
+                      buildAccessLinkUrl(accessLinks[editingFolder.id]),
+                    )
+                  }
+                  style={{ borderColor: "var(--admin-border)" }}
+                >
+                  Copy Access Link
+                </button>
+              )}
+            </div>
 
             <div className="md:col-span-2 flex gap-2">
               <button

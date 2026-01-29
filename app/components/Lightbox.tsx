@@ -14,6 +14,7 @@ interface ImageData {
   height: number;
   url: string;
   originalUrl?: string;
+  videoUrl?: string;
   category: string;
   title: string;
   meta: string;
@@ -42,8 +43,9 @@ const isVideo = (item?: ImageData | null) => {
   if (!item) return false;
   return (
     item.mimeType?.startsWith("video/") ||
-    /\/(mp4|webm|ogg|mov)$/i.test(item.url || "") ||
-    /\/(mp4|webm|ogg|mov)$/i.test(item.originalUrl || "")
+    /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(item.videoUrl || "") ||
+    /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(item.url || "") ||
+    /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(item.originalUrl || "")
   );
 };
 
@@ -209,6 +211,19 @@ export default function Lightbox({
   // Reset mute when image changes
   useEffect(() => {
     setIsMuted(true);
+  }, [image?.id]);
+
+  useEffect(() => {
+    if (!image || !isVideo(image)) return;
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = true;
+    const playPromise = video.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {
+        // Autoplay might be blocked; ignore.
+      });
+    }
   }, [image?.id]);
 
   /* ---------- PRELOAD ---------- */

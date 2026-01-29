@@ -7,6 +7,10 @@ interface Image {
   width: number;
   height: number;
   url: string;
+  thumbnailUrl?: string;
+  videoUrl?: string;
+  mimeType?: string;
+  isVideo?: boolean;
   category: string;
   title: string;
   meta: string;
