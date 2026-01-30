@@ -144,41 +144,18 @@ async function updateIngestFolderId() {
         }
         return;
       }
-      // Config pointed to a non-existent folder; warn but continue to ensure a LIVE folder exists
-      log(`Warning: Folder ID ${folderId} from config not found in database.`);
-    }
-
-    // Only search/create a default LIVE folder if we don't already have one configured/known
-    if (liveFolderId) {
-      // Already have a live folder set; nothing to do
+      // Config pointed to a non-existent folder; clear selection and pause ingest
+      log(`Warning: Folder ID ${folderId} from config not found. Ingest paused.`);
+      liveFolderId = null;
       return;
     }
 
-    log("Checking for existing LIVE folder...");
-    let folder = await prisma.folder.findFirst({
-      where: { name: { contains: "live" } },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (!folder) {
-      log(`No 'LIVE' folder found. Creating a new one...`);
-      folder = await prisma.folder.create({
-        data: {
-          name: "LIVE 1",
-          uniqueUrl: `live-1-${crypto.randomBytes(4).toString("hex")}`,
-          isPrivate: false,
-          visible: true,
-          inGridView: true,
-        },
-      });
-      log(`'LIVE 1' folder created with ID: ${folder.id}`);
-    } else {
-      log(`Found existing LIVE folder: ${folder.name} (ID: ${folder.id})`);
+    if (liveFolderId !== null) {
+      log("No ingest folder selected. Ingest paused.");
+      liveFolderId = null;
     }
-
-    liveFolderId = folder.id;
   } catch (error) {
-    console.error("Error while handling LIVE folder:", error);
+    console.error("Error while updating ingest folder:", error);
     return;
   }
 }
@@ -211,6 +188,11 @@ async function enqueueFile(filePath) {
 
 async function processFile(filePath) {
   try {
+    if (!liveFolderId) {
+      log(`Ingest paused (no folder selected). Leaving file in ingest: ${filePath}`);
+      return;
+    }
+
     // Check if file still exists (could have been moved/deleted)
     await fs.access(filePath);
 
