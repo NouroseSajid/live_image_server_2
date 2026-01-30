@@ -7,6 +7,7 @@ import {
   FiImage,
   FiMove,
   FiPlus,
+  FiCopy,
   FiTrash2,
 } from "react-icons/fi";
 import { useUploads } from "@/app/lib/useUploads";
@@ -28,10 +29,26 @@ interface File {
   id: string;
   fileName: string;
   fileType: "image" | "video";
-  fileSize: number;
+  fileSize: string;
   folderId: string;
   createdAt: string;
   order?: number;
+  variants: Array<{
+    id: string;
+    name: string;
+    path: string;
+    size: string;
+  }>;
+}
+
+interface ConflictInfo {
+  action: "move" | "copy";
+  targetFolderId: string;
+  conflicts: Array<{
+    fileId: string;
+    fileName: string;
+    existingFileId: string;
+  }>;
 }
 
 export default function AdminPanel() {
@@ -44,8 +61,12 @@ export default function AdminPanel() {
   const { add } = useUploads();
   const [dragActive, setDragActive] = useState<boolean>(false);
   const dragRef = useRef<HTMLLabelElement | null>(null);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [isReordering, setIsReordering] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [actionTargetFolderId, setActionTargetFolderId] = useState<string | null>(
+    null,
+  );
+  const [isBulkWorking, setIsBulkWorking] = useState(false);
+  const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
 
   // Form states
   const [newFolderName, setNewFolderName] = useState("");
@@ -104,6 +125,11 @@ export default function AdminPanel() {
       fetchFiles(activeFolder);
     }
   }, [activeFolder, fetchFiles]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setActionTargetFolderId(null);
+  }, [activeFolder, files.length]);
 
   const createFolder = async () => {
     if (!newFolderName.trim()) {
@@ -251,91 +277,128 @@ export default function AdminPanel() {
     }
   };
 
-  const deleteFile = async (fileId: string) => {
-    const file = files.find((f) => f.id === fileId);
-    const confirmed = window.confirm(
-      `Delete "${file?.fileName}"?\n\nThis action cannot be undone.`,
-    );
-    if (!confirmed) return;
-
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/images/${fileId}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to delete image");
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
       }
-
-      setFiles(files.filter((f) => f.id !== fileId));
-      setSuccess("Image deleted successfully");
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error deleting image");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const moveFileLocally = (fromId: string, toId: string) => {
-    setFiles((prev) => {
-      const next = [...prev];
-      const fromIdx = next.findIndex((f) => f.id === fromId);
-      const toIdx = next.findIndex((f) => f.id === toId);
-      if (fromIdx === -1 || toIdx === -1) return prev;
-      const [moved] = next.splice(fromIdx, 1);
-      next.splice(toIdx, 0, moved);
-      return next.map((f, idx) => ({ ...f, order: idx }));
+      return next;
     });
   };
 
-  const persistOrder = async () => {
-    if (!activeFolder) return;
-    setIsReordering(true);
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const selectAll = () => setSelectedIds(new Set(files.map((f) => f.id)));
+
+  const applyBulkAction = async (
+    action: "move" | "copy" | "delete",
+    conflictResolution?: "rename" | "replace" | "skip",
+    overrideTargetFolderId?: string,
+  ) => {
+    if (selectedIds.size === 0) return;
+    const targetFolderId = overrideTargetFolderId || actionTargetFolderId;
+    if ((action === "move" || action === "copy") && !targetFolderId) {
+      setError("Please select a target folder");
+      return;
+    }
+
+    const confirmed =
+      action === "delete"
+        ? window.confirm(
+            `Delete ${selectedIds.size} file(s)?\n\nThis action cannot be undone.`,
+          )
+        : true;
+    if (!confirmed) return;
+
     try {
-      const orders = files.map((f, idx) => ({ id: f.id, order: idx }));
-      const res = await fetch(`/api/folders/${activeFolder}/files`, {
-        method: "PATCH",
+      setIsBulkWorking(true);
+      const res = await fetch("/api/images/bulk", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orders }),
+        body: JSON.stringify({
+          action,
+          fileIds: Array.from(selectedIds),
+          targetFolderId,
+          conflictResolution,
+        }),
       });
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to save order");
+
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409 && data?.conflicts) {
+        setConflictInfo({
+          action: action === "delete" ? "move" : action,
+          targetFolderId: targetFolderId || "",
+          conflicts: data.conflicts,
+        });
+        return;
       }
-      setSuccess("Order saved");
-      setTimeout(() => setSuccess(null), 2500);
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update files");
+      }
+
+      setConflictInfo(null);
+
+      if (action === "delete") {
+        const deletedIds = new Set(data.deletedIds || []);
+        setFiles((prev) => prev.filter((f) => !deletedIds.has(f.id)));
+        setSuccess("Files deleted");
+        clearSelection();
+      } else if (action === "move") {
+        const movedIds = new Set(data.movedIds || []);
+        setFiles((prev) => prev.filter((f) => !movedIds.has(f.id)));
+        setSuccess("Files moved");
+        if (Array.isArray(data.skippedIds) && data.skippedIds.length > 0) {
+          setSelectedIds(new Set(data.skippedIds));
+        } else {
+          clearSelection();
+        }
+      } else if (action === "copy") {
+        if (activeFolder && targetFolderId === activeFolder) {
+          setFiles((prev) => [...(data.copied || []), ...prev]);
+        }
+        setSuccess("Files copied");
+        if (Array.isArray(data.skippedIds) && data.skippedIds.length > 0) {
+          setSelectedIds(new Set(data.skippedIds));
+        } else {
+          clearSelection();
+        }
+      }
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error saving order");
+      setError(err instanceof Error ? err.message : "Error updating files");
     } finally {
-      setIsReordering(false);
-      setDraggingId(null);
+      setIsBulkWorking(false);
     }
   };
 
-  const handleDragStart = (id: string) => {
-    setDraggingId(id);
+  const resolveConflicts = (
+    resolution: "rename" | "replace" | "skip",
+  ) => {
+    if (!conflictInfo) return;
+    applyBulkAction(
+      conflictInfo.action,
+      resolution,
+      conflictInfo.targetFolderId,
+    );
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>, id: string) => {
-    e.preventDefault();
-    if (!draggingId || draggingId === id) return;
-    moveFileLocally(draggingId, id);
-  };
-
-  const handleDragEnd = () => {
-    if (!draggingId) return;
-    persistOrder();
-  };
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes";
+  const formatFileSize = (bytes: string) => {
+    const size = Number(bytes);
+    if (!Number.isFinite(size) || size === 0) return "0 Bytes";
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${Math.round((bytes / k ** i) * 100) / 100} ${sizes[i]}`;
+    const i = Math.floor(Math.log(size) / Math.log(k));
+    return `${Math.round((size / k ** i) * 100) / 100} ${sizes[i]}`;
+  };
+
+  const getPreviewPath = (file: File) => {
+    const thumb = file.variants.find((v) => v.name === "thumbnail")?.path;
+    const webp = file.variants.find((v) => v.name === "webp")?.path;
+    const original = file.variants.find((v) => v.name === "original")?.path;
+    return thumb || webp || original || "";
   };
 
   return (
@@ -499,47 +562,165 @@ export default function AdminPanel() {
                     </label>
                   </div>
 
-                  {/* Files List */}
-                  {files.length > 0 ? (
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      <div className="flex items-center justify-between mb-4 text-sm text-gray-500 dark:text-gray-400">
-                        <span>{files.length} files</span>
-                        {isReordering && (
-                          <span className="text-blue-500">Saving order…</span>
-                        )}
+                  {/* Bulk Actions */}
+                  <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                      <span>{files.length} files</span>
+                      <span>•</span>
+                      <span>{selectedIds.size} selected</span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={selectAll}
+                        className="px-3 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                      >
+                        Select all
+                      </button>
+                      <button
+                        onClick={clearSelection}
+                        className="px-3 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+                      >
+                        Clear
+                      </button>
+
+                      <select
+                        value={actionTargetFolderId || ""}
+                        onChange={(e) =>
+                          setActionTargetFolderId(e.target.value || null)
+                        }
+                        className="px-3 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="">Target folder...</option>
+                        {folders
+                          .filter((folder) => folder.id !== activeFolder)
+                          .map((folder) => (
+                            <option key={folder.id} value={folder.id}>
+                              {folder.name}
+                            </option>
+                          ))}
+                      </select>
+
+                      <button
+                        onClick={() => applyBulkAction("copy")}
+                        disabled={
+                          selectedIds.size === 0 ||
+                          !actionTargetFolderId ||
+                          isBulkWorking
+                        }
+                        className="px-3 py-1.5 text-xs rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 disabled:opacity-50"
+                      >
+                        <FiCopy className="inline mr-1" /> Copy
+                      </button>
+                      <button
+                        onClick={() => applyBulkAction("move")}
+                        disabled={
+                          selectedIds.size === 0 ||
+                          !actionTargetFolderId ||
+                          isBulkWorking
+                        }
+                        className="px-3 py-1.5 text-xs rounded bg-blue-600 text-white disabled:opacity-50"
+                      >
+                        <FiMove className="inline mr-1" /> Move
+                      </button>
+                      <button
+                        onClick={() => applyBulkAction("delete")}
+                        disabled={selectedIds.size === 0 || isBulkWorking}
+                        className="px-3 py-1.5 text-xs rounded bg-red-600 text-white disabled:opacity-50"
+                      >
+                        <FiTrash2 className="inline mr-1" /> Delete
+                      </button>
+                    </div>
+                  </div>
+
+                  {conflictInfo && (
+                    <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 text-yellow-900 p-3 text-sm">
+                      <p className="font-semibold mb-2">
+                        Conflicts detected in target folder.
+                      </p>
+                      <div className="max-h-28 overflow-y-auto mb-3">
+                        <ul className="list-disc list-inside">
+                          {conflictInfo.conflicts.map((conflict) => (
+                            <li key={conflict.fileId}>{conflict.fileName}</li>
+                          ))}
+                        </ul>
                       </div>
-                      {files.map((file) => (
-                        <div
-                          key={file.id}
-                          draggable
-                          onDragStart={() => handleDragStart(file.id)}
-                          onDragOver={(e) => handleDragOver(e, file.id)}
-                          onDragEnd={handleDragEnd}
-                          className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
-                            draggingId === file.id
-                              ? "bg-blue-50 dark:bg-blue-900/30 border-blue-400"
-                              : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
-                          }`}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => resolveConflicts("rename")}
+                          className="px-3 py-1.5 text-xs rounded bg-yellow-600 text-white"
                         >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <FiMove className="text-gray-400" />
-                            <div className="min-w-0">
-                              <p className="font-medium text-gray-900 dark:text-white truncate">
+                          Auto-rename
+                        </button>
+                        <button
+                          onClick={() => resolveConflicts("replace")}
+                          className="px-3 py-1.5 text-xs rounded bg-red-600 text-white"
+                        >
+                          Replace
+                        </button>
+                        <button
+                          onClick={() => resolveConflicts("skip")}
+                          className="px-3 py-1.5 text-xs rounded bg-gray-200 text-gray-900"
+                        >
+                          Skip conflicts
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Files Grid */}
+                  {files.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 max-h-[520px] overflow-y-auto pr-1">
+                      {files.map((file) => {
+                        const selected = selectedIds.has(file.id);
+                        const preview = getPreviewPath(file);
+                        return (
+                          <button
+                            key={file.id}
+                            type="button"
+                            onClick={() => toggleSelect(file.id)}
+                            className={`relative text-left rounded-lg overflow-hidden border transition-all group ${
+                              selected
+                                ? "border-blue-500 ring-2 ring-blue-400"
+                                : "border-gray-200 dark:border-gray-700"
+                            }`}
+                          >
+                            <div className="aspect-square bg-gray-100 dark:bg-gray-900">
+                              {preview ? (
+                                <img
+                                  src={preview}
+                                  alt={file.fileName}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">
+                                  No preview
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="p-2">
+                              <p className="text-xs font-medium text-gray-900 dark:text-white truncate">
                                 {file.fileName}
                               </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {formatFileSize(Number(file.fileSize))} • {file.fileType}
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                                {formatFileSize(file.fileSize)} • {file.fileType}
                               </p>
                             </div>
-                          </div>
-                          <button
-                            onClick={() => deleteFile(file.id)}
-                            className="text-red-500 hover:text-red-600 ml-2"
-                          >
-                            <FiTrash2 size={16} />
+
+                            <div
+                              className={`absolute top-2 left-2 h-5 w-5 rounded-full border flex items-center justify-center text-[10px] ${
+                                selected
+                                  ? "bg-blue-600 border-blue-500 text-white"
+                                  : "bg-white/80 border-gray-300 text-gray-700"
+                              }`}
+                            >
+                              {selected ? "✓" : ""}
+                            </div>
                           </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="text-center text-gray-500 dark:text-gray-400 py-8">

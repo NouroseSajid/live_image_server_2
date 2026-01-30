@@ -6,6 +6,9 @@ import { getServerSession } from "next-auth/next";
 import prisma from "../../../../prisma/client";
 import { authOptions } from "../../auth/[...nextauth]/route";
 
+const publicPathToAbsolute = (publicPath: string) =>
+  join(process.cwd(), "public", publicPath.replace(/^\/+/, ""));
+
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -20,27 +23,23 @@ export async function DELETE(
   try {
     const file = await prisma.file.findUnique({
       where: { id },
+      include: { variants: true },
     });
 
     if (!file) {
       return new NextResponse("File not found", { status: 404 });
     }
 
-    // Try to delete file from disk
-    try {
-      const filePath = join(
-        process.cwd(),
-        "public",
-        "uploads",
-        file.folderId,
-        file.fileName,
-      );
-      if (existsSync(filePath)) {
-        await unlink(filePath);
+    // Try to delete variants from disk
+    for (const variant of file.variants) {
+      if (!variant.path.startsWith("/images/")) continue;
+      const absPath = publicPathToAbsolute(variant.path);
+      if (!existsSync(absPath)) continue;
+      try {
+        await unlink(absPath);
+      } catch (e) {
+        console.error("Error deleting variant from disk:", e);
       }
-    } catch (e) {
-      console.error("Error deleting file from disk:", e);
-      // Continue even if file deletion fails
     }
 
     // Delete from database

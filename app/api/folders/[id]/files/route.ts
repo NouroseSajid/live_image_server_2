@@ -22,6 +22,7 @@ export async function GET(
     const { id } = await params;
     const files = await prisma.file.findMany({
       where: { folderId: id },
+      include: { variants: true },
     });
 
     files.sort((a, b) => {
@@ -34,6 +35,10 @@ export async function GET(
     const serialized = files.map((file) => ({
       ...file,
       fileSize: file.fileSize.toString(),
+      variants: file.variants.map((variant) => ({
+        ...variant,
+        size: variant.size.toString(),
+      })),
     }));
 
     return NextResponse.json(serialized);
