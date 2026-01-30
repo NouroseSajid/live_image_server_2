@@ -6,7 +6,7 @@ import { authOptions } from "../../auth/[...nextauth]/route";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
 
@@ -15,8 +15,9 @@ export async function GET(
   }
 
   try {
+    const { id } = await params;
     const folder = await prisma.folder.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
 
     if (!folder) {
@@ -32,7 +33,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
 
@@ -41,6 +42,7 @@ export async function PUT(
   }
 
   try {
+    const { id } = await params;
     const body = await request.json();
     let {
       name,
@@ -58,7 +60,7 @@ export async function PUT(
 
     // Fetch the existing folder to compare name changes
     const existingFolder = await prisma.folder.findUnique({
-      where: { id: params.id },
+      where: { id },
     });
     if (!existingFolder) {
       return new NextResponse("Folder not found", { status: 404 });
@@ -71,7 +73,7 @@ export async function PUT(
       let counter = 1;
       while (
         await prisma.folder.findFirst({
-          where: { uniqueUrl: slug, id: { not: params.id } },
+          where: { uniqueUrl: slug, id: { not: id } },
         })
       ) {
         slug = `${baseSlug}-${counter}`;
@@ -81,7 +83,7 @@ export async function PUT(
     } else if (uniqueUrl && uniqueUrl !== existingFolder.uniqueUrl) {
       // If uniqueUrl is provided and changed, ensure it's unique (excluding current folder)
       const conflictFolder = await prisma.folder.findFirst({
-        where: { uniqueUrl, id: { not: params.id } },
+        where: { uniqueUrl, id: { not: id } },
       });
       if (conflictFolder) {
         return new NextResponse("Unique URL already exists", { status: 409 });
@@ -89,7 +91,7 @@ export async function PUT(
     }
 
     const updatedFolder = await prisma.folder.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name,
         isPrivate,
@@ -110,7 +112,7 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await getServerSession(authOptions);
 
@@ -119,8 +121,9 @@ export async function DELETE(
   }
 
   try {
+    const { id } = await params;
     await prisma.folder.delete({
-      where: { id: params.id },
+      where: { id },
     });
 
     return new NextResponse(null, { status: 204 });

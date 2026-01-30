@@ -42,6 +42,8 @@ export default function FolderEditorModal({
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [accessLinkToken, setAccessLinkToken] = useState<string | null>(null);
+  const [isGeneratingAccessLink, setIsGeneratingAccessLink] = useState(false);
 
   // Focus on close button for accessibility
   useEffect(() => {
@@ -100,6 +102,48 @@ export default function FolderEditorModal({
       setError(message);
     } finally {
       setThumbnailUploading(false);
+    }
+  };
+
+  const getOrigin = () =>
+    typeof window !== "undefined" ? window.location.origin : "";
+
+  const buildAccessLinkUrl = (token: string) =>
+    `${getOrigin()}/?t=${encodeURIComponent(token)}`;
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      setError("Failed to copy link");
+      console.error("Clipboard copy failed:", err);
+    }
+  };
+
+  const generateAccessLink = async () => {
+    setIsGeneratingAccessLink(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/access-links", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folderId: folder.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || "Failed to create access link");
+      }
+      const link = await res.json();
+      if (link?.token) {
+        setAccessLinkToken(link.token);
+        await copyToClipboard(buildAccessLinkUrl(link.token));
+      } else {
+        setError("No token returned");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create access link");
+    } finally {
+      setIsGeneratingAccessLink(false);
     }
   };
 
@@ -295,6 +339,40 @@ export default function FolderEditorModal({
                 </div>
               </label>
             </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Access Link
+              </p>
+              {accessLinkToken ? (
+                <div className="text-xs text-gray-600 dark:text-gray-400 break-all">
+                  {buildAccessLinkUrl(accessLinkToken)}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Generate a one-time access link for this folder.
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={generateAccessLink}
+                  disabled={isGeneratingAccessLink}
+                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600"
+                >
+                  {isGeneratingAccessLink ? "Generating…" : "Generate Access Link"}
+                </button>
+                {accessLinkToken && (
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(buildAccessLinkUrl(accessLinkToken))}
+                    className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600"
+                  >
+                    Copy Access Link
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Security */}
@@ -308,7 +386,7 @@ export default function FolderEditorModal({
                 Access Passphrase (Optional)
               </label>
               <input
-                type="password"
+                type="text"
                 name="passphrase"
                 value={formData.passphrase}
                 onChange={handleChange}

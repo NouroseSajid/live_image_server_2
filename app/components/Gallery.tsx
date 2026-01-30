@@ -98,7 +98,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
 
   // Fetch folders with SWR (auto-retry, caching, revalidation)
   const { data: foldersData, error: foldersError } =
-    useFetch<Folder[]>("/api/folders");
+    useFetch<Folder[]>("/api/folders?scope=public");
 
   // Update local state when SWR data changes
   useEffect(() => {

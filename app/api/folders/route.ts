@@ -5,14 +5,20 @@ import slugify from "slugify";
 import prisma from "../../../prisma/client";
 import { authOptions } from "../auth/[...nextauth]/route";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
+  const scope = request.nextUrl.searchParams.get("scope");
 
   try {
-    // Always return visible folders to all users; include privacy flags so the client can prompt for passphrases.
-    // Admins still see hidden folders for management.
+    // Public scope should always hide non-visible folders, even for admins.
+    // Admins (no scope) see all folders for management.
     const folders = await prisma.folder.findMany({
-      where: !session || !session.user ? { visible: true } : undefined,
+      where:
+        scope === "public"
+          ? { visible: true }
+          : !session || !session.user
+            ? { visible: true }
+            : undefined,
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
