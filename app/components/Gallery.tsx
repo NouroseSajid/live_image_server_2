@@ -71,6 +71,25 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   const BATCH_SIZE = 20;
   const { containerRef, width } = useContainerWidth();
 
+  const redirectToMain = (message?: string, clearFolderId?: string) => {
+    if (clearFolderId) {
+      setFolderPassphrases((prev) => {
+        const next = { ...prev };
+        delete next[clearFolderId];
+        return next;
+      });
+    }
+    setActiveFolder("all");
+    setPassphraseModal(null);
+    setPassphraseError("");
+    if (message) {
+      setError(message);
+    }
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, "", "/");
+    }
+  };
+
   const { images, setImages, isLoading, hasMore } = useImageFetch({
     activeFolder,
     offset,
@@ -79,11 +98,16 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     folderPassphrases,
     passphraseModal,
     onPassphraseRequired: (folderId, folderName) => {
+      const attemptedPassphrase = folderPassphrases[folderId];
       setFolderPassphrases((prev) => {
         const next = { ...prev };
         delete next[folderId];
         return next;
       });
+      if (attemptedPassphrase) {
+        redirectToMain("Wrong passphrase. Redirected to the main page.");
+        return;
+      }
       setPassphraseModal({ folderId, name: folderName });
       setPassphraseError("Passphrase required");
     },
@@ -490,8 +514,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
             setPassphraseError("");
           }}
           onCancel={() => {
-            setPassphraseModal(null);
-            setPassphraseError("");
+            redirectToMain(undefined, passphraseModal.folderId);
           }}
         />
       )}
