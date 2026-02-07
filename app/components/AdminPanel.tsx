@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   FiEdit2,
   FiFolder,
@@ -73,6 +73,19 @@ export default function AdminPanel() {
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [_uploadedFile, _setUploadedFile] = useState<File | null>(null);
+  const [allThumbnailUrl, setAllThumbnailUrl] = useState<string | null>(null);
+  const [allThumbnailUploading, setAllThumbnailUploading] = useState(false);
+  const [allThumbnailFile, setAllThumbnailFile] = useState<File | null>(null);
+  const [allThumbnailPreview, setAllThumbnailPreview] = useState<string | null>(null);
+  const [folderMaxAgeMinutes, setFolderMaxAgeMinutes] = useState<
+    Record<string, number | null>
+  >({});
+  const [filterTargetId, setFilterTargetId] = useState<string>("all");
+  const [filterMinutes, setFilterMinutes] = useState<number>(5);
+  const [filterNoLimit, setFilterNoLimit] = useState<boolean>(true);
+  const [filterSaving, setFilterSaving] = useState(false);
+  const [draggedFolderId, setDraggedFolderId] = useState<string | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
   // Clear error/success messages after 5 seconds
   useEffect(() => {
@@ -119,6 +132,33 @@ export default function AdminPanel() {
     fetchFolders();
   }, [fetchFolders]);
 
+  useEffect(() => {
+    const fetchGalleryConfig = async () => {
+      try {
+        const res = await fetch("/api/gallery-config");
+        if (res.ok) {
+          const data = await res.json();
+          setAllThumbnailUrl(data?.allFolderThumbnailUrl ?? null);
+          setFolderMaxAgeMinutes(data?.folderMaxAgeMinutes ?? {});
+        }
+      } catch (err) {
+        console.error("Failed to fetch gallery config", err);
+      }
+    };
+    fetchGalleryConfig();
+  }, []);
+
+  useEffect(() => {
+    const current = folderMaxAgeMinutes?.[filterTargetId] ?? null;
+    if (current === null || current === undefined) {
+      setFilterNoLimit(true);
+      setFilterMinutes(5);
+    } else {
+      setFilterNoLimit(false);
+      setFilterMinutes(current);
+    }
+  }, [folderMaxAgeMinutes, filterTargetId]);
+
   // Fetch files when active folder changes
   useEffect(() => {
     if (activeFolder) {
@@ -158,6 +198,133 @@ export default function AdminPanel() {
       setError(err instanceof Error ? err.message : "Error creating folder");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAllThumbnailSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAllThumbnailFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAllThumbnailPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadAllThumbnail = async () => {
+    if (!allThumbnailFile) {
+      setError("Select an image for the All folder thumbnail first");
+      return;
+    }
+    try {
+      setAllThumbnailUploading(true);
+      setError(null);
+      const formData = new FormData();
+      formData.append("file", allThumbnailFile);
+      const res = await fetch("/api/gallery-config/thumbnail", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || "Failed to upload thumbnail");
+      }
+      const data = await res.json();
+      setAllThumbnailUrl(data?.allFolderThumbnailUrl ?? null);
+      setAllThumbnailFile(null);
+      setAllThumbnailPreview(null);
+      setSuccess("All folder thumbnail updated");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload thumbnail");
+    } finally {
+      setAllThumbnailUploading(false);
+    }
+  };
+
+  const saveFolderAgeFilter = async () => {
+    try {
+      setFilterSaving(true);
+      setError(null);
+      const nextMap = {
+        ...folderMaxAgeMinutes,
+        [filterTargetId]: filterNoLimit ? null : Math.max(1, filterMinutes),
+      };
+
+      const res = await fetch("/api/gallery-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          allFolderThumbnailUrl: allThumbnailUrl,
+          folderMaxAgeMinutes: nextMap,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || "Failed to save time filter");
+      }
+
+      setFolderMaxAgeMinutes(nextMap);
+      setSuccess("Gallery time filter updated");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save time filter");
+    } finally {
+      setFilterSaving(false);
+    }
+  };
+
+  const saveFolderOrder = async (orderedFolders: Folder[]) => {
+    try {
+      const order = orderedFolders.map((f) => f.id);
+      const res = await fetch("/api/gallery-config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folderOrder: order }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || "Failed to save folder order");
+      }
+
+      setSuccess("Folder order saved");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save folder order");
+    }
+  };
+
+  const reorderFolders = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    const current = [...folders];
+    const fromIndex = current.findIndex((f) => f.id === fromId);
+    const toIndex = current.findIndex((f) => f.id === toId);
+    if (fromIndex === -1 || toIndex === -1) return;
+    const [moved] = current.splice(fromIndex, 1);
+    current.splice(toIndex, 0, moved);
+    setFolders(current);
+    saveFolderOrder(current);
+  };
+
+  const setAsFolderThumbnail = async (fileId: string) => {
+    if (!activeFolder) return;
+    try {
+      setError(null);
+      const res = await fetch(`/api/folders/${activeFolder}/thumbnail/set`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileId }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || "Failed to set folder thumbnail");
+      }
+
+      setSuccess("Folder thumbnail updated");
+      fetchFolders();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to set folder thumbnail");
     }
   };
 
@@ -436,6 +603,118 @@ export default function AdminPanel() {
                 </h2>
               </div>
 
+              {/* All Folder Thumbnail */}
+              <div className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-semibold text-gray-900 dark:text-white">
+                    All Folder Thumbnail
+                  </p>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Used on the main gallery
+                  </span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-24 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                    {allThumbnailPreview || allThumbnailUrl ? (
+                      <img
+                        src={allThumbnailPreview || allThumbnailUrl || ""}
+                        alt="All folder thumbnail preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs text-gray-400">No thumbnail</span>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAllThumbnailSelect}
+                      className="block w-full text-xs text-gray-600 dark:text-gray-300 file:mr-4 file:py-2 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-gray-100 dark:file:bg-gray-700 file:text-gray-700 dark:file:text-gray-200"
+                    />
+                    <button
+                      onClick={uploadAllThumbnail}
+                      disabled={allThumbnailUploading || !allThumbnailFile}
+                      className="mt-3 px-3 py-1.5 text-xs rounded bg-gray-900 text-white disabled:opacity-50"
+                    >
+                      {allThumbnailUploading ? "Uploading..." : "Upload"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Gallery Time Filter */}
+              <div className="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="font-semibold text-gray-900 dark:text-white">
+                    Gallery Time Filter
+                  </p>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    Show only recent images
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-xs text-gray-600 dark:text-gray-300">
+                    Folder
+                  </label>
+                  <select
+                    value={filterTargetId}
+                    onChange={(e) => setFilterTargetId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
+                    <option value="all">All (main page)</option>
+                    {folders.map((folder) => (
+                      <option key={folder.id} value={folder.id}>
+                        {folder.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      checked={filterNoLimit}
+                      onChange={(e) => setFilterNoLimit(e.target.checked)}
+                    />
+                    No time filter
+                  </label>
+
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={1}
+                      max={120}
+                      step={1}
+                      value={filterMinutes}
+                      onChange={(e) => setFilterMinutes(Number(e.target.value))}
+                      disabled={filterNoLimit}
+                      className="flex-1"
+                    />
+                    <input
+                      type="number"
+                      min={1}
+                      max={120}
+                      value={filterMinutes}
+                      onChange={(e) => setFilterMinutes(Number(e.target.value))}
+                      disabled={filterNoLimit}
+                      className="w-20 px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      minutes
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={saveFolderAgeFilter}
+                    disabled={filterSaving}
+                    className="px-3 py-1.5 text-xs rounded bg-gray-900 text-white disabled:opacity-50"
+                  >
+                    {filterSaving ? "Saving..." : "Save filter"}
+                  </button>
+                </div>
+              </div>
+
               {/* Create Folder */}
               <div className="mb-6">
                 <input
@@ -469,10 +748,35 @@ export default function AdminPanel() {
                   folders.map((folder) => (
                     <div
                       key={folder.id}
+                      draggable
+                      onDragStart={() => setDraggedFolderId(folder.id)}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        if (dragOverFolderId !== folder.id) {
+                          setDragOverFolderId(folder.id);
+                        }
+                      }}
+                      onDragLeave={() => {
+                        if (dragOverFolderId === folder.id) {
+                          setDragOverFolderId(null);
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedFolderId) {
+                          reorderFolders(draggedFolderId, folder.id);
+                        }
+                        setDraggedFolderId(null);
+                        setDragOverFolderId(null);
+                      }}
                       className={`p-3 rounded-lg cursor-pointer transition-colors ${
                         activeFolder === folder.id
                           ? "bg-blue-50 dark:bg-blue-900/30 border border-blue-500"
                           : "bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600"
+                      } ${
+                        dragOverFolderId === folder.id
+                          ? "ring-2 ring-blue-400"
+                          : ""
                       }`}
                       onClick={() => setActiveFolder(folder.id)}
                     >
@@ -718,6 +1022,18 @@ export default function AdminPanel() {
                             >
                               {selected ? "✓" : ""}
                             </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setAsFolderThumbnail(file.id);
+                              }}
+                              className="absolute top-2 right-2 px-2 py-1 text-[10px] rounded bg-black/70 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Set as folder thumbnail"
+                            >
+                              Set thumbnail
+                            </button>
                           </button>
                         );
                       })}

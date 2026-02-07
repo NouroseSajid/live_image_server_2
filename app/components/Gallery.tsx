@@ -32,6 +32,7 @@ interface FetchedImage {
   category: string;
   title: string;
   meta: string;
+  createdAt?: string;
 }
 interface Folder {
   id: string;
@@ -39,9 +40,20 @@ interface Folder {
   isPrivate?: boolean;
   passphrase?: string | null;
   inGridView?: boolean;
+  thumbnail?: {
+    id: string;
+    variants: Array<{
+      path: string;
+    }>;
+  } | null;
   _count?: {
     files: number;
   };
+}
+
+interface GalleryConfig {
+  allFolderThumbnailUrl: string | null;
+  folderMaxAgeMinutes?: Record<string, number | null>;
 }
 
 interface GalleryProps {
@@ -61,6 +73,10 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     id: string;
     totalFiles: number;
   } | null>(null);
+  const [allFolderThumbnailUrl, setAllFolderThumbnailUrl] = useState<string | null>(null);
+  const [folderMaxAgeMinutes, setFolderMaxAgeMinutes] = useState<
+    Record<string, number | null>
+  >({});
   const [error, setError] = useState<string | null>(null);
   const [folderPassphrases, setFolderPassphrases] = useState<Record<string, string>>({});
   const [passphraseModal, setPassphraseModal] = useState<{
@@ -114,7 +130,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     onError: setError,
   });
 
-  const { sentinelRef } = useInfiniteScroll({
+  const { sentinelRef, triggerLoadMore } = useInfiniteScroll({
     isLoading,
     hasMore,
     onLoadMore: () => setOffset((prev) => prev + BATCH_SIZE),
@@ -123,6 +139,10 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   // Fetch folders with SWR (auto-retry, caching, revalidation)
   const { data: foldersData, error: foldersError } =
     useFetch<Folder[]>("/api/folders?scope=public");
+
+  const { data: galleryConfigData } = useFetch<GalleryConfig>(
+    "/api/gallery-config",
+  );
 
   // Update local state when SWR data changes
   useEffect(() => {
@@ -133,6 +153,13 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
       setError("Failed to load folders. Retrying automatically...");
     }
   }, [foldersData, foldersError]);
+
+  useEffect(() => {
+    if (galleryConfigData) {
+      setAllFolderThumbnailUrl(galleryConfigData.allFolderThumbnailUrl ?? null);
+      setFolderMaxAgeMinutes(galleryConfigData.folderMaxAgeMinutes ?? {});
+    }
+  }, [galleryConfigData]);
 
   // Parse URL params and restore passphrase/token state from storage or URL
   useEffect(() => {
@@ -265,6 +292,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
                 category: newFile.folderId,
                 title: newFile.fileName,
                 meta: `${newFile.width ?? "?"}x${newFile.height ?? "?"}`,
+                createdAt: newFile.createdAt || new Date().toISOString(),
               };
 
               // Add to the beginning of images array (newest first)
@@ -311,14 +339,23 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     };
   }, []);
 
-  // Filter images by folder
-  const filteredImages = useMemo(
-    () =>
+  const maxAgeMinutes = folderMaxAgeMinutes?.[activeFolder] ?? null;
+
+  // Filter images by folder and optional age limit
+  const filteredImages = useMemo(() => {
+    const base =
       activeFolder === "all"
         ? images
-        : images.filter((i) => i.folderId === activeFolder),
-    [images, activeFolder],
-  );
+        : images.filter((i) => i.folderId === activeFolder);
+
+    if (!maxAgeMinutes || maxAgeMinutes <= 0) return base;
+    const cutoff = Date.now() - maxAgeMinutes * 60 * 1000;
+    return base.filter((i) => {
+      if (!i.createdAt) return true;
+      const created = new Date(i.createdAt).getTime();
+      return Number.isFinite(created) ? created >= cutoff : true;
+    });
+  }, [images, activeFolder, maxAgeMinutes]);
 
   // Transform raw images to processed format for buildRows
   const processedImages = useMemo(() => {
@@ -399,8 +436,15 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   };
 
   const categories = useMemo(() => {
-    return [{ id: "all", name: "All" }, ...folders];
-  }, [folders]);
+    const allCategory = {
+      id: "all",
+      name: "All",
+      thumbnail: allFolderThumbnailUrl
+        ? { id: "all", variants: [{ path: allFolderThumbnailUrl }] }
+        : null,
+    };
+    return [allCategory, ...folders];
+  }, [folders, allFolderThumbnailUrl]);
 
   const handleSelectCategory = (folderId: string) => {
     if (folderId === "all") {
@@ -524,11 +568,11 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         (() => {
           const idx = processedImages.findIndex((i) => i.id === lightboxImg.id);
           const hasImages = processedImages.length > 0 && idx !== -1;
-          const nextImage = hasImages
-            ? processedImages[(idx + 1) % processedImages.length]
+          const nextImage = hasImages && idx + 1 < processedImages.length
+            ? processedImages[idx + 1]
             : null;
-          const prevImage = hasImages
-            ? processedImages[(idx - 1 + processedImages.length) % processedImages.length]
+          const prevImage = hasImages && idx - 1 >= 0
+            ? processedImages[idx - 1]
             : null;
 
           return (
@@ -539,17 +583,23 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
             const idx = processedImages.findIndex(
               (i) => i.id === lightboxImg.id,
             );
-            setLightboxImg(processedImages[(idx + 1) % processedImages.length]);
+            const next = idx + 1;
+            if (next < processedImages.length) {
+              setLightboxImg(processedImages[next]);
+              return;
+            }
+            if (hasMore && !isLoading) {
+              triggerLoadMore();
+            }
           }}
           onPrev={() => {
             const idx = processedImages.findIndex(
               (i) => i.id === lightboxImg.id,
             );
-            setLightboxImg(
-              processedImages[
-                (idx - 1 + processedImages.length) % processedImages.length
-              ],
-            );
+            const prev = idx - 1;
+            if (prev >= 0) {
+              setLightboxImg(processedImages[prev]);
+            }
           }}
           nextImage={nextImage}
           prevImage={prevImage}
@@ -764,10 +814,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         />
       )}
 
-      <style>{`
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
     </div>
   );
 }

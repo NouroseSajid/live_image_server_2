@@ -17,6 +17,7 @@ interface FetchedImage {
   category: string;
   title: string;
   meta: string;
+  createdAt?: string;
 }
 
 interface Folder {

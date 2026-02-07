@@ -35,7 +35,7 @@ export default function CategoryNavigation({
   return (
     <div className="space-y-4 mb-8">
       {/* Folder Pills with Thumbnails */}
-      <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide snap-x">
+      <div className="flex gap-3 overflow-x-auto pb-3 snap-x">
         {categories.map((cat) => {
           const thumbnailPath = cat.thumbnail?.variants?.[0]?.path;
           const isActive = activeFolder === cat.id;

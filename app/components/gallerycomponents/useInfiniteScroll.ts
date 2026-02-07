@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 interface UseInfiniteScrollOptions {
   isLoading: boolean;
@@ -13,11 +13,17 @@ export function useInfiniteScroll({
 }: UseInfiniteScrollOptions) {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  const triggerLoadMore = useCallback(() => {
+    if (!isLoading && hasMore) {
+      onLoadMore();
+    }
+  }, [isLoading, hasMore, onLoadMore]);
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && !isLoading && hasMore) {
-          onLoadMore();
+        if (entries[0].isIntersecting) {
+          triggerLoadMore();
         }
       },
       { threshold: 0.1 },
@@ -30,7 +36,7 @@ export function useInfiniteScroll({
     return () => {
       observer.disconnect();
     };
-  }, [isLoading, hasMore, onLoadMore]);
+  }, [triggerLoadMore]);
 
-  return { sentinelRef };
+  return { sentinelRef, triggerLoadMore };
 }
