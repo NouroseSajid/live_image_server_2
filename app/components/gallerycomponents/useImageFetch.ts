@@ -55,6 +55,7 @@ export function useImageFetch({
   const [images, setImages] = useState<FetchedImage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const lastLoadedFolderRef = useRef<string | null>(null);
   
   // Use refs to access folders and passphrases without triggering re-fetches
   const foldersRef = useRef(folders);
@@ -71,8 +72,8 @@ export function useImageFetch({
   }, [folders, folderPassphrases, onError, onPassphraseRequired]);
 
   useEffect(() => {
-    // Don't fetch if offset is 0 and images already loaded (prevent duplicate first fetch)
-    if (offset === 0 && images.length > 0) {
+    // Don't fetch if offset is 0 and images already loaded for the same folder
+    if (offset === 0 && images.length > 0 && lastLoadedFolderRef.current === activeFolder) {
       return;
     }
 
@@ -105,6 +106,7 @@ export function useImageFetch({
           const data: FetchedImage[] = await res.json();
           if (offset === 0) {
             setImages(data);
+            lastLoadedFolderRef.current = activeFolder;
           } else {
             setImages((prev) => [...prev, ...data]);
           }

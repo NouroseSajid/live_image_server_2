@@ -31,6 +31,8 @@ export default function AdminFolders() {
   const [_updating, setUpdating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [generatingLinkId, setGeneratingLinkId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
   const [accessLinks, setAccessLinks] = useState<Record<string, string>>({});
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error";
@@ -102,6 +104,46 @@ export default function AdminFolders() {
     } else {
       console.error("Failed to fetch folders");
     }
+  };
+
+  const saveFolderOrder = async (nextFolders: Folder[]) => {
+    setSavingOrder(true);
+    setStatusMessage(null);
+    try {
+      const res = await fetch("/api/folders/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folderIds: nextFolders.map((f) => f.id) }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || "Failed to save order");
+      }
+      setStatusMessage({ type: "success", text: "Folder order saved" });
+    } catch (err) {
+      setStatusMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to save order",
+      });
+    } finally {
+      setSavingOrder(false);
+    }
+  };
+
+  const handleDrop = (targetId: string) => {
+    const sourceId = draggingId;
+    setDraggingId(null);
+    if (!sourceId || sourceId === targetId) return;
+
+    const fromIndex = folders.findIndex((f) => f.id === sourceId);
+    const toIndex = folders.findIndex((f) => f.id === targetId);
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    const next = [...folders];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setFolders(next);
+    saveFolderOrder(next);
   };
 
   const handleCreateFolder = async (e: React.FormEvent) => {
@@ -339,15 +381,37 @@ export default function AdminFolders() {
 
       <section className="mb-8">
         <h2 className="text-xl font-medium mb-3">Existing Folders</h2>
+        {savingOrder && (
+          <div className="text-sm text-muted-foreground mb-2">Saving order…</div>
+        )}
         <ul className="space-y-2 max-w-3xl">
           {folders.map((folder) => (
             <li
               key={folder.id}
               className="flex items-center justify-between gap-4 p-3 rounded"
               style={{ backgroundColor: "var(--admin-card)" }}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                setDraggingId(folder.id);
+              }}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                handleDrop(folder.id);
+              }}
+              onDragEnd={() => setDraggingId(null)}
             >
               <div>
-                <div className="font-medium">{folder.name}</div>
+                <div className="font-medium flex items-center gap-2">
+                  <span className="cursor-move select-none" aria-hidden>
+                    ⋮⋮
+                  </span>
+                  {folder.name}
+                </div>
                 <div className="text-sm text-muted-foreground">
                   {folder.uniqueUrl}
                 </div>

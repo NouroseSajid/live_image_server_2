@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -19,6 +19,18 @@ export async function GET(request: NextRequest) {
       const data = await readFile(configPath, "utf-8");
       const parsed = JSON.parse(data);
       return Array.isArray(parsed?.folderOrder) ? parsed.folderOrder : [];
+    } catch {
+      return [] as string[];
+    }
+  };
+
+  const readFolderOrderFromDb = async () => {
+    try {
+      const rows = await prisma.folderOrder.findMany({
+        orderBy: { position: "asc" },
+        select: { folderId: true },
+      });
+      return rows.map((row) => row.folderId);
     } catch {
       return [] as string[];
     }
@@ -61,13 +73,17 @@ export async function GET(request: NextRequest) {
         },
       },
     });
-    const order = await readFolderOrder();
+    const dbOrder = await readFolderOrderFromDb();
+    const order = dbOrder.length ? dbOrder : await readFolderOrder();
     if (order.length) {
       const orderMap = new Map(order.map((id, index) => [id, index]));
+      const fallbackIndex = new Map(folders.map((f, idx) => [f.id, idx]));
       const sorted = [...folders].sort((a, b) => {
         const aIndex = orderMap.get(a.id);
         const bIndex = orderMap.get(b.id);
-        if (aIndex === undefined && bIndex === undefined) return 0;
+        if (aIndex === undefined && bIndex === undefined) {
+          return (fallbackIndex.get(a.id) ?? 0) - (fallbackIndex.get(b.id) ?? 0);
+        }
         if (aIndex === undefined) return 1;
         if (bIndex === undefined) return -1;
         return aIndex - bIndex;

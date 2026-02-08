@@ -12,12 +12,30 @@ export function useInfiniteScroll({
   onLoadMore,
 }: UseInfiniteScrollOptions) {
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const isLoadingRef = useRef(isLoading);
+  const hasMoreRef = useRef(hasMore);
+  const loadLockRef = useRef(false);
 
   const triggerLoadMore = useCallback(() => {
-    if (!isLoading && hasMore) {
+    if (!isLoadingRef.current) {
+      loadLockRef.current = false;
+    }
+    if (!loadLockRef.current && !isLoadingRef.current && hasMoreRef.current) {
+      loadLockRef.current = true;
       onLoadMore();
     }
-  }, [isLoading, hasMore, onLoadMore]);
+  }, [onLoadMore]);
+
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+    if (!isLoading) {
+      loadLockRef.current = false;
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
+    hasMoreRef.current = hasMore;
+  }, [hasMore]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(

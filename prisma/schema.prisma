@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
@@ -31,10 +31,22 @@ model Folder {
   accessLinks       AccessLink[]
   downloadJobs      DownloadJob[]
   files             File[]
+  folderOrder       FolderOrder?
   thumbnail         File?         @relation("FolderThumbnail", fields: [folderThumbnailId], references: [id])
 
   @@index([createdAt])
   @@index([visible])
+}
+
+model FolderOrder {
+  id        String   @id @default(cuid())
+  folderId  String   @unique
+  position  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  folder    Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([position])
 }
 
 model File {
