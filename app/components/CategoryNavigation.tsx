@@ -111,13 +111,14 @@ export default function CategoryNavigation({
   // 2. Auto-open group if active folder is inside it, close others
   useEffect(() => {
     const current = categories.find((cat) => cat.id === activeFolder);
-    if (current?.group?.id) {
+    const groupId = current?.group?.id;
+    if (groupId) {
       setOpenGroups((prev) => {
         const newState: Record<string, boolean> = {};
         for (const key in prev) {
           newState[key] = false;
         }
-        newState[current.group.id] = true;
+        newState[groupId] = true;
         return newState;
       });
     } else {
