@@ -2,13 +2,13 @@
 
 import { AlertCircle, Check, UploadCloud, X } from "lucide-react";
 import Image from "next/image";
-import { useUploads } from "@/app/lib/useUploads";
+import { type Upload, useUploads } from "@/app/lib/useUploads";
 
 const UploadToast = () => {
   const uploads = useUploads((state) => state.uploads);
   const remove = useUploads((state) => state.remove);
 
-  const getThumbnail = (upload) => {
+  const getThumbnail = (upload: Upload) => {
     if (upload.file.type.startsWith("image/")) {
       return (
         <Image
@@ -103,14 +103,12 @@ const UploadToast = () => {
                   Error: {upload.error}
                 </p>
               )}
-              {upload.status !== "error" && ( // Only show progress bar if not in error state
+              {upload.status !== "error" && (
                 <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-600 mt-1">
                   <div
                     style={{ width: `${upload.progress}%` }}
                     className={`absolute left-0 top-0 h-full transition-all ${
-                      upload.status === "error"
-                        ? "bg-red-500"
-                        : upload.status === "success"
+                      upload.status === "success"
                           ? "bg-green-500"
                           : "bg-gradient-to-r from-blue-400 to-blue-600"
                     }`}

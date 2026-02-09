@@ -32,7 +32,13 @@ export const metadata: Metadata = {
     follow: true,
     nocache: true,
     noimageindex: true,
-    // Block AI bots and crawlers
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
+  other: {
     "googlebot-news": "noindex",
     "bingbot": "noindex",
   },

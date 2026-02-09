@@ -13,12 +13,16 @@ export async function GET(request: NextRequest) {
   const scope = request.nextUrl.searchParams.get("scope");
 
   const configPath = join(process.cwd(), "gallery-config.json");
+  const normalizeOrder = (value: unknown): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value.filter((item): item is string => typeof item === "string");
+  };
   const readFolderOrder = async () => {
     try {
       if (!existsSync(configPath)) return [] as string[];
       const data = await readFile(configPath, "utf-8");
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed?.folderOrder) ? parsed.folderOrder : [];
+      return normalizeOrder(parsed?.folderOrder);
     } catch {
       return [] as string[];
     }
@@ -55,6 +59,14 @@ export async function GET(request: NextRequest) {
         passphrase: true,
         uniqueUrl: true,
         inGridView: true,
+        groupId: true,
+        group: {
+          select: {
+            id: true,
+            name: true,
+            position: true,
+          },
+        },
         thumbnail: {
           select: {
             id: true,
@@ -76,7 +88,9 @@ export async function GET(request: NextRequest) {
     const dbOrder = await readFolderOrderFromDb();
     const order = dbOrder.length ? dbOrder : await readFolderOrder();
     if (order.length) {
-      const orderMap = new Map(order.map((id, index) => [id, index]));
+      const orderMap = new Map<string, number>(
+        order.map((id, index) => [id, index]),
+      );
       const fallbackIndex = new Map(folders.map((f, idx) => [f.id, idx]));
       const sorted = [...folders].sort((a, b) => {
         const aIndex = orderMap.get(a.id);
@@ -114,6 +128,7 @@ export async function POST(request: Request) {
       uniqueUrl,
       passphrase,
       inGridView,
+      groupId,
       folderThumbnailId,
     } = body;
 
@@ -154,6 +169,7 @@ export async function POST(request: Request) {
         uniqueUrl,
         passphrase,
         inGridView: inGridView || false,
+        groupId: groupId || null,
         folderThumbnailId,
       },
     });

@@ -11,12 +11,24 @@ interface Folder {
   passphrase: string | null;
   inGridView: boolean;
   folderThumb: string | null;
+  groupId?: string | null;
+  group?: {
+    id: string;
+    name: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
 
+interface FolderGroup {
+  id: string;
+  name: string;
+  position?: number;
+}
+
 export default function AdminFolders() {
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [groups, setGroups] = useState<FolderGroup[]>([]);
   const [newFolder, setNewFolder] = useState({
     name: "",
     isPrivate: true,
@@ -25,7 +37,11 @@ export default function AdminFolders() {
     passphrase: "",
     inGridView: false,
     folderThumb: "",
+    groupId: "",
   });
+  const [newGroupName, setNewGroupName] = useState("");
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [creating, setCreating] = useState(false);
   const [_updating, setUpdating] = useState(false);
@@ -38,10 +54,6 @@ export default function AdminFolders() {
     type: "success" | "error";
     text: string;
   } | null>(null);
-
-  useEffect(() => {
-    fetchFolders();
-  }, [fetchFolders]);
 
   const getOrigin = () =>
     typeof window !== "undefined" ? window.location.origin : "";
@@ -106,6 +118,80 @@ export default function AdminFolders() {
     }
   };
 
+  const fetchGroups = async () => {
+    const res = await fetch("/api/folder-groups");
+    if (res.ok) {
+      const data = await res.json();
+      setGroups(data);
+    } else {
+      console.error("Failed to fetch folder groups");
+    }
+  };
+
+  useEffect(() => {
+    fetchFolders();
+  }, [fetchFolders]);
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  const handleCreateGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatusMessage(null);
+    if (!newGroupName.trim()) {
+      setStatusMessage({ type: "error", text: "Group name is required" });
+      return;
+    }
+    setCreatingGroup(true);
+    const res = await fetch("/api/folder-groups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newGroupName.trim() }),
+    });
+    if (res.ok) {
+      const created = await res.json();
+      setGroups((prev) => [...prev, created]);
+      setNewGroupName("");
+      setStatusMessage({ type: "success", text: "Group created" });
+    } else {
+      let errText = "Failed to create group";
+      try {
+        const err = await res.json();
+        if (err?.error) errText = err.error;
+      } catch {
+        const text = await res.text();
+        if (text) errText = text;
+      }
+      setStatusMessage({ type: "error", text: errText });
+    }
+    setCreatingGroup(false);
+  };
+
+  const handleDeleteGroup = async (id: string) => {
+    setStatusMessage(null);
+    setDeletingGroupId(id);
+    const res = await fetch(`/api/folder-groups/${id}`,
+      { method: "DELETE" },
+    );
+    if (res.ok) {
+      setGroups((prev) => prev.filter((g) => g.id !== id));
+      setStatusMessage({ type: "success", text: "Group deleted" });
+      await fetchFolders();
+    } else {
+      let errText = "Failed to delete group";
+      try {
+        const err = await res.json();
+        if (err?.error) errText = err.error;
+      } catch {
+        const text = await res.text();
+        if (text) errText = text;
+      }
+      setStatusMessage({ type: "error", text: errText });
+    }
+    setDeletingGroupId(null);
+  };
+
   const saveFolderOrder = async (nextFolders: Folder[]) => {
     setSavingOrder(true);
     setStatusMessage(null);
@@ -154,12 +240,16 @@ export default function AdminFolders() {
       return;
     }
     setCreating(true);
+    const payload = {
+      ...newFolder,
+      groupId: newFolder.groupId || null,
+    };
     const res = await fetch("/api/folders", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(newFolder),
+      body: JSON.stringify(payload),
     });
     if (res.ok) {
       const created = await res.json();
@@ -175,6 +265,7 @@ export default function AdminFolders() {
         passphrase: "",
         inGridView: false,
         folderThumb: "",
+        groupId: "",
       });
       await fetchFolders();
     } else {
@@ -337,6 +428,26 @@ export default function AdminFolders() {
             }
           />
 
+          <select
+            className="border rounded px-3 py-2 md:col-span-2"
+            style={{
+              backgroundColor: "var(--admin-card)",
+              color: "var(--admin-text)",
+              borderColor: "var(--admin-border)",
+            }}
+            value={newFolder.groupId}
+            onChange={(e) =>
+              setNewFolder({ ...newFolder, groupId: e.target.value })
+            }
+          >
+            <option value="">No group</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}
+              </option>
+            ))}
+          </select>
+
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -380,6 +491,60 @@ export default function AdminFolders() {
       </section>
 
       <section className="mb-8">
+        <h2 className="text-xl font-medium mb-3">Folder Groups</h2>
+        <form onSubmit={handleCreateGroup} className="flex gap-3 max-w-3xl">
+          <input
+            className="border rounded px-3 py-2 flex-1"
+            style={{
+              backgroundColor: "var(--admin-card)",
+              color: "var(--admin-text)",
+              borderColor: "var(--admin-border)",
+            }}
+            type="text"
+            placeholder="New group name"
+            value={newGroupName}
+            onChange={(e) => setNewGroupName(e.target.value)}
+          />
+          <button
+            type="submit"
+            className="px-4 py-2 rounded"
+            style={{
+              backgroundColor: "var(--admin-primary)",
+              color: "var(--admin-primary-foreground)",
+            }}
+            disabled={creatingGroup}
+          >
+            {creatingGroup ? "Creating…" : "Create Group"}
+          </button>
+        </form>
+
+        <ul className="mt-4 space-y-2 max-w-3xl">
+          {groups.length === 0 ? (
+            <li className="text-sm text-muted-foreground">No groups yet</li>
+          ) : (
+            groups.map((group) => (
+              <li
+                key={group.id}
+                className="flex items-center justify-between gap-3 p-3 rounded"
+                style={{ backgroundColor: "var(--admin-card)" }}
+              >
+                <span className="font-medium">{group.name}</span>
+                <button
+                  type="button"
+                  className="px-2 py-1 rounded border text-red-600"
+                  onClick={() => handleDeleteGroup(group.id)}
+                  style={{ borderColor: "var(--admin-border)" }}
+                  disabled={deletingGroupId === group.id}
+                >
+                  {deletingGroupId === group.id ? "Deleting…" : "Delete"}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      </section>
+
+      <section className="mb-8">
         <h2 className="text-xl font-medium mb-3">Existing Folders</h2>
         {savingOrder && (
           <div className="text-sm text-muted-foreground mb-2">Saving order…</div>
@@ -417,6 +582,9 @@ export default function AdminFolders() {
                 </div>
                 <div className="text-xs text-muted-foreground">
                   Passphrase: {folder.passphrase || "(none)"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Group: {folder.group?.name || "(none)"}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   Share: {buildShareLinks(folder).base}
@@ -582,6 +750,28 @@ export default function AdminFolders() {
                 })
               }
             />
+            <select
+              className="border rounded px-3 py-2 md:col-span-2"
+              style={{
+                backgroundColor: "var(--admin-card)",
+                color: "var(--admin-text)",
+                borderColor: "var(--admin-border)",
+              }}
+              value={editingFolder.groupId || ""}
+              onChange={(e) =>
+                setEditingFolder({
+                  ...editingFolder,
+                  groupId: e.target.value || null,
+                })
+              }
+            >
+              <option value="">No group</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
             <div className="md:col-span-2 text-sm text-muted-foreground">
               Share link: {buildShareLinks(editingFolder).base}
             </div>

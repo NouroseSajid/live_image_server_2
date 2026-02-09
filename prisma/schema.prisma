@@ -24,6 +24,7 @@ model Folder {
   uniqueUrl         String        @unique
   passphrase        String?
   inGridView        Boolean       @default(false)
+  groupId           String?
   folderThumbnailId String?       @unique
   deletedAt         DateTime?
   createdAt         DateTime      @default(now())
@@ -32,10 +33,45 @@ model Folder {
   downloadJobs      DownloadJob[]
   files             File[]
   folderOrder       FolderOrder?
+  galleryOrderItem  GalleryOrderItem?
+  group             FolderGroup?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
   thumbnail         File?         @relation("FolderThumbnail", fields: [folderThumbnailId], references: [id])
 
   @@index([createdAt])
+  @@index([groupId])
   @@index([visible])
+}
+
+model FolderGroup {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  folders   Folder[]
+  orderItem GalleryOrderItem?
+
+  @@index([name])
+  @@index([position])
+}
+
+model GalleryOrderItem {
+  id        String           @id @default(cuid())
+  type      GalleryOrderType
+  position  Int
+  folderId  String?          @unique
+  groupId   String?          @unique
+  folder    Folder?          @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  group     FolderGroup?     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([position])
+}
+
+enum GalleryOrderType {
+  folder
+  group
 }
 
 model FolderOrder {

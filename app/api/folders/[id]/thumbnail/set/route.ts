@@ -5,8 +5,9 @@ import { authOptions } from "../../../../auth/[...nextauth]/route";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user) {
@@ -24,7 +25,7 @@ export async function POST(
       );
     }
 
-    const folder = await prisma.folder.findUnique({ where: { id: params.id } });
+    const folder = await prisma.folder.findUnique({ where: { id } });
     if (!folder) {
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
@@ -34,7 +35,7 @@ export async function POST(
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
 
-    if (file.folderId !== params.id) {
+    if (file.folderId !== id) {
       return NextResponse.json(
         { error: "File does not belong to this folder" },
         { status: 400 },
@@ -42,7 +43,7 @@ export async function POST(
     }
 
     const updated = await prisma.folder.update({
-      where: { id: params.id },
+      where: { id },
       data: { folderThumbnailId: fileId },
     });
 

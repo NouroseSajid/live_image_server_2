@@ -9,8 +9,9 @@ import { authOptions } from "../../../auth/[...nextauth]/route";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const { id } = await params;
   const session = await getServerSession(authOptions);
 
   if (!session || !session.user) {
@@ -26,7 +27,7 @@ export async function POST(
     }
 
     // Verify folder exists
-    const folder = await prisma.folder.findUnique({ where: { id: params.id } });
+    const folder = await prisma.folder.findUnique({ where: { id } });
     if (!folder) {
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
@@ -58,9 +59,9 @@ export async function POST(
     const existingFile = await prisma.file.findFirst({ where: { hash } });
     if (existingFile) {
       // If it's already being used as a thumbnail, update the folder to use it
-      if (existingFile.folderId === params.id) {
+      if (existingFile.folderId === id) {
         await prisma.folder.update({
-          where: { id: params.id },
+          where: { id },
           data: { folderThumbnailId: existingFile.id },
         });
         return NextResponse.json(
@@ -85,7 +86,7 @@ export async function POST(
       process.cwd(),
       "public",
       "images",
-      params.id,
+      id,
     );
 
     if (fileType === "image") {
@@ -147,22 +148,22 @@ export async function POST(
           height: imageHeight,
           fileSize: BigInt(buffer.length),
           fileType,
-          folderId: params.id,
+          folderId: id,
           variants: {
             create: [
               {
                 name: "original",
-                path: `/images/${params.id}/original/${fileName.replace(/\\/g, "/")}`,
+                path: `/images/${id}/original/${fileName.replace(/\\/g, "/")}`,
                 size: BigInt(originalStats.size),
               },
               {
                 name: "webp",
-                path: `/images/${params.id}/webp/${`${fileBaseName}.webp`.replace(/\\/g, "/")}`,
+                path: `/images/${id}/webp/${`${fileBaseName}.webp`.replace(/\\/g, "/")}`,
                 size: BigInt(webpStats.size),
               },
               {
                 name: "thumbnail",
-                path: `/images/${params.id}/thumbs/${`${fileBaseName}_thumb.webp`.replace(/\\/g, "/")}`,
+                path: `/images/${id}/thumbs/${`${fileBaseName}_thumb.webp`.replace(/\\/g, "/")}`,
                 size: BigInt(thumbStats.size),
               },
             ],
@@ -173,7 +174,7 @@ export async function POST(
 
       // Update the folder to use this file as its thumbnail
       await prisma.folder.update({
-        where: { id: params.id },
+        where: { id },
         data: { folderThumbnailId: newFile.id },
       });
 
@@ -204,12 +205,12 @@ export async function POST(
           hash,
           fileSize: BigInt(buffer.length),
           fileType,
-          folderId: params.id,
+          folderId: id,
           variants: {
             create: [
               {
                 name: "original",
-                path: `/images/${params.id}/original/${fileName.replace(/\\/g, "/")}`,
+                path: `/images/${id}/original/${fileName.replace(/\\/g, "/")}`,
                 size: BigInt(originalStats.size),
               },
             ],
@@ -220,7 +221,7 @@ export async function POST(
 
       // Update the folder to use this file as its thumbnail
       await prisma.folder.update({
-        where: { id: params.id },
+        where: { id },
         data: { folderThumbnailId: newFile.id },
       });
 

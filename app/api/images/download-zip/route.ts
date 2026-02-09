@@ -115,7 +115,12 @@ export async function POST(req: NextRequest) {
           size: fileSize,
         };
       })
-      .filter(Boolean);
+      .filter(
+        (
+          file,
+        ): file is { fileName: string; filePath: string; size: number } =>
+          Boolean(file),
+      );
 
     if (filesWithPaths.length === 0) {
       return NextResponse.json(

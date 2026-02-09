@@ -40,6 +40,12 @@ interface Folder {
   isPrivate?: boolean;
   passphrase?: string | null;
   inGridView?: boolean;
+  groupId?: string | null;
+  group?: {
+    id: string;
+    name: string;
+    position?: number;
+  } | null;
   thumbnail?: {
     id: string;
     variants: Array<{
@@ -54,6 +60,11 @@ interface Folder {
 interface GalleryConfig {
   allFolderThumbnailUrl: string | null;
   folderMaxAgeMinutes?: Record<string, number | null>;
+}
+
+interface GalleryOrderItem {
+  type: "folder" | "group";
+  id: string;
 }
 
 interface GalleryProps {
@@ -136,7 +147,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     onLoadMore: () => setOffset((prev) => prev + BATCH_SIZE),
   });
 
-  // Fetch folders with SWR (auto-retry, caching, revalidation)
   const { data: foldersData, error: foldersError } =
     useFetch<Folder[]>("/api/folders?scope=public");
 
@@ -144,7 +154,10 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     "/api/gallery-config",
   );
 
-  // Update local state when SWR data changes
+  const { data: galleryOrderData } = useFetch<GalleryOrderItem[]>(
+    "/api/gallery-order",
+  );
+
   useEffect(() => {
     if (foldersData) {
       setFolders(foldersData);
@@ -161,7 +174,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     }
   }, [galleryConfigData]);
 
-  // Parse URL params and restore passphrase/token state from storage or URL
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -170,7 +182,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     const passphraseParam = params.get("p");
     const tokenParam = params.get("t") || params.get("token");
 
-    // Restore from sessionStorage (set by /f/[slug] page)
     try {
       const sessionStored = sessionStorage.getItem("folderPassphrases");
       if (sessionStored) {
@@ -187,7 +198,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
       window.history.replaceState({}, "", `?f=${id}`);
     };
 
-    // Token flow: validate and set cookie, then activate folder
     const maybeValidateToken = async () => {
       if (!tokenParam) return;
       try {
@@ -209,11 +219,9 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
       return;
     }
 
-    // If folder param in URL, auto-select it
     if (folderParam) {
       applyFolder(folderParam);
 
-      // If passphrase in URL, add it to state and clean the URL
       if (passphraseParam) {
         setFolderPassphrases((prev) => ({
           ...prev,
@@ -224,7 +232,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     }
   }, []);
 
-  // Hydrate stored passphrases from localStorage (per-folder caching)
   useEffect(() => {
     try {
       const cached = localStorage.getItem("folderPassphrases");
@@ -236,7 +243,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     }
   }, []);
 
-  // Persist passphrases when they change
   useEffect(() => {
     try {
       localStorage.setItem("folderPassphrases", JSON.stringify(folderPassphrases));
@@ -245,13 +251,11 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     }
   }, [folderPassphrases]);
 
-  // WebSocket connection for live updates
   useEffect(() => {
     let ws: WebSocket | null = null;
 
     const connectWebSocket = async () => {
       try {
-        // Fetch the WebSocket URL from config endpoint
         const configRes = await fetch("/api/config");
         const config = await configRes.json();
         const wsUrl = config.wsUrl || "ws://localhost:8080";
@@ -264,18 +268,16 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
 
         ws.onmessage = async (event) => {
           try {
-            // Handle both string and Blob messages (Cloudflare Tunnel sends Blobs)
             let data = event.data;
             if (data instanceof Blob) {
               data = await data.text();
             }
-            
+
             const message = JSON.parse(data);
             if (message.type === "new-file" && message.payload) {
               const newFile = message.payload;
               console.log("[Gallery] Received new file:", newFile.fileName);
-              
-              // Transform the file to match our FetchedImage format
+
               const newImage: FetchedImage = {
                 id: newFile.id,
                 fileName: newFile.fileName,
@@ -295,7 +297,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
                 createdAt: newFile.createdAt || new Date().toISOString(),
               };
 
-              // Add to the beginning of images array (newest first)
               setImages((prev) => [newImage, ...prev]);
             }
           } catch (error) {
@@ -324,13 +325,11 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     };
   }, [setImages]);
 
-  // Reset offset and selection when changing folder
   useEffect(() => {
     setOffset(0);
     setSelectedIds(new Set());
   }, [activeFolder]);
 
-  // Handle scroll
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
@@ -341,7 +340,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
 
   const maxAgeMinutes = folderMaxAgeMinutes?.[activeFolder] ?? null;
 
-  // Filter images by folder and optional age limit
   const filteredImages = useMemo(() => {
     const base =
       activeFolder === "all"
@@ -357,25 +355,20 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     });
   }, [images, activeFolder, maxAgeMinutes]);
 
-  // Transform raw images to processed format for buildRows
   const processedImages = useMemo(() => {
     return filteredImages.map((image) => {
       const isVideo = image.fileType === "video";
       const thumbnailVariant =
         image.variants.find((v) => v.name === "thumbnail") ||
         image.variants.find((v) => v.name === "thumb");
-      
+
       const webpVariant = image.variants.find((v) => v.name === "webp");
       const originalVariant = image.variants.find((v) => v.name === "original");
 
-      // Convert database paths to API route URLs
-      // Database paths are like: /images/folderId/thumbs/filename.webp
-      // We need to convert to: /api/serve/folderId/thumbs/filename.webp
       const convertToApiRoute = (dbPath?: string) => {
         if (!dbPath) return dbPath;
-        if (dbPath.startsWith("/icons/")) return dbPath; // Keep placeholder icons as-is
-        
-        // Replace /images/ with /api/serve/
+        if (dbPath.startsWith("/icons/")) return dbPath;
+
         return dbPath.replace(/^\/images\//, "/api/serve/");
       };
 
@@ -389,7 +382,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         : convertToApiRoute(thumbnailVariant?.path) ||
           convertToApiRoute(image.variants[0]?.path) ||
           "/icons/video-placeholder.svg";
-      
+
       const lightboxUrl = convertToApiRoute(webpVariant?.path) ||
         convertToApiRoute(originalVariant?.path) ||
         convertToApiRoute(image.variants[0]?.path) ||
@@ -399,13 +392,11 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         id: image.id,
         width: image.width ?? 1920,
         height: image.height ?? 1080,
-        // Use compressed thumbnail for grid via API route (bypasses Next.js caching)
         url: thumbnailUrl,
         thumbnailUrl,
         videoUrl,
         isVideo,
         mimeType: image.mimeType,
-        // Prefer webp for lightbox display; fall back to original
         originalUrl: isVideo ? videoUrl || lightboxUrl : lightboxUrl,
         category: image.folderId,
         title: image.fileName,
@@ -449,7 +440,9 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   const handleSelectCategory = (folderId: string) => {
     if (folderId === "all") {
       setActiveFolder(folderId);
-      // Update URL to home
+      if (typeof window !== "undefined") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
       if (typeof window !== "undefined") {
         window.history.replaceState({}, "", "/");
       }
@@ -461,7 +454,9 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
       const existing = folderPassphrases[folderId] || "";
       if (existing) {
         setActiveFolder(folderId);
-        // Update URL with folder slug
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
         if (typeof window !== "undefined" && folder) {
           window.history.replaceState({}, "", `?f=${folder.id}`);
         }
@@ -473,42 +468,57 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     }
 
     setActiveFolder(folderId);
-    // Update URL with folder slug
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
     if (typeof window !== "undefined" && folder) {
       window.history.replaceState({}, "", `?f=${folder.id}`);
     }
   };
   return (
-    <div className="min-h-screen bg-transparent text-zinc-100 font-sans selection:bg-blue-500/30 pb-24">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] font-sans selection:bg-[var(--primary)]/20 pb-24">
       {/* Header */}
 
       <main ref={containerRef} className="max-w-[1400px] mx-auto px-6 mt-8">
         {/* Error Message */}
         {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 flex items-center gap-3">
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-600 flex items-center gap-3">
             <MdInfo className="text-xl flex-shrink-0" />
             <p>{error}</p>
             <button
               type="button"
               onClick={() => setError(null)}
-              className="ml-auto text-red-300 hover:text-red-100 transition-colors"
+              className="ml-auto text-red-600 hover:text-red-700 transition-colors"
             >
               ✕
             </button>
           </div>
         )}
 
-        {/* Category Navigation */}
         <CategoryNavigation
           categories={categories}
+          orderItems={galleryOrderData || null}
           activeFolder={activeFolder}
           onSelectCategory={handleSelectCategory}
-          totalImages={processedImages.length}
-          selectedCount={selectedIds.size}
-          onSelectAll={handleSelectAll}
         />
 
-        {/* The Grid */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-lg font-semibold text-[var(--foreground)]">
+              Latest uploads
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSelectAll}
+            className="text-[11px] font-semibold uppercase tracking-wider text-[var(--foreground)]/80 hover:text-[var(--foreground)] transition-colors px-4 py-1.5 rounded-full border border-[var(--foreground)]/20 hover:border-[var(--foreground)]/40 hover:bg-[var(--foreground)]/10"
+          >
+            {selectedIds.size === processedImages.length
+              ? "Deselect All"
+              : "Select All"}
+          </button>
+        </div>
+
         <ImageGrid
           rows={rows}
           selectedIds={selectedIds}
@@ -516,29 +526,24 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
           onOpenImage={setLightboxImg}
         />
 
-        {/* Infinite Scroll Sentinel */}
         <div ref={sentinelRef} className="h-4" />
 
-        {/* Loading Indicator */}
         {isLoading && (
           <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            <span className="ml-3 text-gray-400">Loading more images...</span>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--foreground)]/60"></div>
+            <span className="ml-3 text-[var(--foreground)]/60">Loading more images...</span>
           </div>
         )}
 
-        {/* No More Images Message */}
         {!hasMore && processedImages.length > 0 && (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-[var(--foreground)]/60">
             <p>No more images to load</p>
           </div>
         )}
       </main>
 
-      {/* Error Display */}
       {error && <ErrorDisplay error={error} onClose={() => setError(null)} />}
 
-      {/* Passphrase Modal */}
       {passphraseModal && (
         <PassphraseModal
           folderName={passphraseModal.name}
@@ -549,7 +554,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
               [passphraseModal.folderId]: passphrase,
             }));
             setActiveFolder(passphraseModal.folderId);
-            // Update URL after successful passphrase
             if (typeof window !== "undefined") {
               window.history.replaceState({}, "", `?f=${passphraseModal.folderId}`);
             }
@@ -563,7 +567,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         />
       )}
 
-      {/* Lightbox Modal */}
       {lightboxImg && (
         (() => {
           const idx = processedImages.findIndex((i) => i.id === lightboxImg.id);
@@ -611,7 +614,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         })()
       )}
 
-      {/* Contextual Action Bar */}
       <ActionBar
         selectedCount={selectedIds.size}
         mediumQualitySize={Array.from(selectedIds).reduce((acc, id) => {
@@ -652,7 +654,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         isDownloading={isDownloading}
       />
 
-      {/* Quality Selection Modal */}
       <QualityModal
         isOpen={showQualityModal}
         onSelect={async (quality) => {
@@ -674,17 +675,15 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
                 imageIds: Array.from(selectedIds),
                 quality,
               }),
-              signal: AbortSignal.timeout(20 * 60 * 1000), // 20 minute client timeout
+              signal: AbortSignal.timeout(20 * 60 * 1000),
             });
 
             console.log(
               `[Download] Response received: status=${response.status}`,
             );
 
-            // Get download ID from response headers
             const downloadId = response.headers.get("X-Download-ID") || `dl-${Date.now()}`;
-            
-            // Show progress UI
+
             setDownloadProgress({
               id: downloadId,
               totalFiles: selectedIds.size,
@@ -703,7 +702,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
               return;
             }
 
-            // Check content type
             const contentType = response.headers.get("content-type");
             console.log(`[Download] Content-Type: ${contentType}`);
             if (!contentType?.includes("application/zip")) {
@@ -717,7 +715,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
               `[Download] Blob received: ${(blob.size / 1024 / 1024).toFixed(1)}MB`,
             );
 
-            // Validate blob size
             if (blob.size === 0) {
               setError("Downloaded file is empty. Please try again.");
               return;
@@ -728,28 +725,25 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
             a.href = url;
             a.download = "selected_images.zip";
             document.body.appendChild(a);
-            
+
             console.log("[Download] Triggering browser download...");
             a.click();
 
-            // Cleanup
             setTimeout(() => {
               window.URL.revokeObjectURL(url);
               a.remove();
             }, 100);
 
-            // Clear selection after download initiated
             setSelectedIds(new Set());
             setError(null);
             setShowQualityModal(false);
 
             const sizeStr = (blob.size / 1024 / 1024).toFixed(1);
-            
+
             console.log(
               `[Download] Success! File size: ${sizeStr}MB`,
             );
 
-            // Keep progress UI visible for 2 seconds after completion
             setTimeout(() => {
               setDownloadProgress(null);
             }, 2000);

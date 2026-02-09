@@ -51,6 +51,7 @@ export async function PUT(
       uniqueUrl,
       passphrase,
       inGridView,
+      groupId,
       folderThumbnailId,
     } = body;
 
@@ -99,6 +100,7 @@ export async function PUT(
         uniqueUrl,
         passphrase,
         inGridView,
+        groupId: groupId || null,
         folderThumbnailId,
       },
     });

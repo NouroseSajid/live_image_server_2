@@ -4,6 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { FiEye, FiEyeOff, FiLock, FiSave, FiUnlock, FiX } from "react-icons/fi";
 import axios from "axios";
 
+export interface FolderUpdate {
+  name: string;
+  uniqueUrl: string;
+  isPrivate: boolean;
+  visible: boolean;
+  passphrase: string | null;
+  inGridView: boolean;
+  folderThumbnailId?: string | null;
+  groupId?: string | null;
+}
+
 interface FolderEditorModalProps {
   folder: {
     id: string;
@@ -14,14 +25,17 @@ interface FolderEditorModalProps {
     passphrase: string | null;
     inGridView: boolean;
     folderThumbnailId?: string | null;
+    groupId?: string | null;
   };
+  groups: Array<{ id: string; name: string }>;
   onClose: () => void;
-  onSave: (updated: Partial<Folder>) => Promise<void>;
+  onSave: (updated: Partial<FolderUpdate>) => Promise<void>;
   isLoading: boolean;
 }
 
 export default function FolderEditorModal({
   folder,
+  groups,
   onClose,
   onSave,
   isLoading,
@@ -35,6 +49,7 @@ export default function FolderEditorModal({
     visible: folder.visible,
     passphrase: folder.passphrase || "",
     inGridView: folder.inGridView,
+    groupId: folder.groupId || "",
   });
 
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +66,9 @@ export default function FolderEditorModal({
   }, []);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
   ) => {
     const { name, value, type } = e.target;
     setFormData((prev) => ({
@@ -183,7 +200,11 @@ export default function FolderEditorModal({
     }
 
     try {
-      await onSave(formData);
+      const payload = {
+        ...formData,
+        groupId: formData.groupId || null,
+      };
+      await onSave(payload);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
@@ -373,6 +394,28 @@ export default function FolderEditorModal({
                 )}
               </div>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Folder Group
+            </label>
+            <select
+              name="groupId"
+              value={formData.groupId}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="">No group</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Organize folders into named groups on the main page
+            </p>
           </div>
 
           {/* Security */}
