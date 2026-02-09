@@ -79,6 +79,7 @@ export default function DownloadProgress({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="text-zinc-500 hover:text-white transition-colors"
             aria-label="Close progress"
@@ -120,6 +121,8 @@ export default function DownloadProgress({
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
+              role="img"
+              aria-label="Download complete"
             >
               <path
                 strokeLinecap="round"

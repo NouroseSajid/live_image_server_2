@@ -169,7 +169,7 @@ export default function useFolderOrdering({
       setOrderItems(currentOrder);
       setIsOrderDirty(true);
     },
-    [effectiveOrderItems, setOrderItems],
+    [effectiveOrderItems],
   );
 
   const saveCurrentOrder = useCallback(async () => {

@@ -7,13 +7,13 @@ import Gallery from "../../components/Gallery";
 export default function FolderPage() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const router = useRouter();
+  const _router = useRouter();
   const slug = params.slug as string;
 
   const passphrase = searchParams.get("p");
 
   const [folderId, setFolderId] = useState<string | null>(null);
-  const [folderName, setFolderName] = useState<string | null>(null);
+  const [_folderName, setFolderName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 

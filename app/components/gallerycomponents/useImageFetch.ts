@@ -129,13 +129,13 @@ export function useImageFetch({
     };
 
     fetchImages();
-  }, [offset, activeFolder, passphraseModal, batchSize]);
+  }, [offset, activeFolder, passphraseModal, batchSize, hasMore, images.length]);
 
   // Reset when changing folder
   useEffect(() => {
     setImages([]);
     setHasMore(true);
-  }, [activeFolder]);
+  }, []);
 
   return { images, setImages, isLoading, hasMore };
 }

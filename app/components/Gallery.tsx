@@ -328,7 +328,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   useEffect(() => {
     setOffset(0);
     setSelectedIds(new Set());
-  }, [activeFolder]);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);

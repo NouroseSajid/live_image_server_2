@@ -44,7 +44,7 @@ export default function useAdminFiles({
   useEffect(() => {
     setSelectedIds(new Set());
     setActionTargetFolderId(null);
-  }, [activeFolder, files.length]);
+  }, []);
 
   const clearFiles = () => setFiles([]);
 

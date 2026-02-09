@@ -72,7 +72,6 @@ export default function PassphraseModal({
               onChange={(e) => setInput(e.target.value)}
               className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white"
               placeholder="••••••••"
-              autoFocus
             />
           </div>
 

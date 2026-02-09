@@ -211,7 +211,7 @@ export default function Lightbox({
   // Reset mute when image changes
   useEffect(() => {
     setIsMuted(true);
-  }, [image?.id]);
+  }, []);
 
   useEffect(() => {
     if (!image || !isVideo(image)) return;
@@ -224,7 +224,7 @@ export default function Lightbox({
         // Autoplay might be blocked; ignore.
       });
     }
-  }, [image?.id]);
+  }, [image?.id, image]);
 
   /* ---------- PRELOAD ---------- */
   useEffect(() => {

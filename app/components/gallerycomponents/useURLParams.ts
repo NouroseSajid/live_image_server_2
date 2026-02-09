@@ -32,7 +32,7 @@ export function useURLParams(
   const [folderPassphrases, setFolderPassphrases] = useState<
     Record<string, string>
   >({});
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

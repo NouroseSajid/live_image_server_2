@@ -102,7 +102,7 @@ export default function FolderEditorModal({
       const formDataToSend = new FormData();
       formDataToSend.append("file", thumbnailFile);
 
-      const res = await axios.post(
+      const _res = await axios.post(
         `/api/folders/${folder.id}/thumbnail`,
         formDataToSend,
       );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface Folder {
   id: string;
@@ -108,7 +108,7 @@ export default function AdminFolders() {
     }
   };
 
-  const fetchFolders = async () => {
+  const fetchFolders = useCallback(async () => {
     const res = await fetch("/api/folders");
     if (res.ok) {
       const data = await res.json();
@@ -116,9 +116,9 @@ export default function AdminFolders() {
     } else {
       console.error("Failed to fetch folders");
     }
-  };
+  }, []);
 
-  const fetchGroups = async () => {
+  const fetchGroups = useCallback(async () => {
     const res = await fetch("/api/folder-groups");
     if (res.ok) {
       const data = await res.json();
@@ -126,7 +126,7 @@ export default function AdminFolders() {
     } else {
       console.error("Failed to fetch folder groups");
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchFolders();
@@ -134,7 +134,7 @@ export default function AdminFolders() {
 
   useEffect(() => {
     fetchGroups();
-  }, []);
+  }, [fetchGroups]);
 
   const handleCreateGroup = async (e: React.FormEvent) => {
     e.preventDefault();

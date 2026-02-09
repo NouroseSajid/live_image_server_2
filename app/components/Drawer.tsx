@@ -22,6 +22,11 @@ const Drawer = ({ isOpen, onClose, navItems, session }: DrawerProps) => {
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1001] transition-opacity duration-300"
           onClick={onClose}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") onClose();
+          }}
+          role="button"
+          tabIndex={0}
         />
       )}
 
@@ -44,6 +49,7 @@ const Drawer = ({ isOpen, onClose, navItems, session }: DrawerProps) => {
             <span className="text-xl font-bold">ImageShare</span>
           </div>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Close menu"
             className="text-[var(--foreground)] text-3xl hover:text-[var(--accent)] transition-colors"
@@ -64,6 +70,7 @@ const Drawer = ({ isOpen, onClose, navItems, session }: DrawerProps) => {
                   Signed in as {session.user?.email}
                 </p>
                 <button
+                  type="button"
                   onClick={() => signOut()}
                   className="w-full p-2 text-center bg-[var(--primary)] text-white rounded-md hover:bg-opacity-90 transition-colors"
                 >
@@ -72,6 +79,7 @@ const Drawer = ({ isOpen, onClose, navItems, session }: DrawerProps) => {
               </>
             ) : (
               <button
+                type="button"
                 onClick={() => signIn("github")}
                 className="w-full p-2 text-center bg-[var(--primary)] text-white rounded-md hover:bg-opacity-90 transition-colors"
               >

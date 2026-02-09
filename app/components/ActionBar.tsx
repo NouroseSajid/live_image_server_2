@@ -57,6 +57,7 @@ export default function ActionBar({
         </div>
 
         <button
+          type="button"
           onClick={handleDownloadAll}
           className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl transition-all hover:bg-white/5 active:scale-95 group text-zinc-400 flex-shrink-0"
           title="Download Selected"

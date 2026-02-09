@@ -8,8 +8,8 @@ import { PrismaClient } from "@prisma/client";
 import archiver from "archiver";
 import { type NextRequest, NextResponse } from "next/server";
 
-const WS_SERVER_HOST = process.env.WS_SERVER_HOST || "localhost";
-const WS_SERVER_PORT = parseInt(process.env.WS_SERVER_PORT || "8080", 10);
+const _WS_SERVER_HOST = process.env.WS_SERVER_HOST || "localhost";
+const _WS_SERVER_PORT = parseInt(process.env.WS_SERVER_PORT || "8080", 10);
 
 // Send download progress to WebSocket server
 function broadcastDownloadProgress(
@@ -35,7 +35,7 @@ function broadcastDownloadProgress(
     },
   });
 
-  req.on("error", (err) => {
+  req.on("error", (_err) => {
     // Silent fail - don't break download if WS broadcast fails
   });
 

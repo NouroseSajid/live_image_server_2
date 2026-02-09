@@ -270,7 +270,7 @@ async function processRawFile(filePath) {
 async function processVideo(filePath, fileTypeResult) {
   const fileName = path.basename(filePath);
   const fileExtension = path.extname(fileName);
-  const fileBaseName = path.basename(fileName, fileExtension);
+  const _fileBaseName = path.basename(fileName, fileExtension);
   log(`Processing video file: ${fileName}`);
   const targetFolderId = liveFolderId;
 

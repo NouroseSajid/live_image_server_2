@@ -198,6 +198,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Type guard: ensure targetFolderId is defined for move/copy actions
+    if ((action === "move" || action === "copy") && typeof targetFolderId !== "string") {
+      return NextResponse.json(
+        { error: "Invalid target folder ID" },
+        { status: 400 },
+      );
+    }
+
     const files = await prisma.file.findMany({
       where: { id: { in: fileIds } },
       include: { variants: true },
@@ -218,8 +226,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ deletedIds: fileIds });
     }
 
+    const safeTargetFolderId = targetFolderId as string;
     const destination = await prisma.folder.findUnique({
-      where: { id: targetFolderId! },
+      where: { id: safeTargetFolderId },
       select: { id: true },
     });
 
@@ -233,7 +242,7 @@ export async function POST(request: NextRequest) {
     const fileNames = files.map((file) => file.fileName);
     const existingInTarget = await prisma.file.findMany({
       where: {
-        folderId: targetFolderId!,
+        folderId: safeTargetFolderId,
         fileName: { in: fileNames },
       },
       select: { id: true, fileName: true },
@@ -300,7 +309,7 @@ export async function POST(request: NextRequest) {
         const updatedPaths = await moveVariantFiles(
           file.variants,
           file.folderId,
-          targetFolderId!,
+          safeTargetFolderId,
           file.fileType,
           newFileName,
         );
@@ -308,7 +317,7 @@ export async function POST(request: NextRequest) {
         await prisma.$transaction([
           prisma.file.update({
             where: { id: file.id },
-            data: { folderId: targetFolderId!, fileName: newFileName },
+            data: { folderId: safeTargetFolderId, fileName: newFileName },
           }),
           ...updatedPaths.map((update) =>
             prisma.variant.updateMany({
@@ -340,7 +349,7 @@ export async function POST(request: NextRequest) {
         await copyVariantFilesAsSymlink(
           file.variants,
           file.folderId,
-          targetFolderId!,
+          safeTargetFolderId,
           file.fileType,
           newFileName,
         );
@@ -348,7 +357,7 @@ export async function POST(request: NextRequest) {
         const newHash = crypto
           .createHash("sha256")
           .update(
-            `${file.hash}:${targetFolderId}:${Date.now()}:${crypto.randomUUID()}`,
+            `${file.hash}:${safeTargetFolderId}:${Date.now()}:${crypto.randomUUID()}`,
           )
           .digest("hex");
 
@@ -362,7 +371,7 @@ export async function POST(request: NextRequest) {
             duration: file.duration,
             fileSize: file.fileSize,
             fileType: file.fileType,
-            folderId: targetFolderId!,
+            folderId: safeTargetFolderId,
             isLive: file.isLive,
             order: 0,
             variants: {
@@ -374,7 +383,7 @@ export async function POST(request: NextRequest) {
                 path: getVariantPathForName(
                   variant.name,
                   file.fileType,
-                  targetFolderId!,
+                  safeTargetFolderId,
                   newFileName,
                   variant.path,
                 ),

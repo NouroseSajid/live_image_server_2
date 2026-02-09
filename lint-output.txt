@@ -1,0 +1,2044 @@
+﻿node.exe : app\components\CategoryNavigation.tsx:115:44 
+lint/style/noNonNullAssertion  FIXABLE  
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Users\Nouro\AppData\Roaming\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (app\components\...ΓöüΓöüΓöüΓöüΓöü 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+  ! Forbidden non-null assertion.
+  
+    113 Γöé     const current = categories.find((cat) => cat.id === 
+activeFolder);
+    114 Γöé     if (current?.group?.id) {
+  > 115 Γöé       setOpenGroups((prev) => ({ ...prev, [current.group!.id]: 
+true }));
+        Γöé                                            ^^^^^^^^^^^^^^
+    116 Γöé     }
+    117 Γöé   }, [activeFolder, categories]);
+  
+  i Unsafe fix: Replace with optional chain operator ?. This operator includes 
+runtime checks, so it is safer than the compile-only non-null assertion 
+operator
+  
+    113 113 Γöé       const current = categories.find((cat) => cat.id === 
+activeFolder);ΓÉì
+    114 114 Γöé       if (current?.group?.id) {ΓÉì
+    115     Γöé - ┬╖┬╖┬╖┬╖┬╖┬╖setOpenGroups((prev)┬╖=>┬╖({┬╖...prev,┬╖[current.
+group!.id]:┬╖true┬╖}));ΓÉì
+        115 Γöé + ┬╖┬╖┬╖┬╖┬╖┬╖setOpenGroups((prev)┬╖=>┬╖({┬╖...prev,┬╖[current.
+group?.id]:┬╖true┬╖}));ΓÉì
+    116 116 Γöé       }ΓÉì
+    117 117 Γöé     }, [activeFolder, categories]);ΓÉì
+  
+
+app\components\CategoryNavigation.tsx:263:36 
+lint/correctness/noUnusedFunctionParameters  FIXABLE  
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! This parameter is unused.
+  
+    262 Γöé           {/* 2. Groups and Standalone Folders */}
+  > 263 Γöé           {orderedItems.map((item, index) => {
+        Γöé                                    ^^^^^
+    264 Γöé             if (item.type === "group") {
+    265 Γöé               return (
+  
+  i Unused parameters might be the result of an incomplete refactoring.
+  
+  i Unsafe fix: If this is intentional, prepend index with an underscore.
+  
+    261 261 Γöé   ΓÉì
+    262 262 Γöé             {/* 2. Groups and Standalone Folders */}ΓÉì
+    263     Γöé - 
+┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖{orderedItems.map((item,┬╖index)┬╖=>┬╖{ΓÉì
+        263 Γöé + 
+┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖{orderedItems.map((item,┬╖_index)┬╖=>┬╖{ΓÉì
+    264 264 Γöé               if (item.type === "group") {ΓÉì
+    265 265 Γöé                 return (ΓÉì
+  
+
+app\components\FolderEditorModal.tsx:475:21 lint/performance/noImgElement 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! Don't use <img> element.
+  
+    473 Γöé                 {thumbnailPreview && (
+    474 Γöé                   <div className="relative w-full h-40 bg-gray-100 
+dark:bg-gray-700 rounded-lg overflow-hidden">
+  > 475 Γöé                     <img
+        Γöé                     ^^^^
+  > 476 Γöé                       src={thumbnailPreview}
+  > 477 Γöé                       alt="Thumbnail preview"
+  > 478 Γöé                       className="w-full h-full object-cover"
+  > 479 Γöé                     />
+        Γöé                     ^^
+    480 Γöé                   </div>
+    481 Γöé                 )}
+  
+  i Using the <img> can lead to slower LCP and higher bandwidth. Consider 
+using <Image /> from next/image to automatically optimize images.
+  
+
+app\components\FolderEditorModal.tsx:105:13 lint/correctness/noUnusedVariables 
+ FIXABLE  ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! This variable res is unused.
+  
+    103 Γöé       formDataToSend.append("file", thumbnailFile);
+    104 Γöé 
+  > 105 Γöé       const res = await axios.post(
+        Γöé             ^^^
+    106 Γöé         `/api/folders/${folder.id}/thumbnail`,
+    107 Γöé         formDataToSend,
+  
+  i Unused variables are often the result of an incomplete refactoring, typos, 
+or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend res with an underscore.
+  
+    103 103 Γöé         formDataToSend.append("file", thumbnailFile);ΓÉì
+    104 104 Γöé   ΓÉì
+    105     Γöé - ┬╖┬╖┬╖┬╖┬╖┬╖const┬╖res┬╖=┬╖await┬╖axios.post(ΓÉì
+        105 Γöé + ┬╖┬╖┬╖┬╖┬╖┬╖const┬╖_res┬╖=┬╖await┬╖axios.post(ΓÉì
+    106 106 Γöé           `/api/folders/${folder.id}/thumbnail`,ΓÉì
+    107 107 Γöé           formDataToSend,ΓÉì
+  
+
+app\components\Gallery.tsx:290:46 lint/suspicious/noExplicitAny ΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöü
+
+  ! Unexpected any. Specify a different type.
+  
+    288 Γöé                 height: newFile.height ?? 1080,
+    289 Γöé                 url:
+  > 290 Γöé                   newFile.variants?.find((v: any) => v.name === 
+"thumbnail")?.path ||
+        Γöé                                              ^^^
+    291 Γöé                   newFile.variants?.find((v: any) => v.name === 
+"thumb")?.path ||
+    292 Γöé                   newFile.variants?.[0]?.path ||
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+app\components\Gallery.tsx:291:46 lint/suspicious/noExplicitAny ΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöü
+
+  ! Unexpected any. Specify a different type.
+  
+    289 Γöé                 url:
+    290 Γöé                   newFile.variants?.find((v: any) => v.name === 
+"thumbnail")?.path ||
+  > 291 Γöé                   newFile.variants?.find((v: any) => v.name === 
+"thumb")?.path ||
+        Γöé                                              ^^^
+    292 Γöé                   newFile.variants?.[0]?.path ||
+    293 Γöé                   "/icons/video-placeholder.svg",
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+app\components\ImageCard.tsx:127:9 lint/performance/noImgElement ΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöü
+
+  ! Don't use <img> element.
+  
+    125 Γöé         />
+    126 Γöé       ) : (
+  > 127 Γöé         <img
+        Γöé         ^^^^
+  > 128 Γöé           src={img.url}
+         ...
+  > 134 Γöé           loading="lazy"
+  > 135 Γöé         />
+        Γöé         ^^
+    136 Γöé       )}
+    137 Γöé 
+  
+  i Using the <img> can lead to slower LCP and higher bandwidth. Consider 
+using <Image /> from next/image to automatically optimize images.
+  
+
+app\components\Lightbox.tsx:164:5 lint/performance/noImgElement ΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöü
+
+  ! Don't use <img> element.
+  
+    162 Γöé   }
+    163 Γöé   return (
+  > 164 Γöé     <img
+        Γöé     ^^^^
+  > 165 Γöé       src={src}
+  > 166 Γöé       alt={item.title || "Preview"}
+  > 167 Γöé       className="max-w-full max-h-[calc(100vh-100px)] 
+sm:max-h-[calc(100vh-120px)] object-contain rounded-lg shadow-2xl"
+  > 168 Γöé       loading={isActive ? "eager" : "lazy"}
+  > 169 Γöé     />
+        Γöé     ^^
+    170 Γöé   );
+    171 Γöé };
+  
+  i Using the <img> can lead to slower LCP and higher bandwidth. Consider 
+using <Image /> from next/image to automatically optimize images.
+  
+
+app\components\Uploader.tsx:13:51 lint/suspicious/noExplicitAny ΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöü
+
+  ! Unexpected any. Specify a different type.
+  
+    11 Γöé   const maxConcurrent = 3;
+    12 Γöé 
+  > 13 Γöé   const handleUpload = useCallback(async (upload: any) => {
+       Γöé                                                   ^^^
+    14 Γöé     update(upload.id, { status: "uploading" });
+    15 Γöé 
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+app\components\Uploader.tsx:30:19 lint/suspicious/noExplicitAny ΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöü
+
+  ! Unexpected any. Specify a different type.
+  
+    29 Γöé       update(upload.id, { status: "success", result: res.data, 
+progress: 100 });
+  > 30 Γöé     } catch (err: any) {
+       Γöé                   ^^^
+    31 Γöé       const error = err.response?.data?.error || err.message;
+    32 Γöé       update(upload.id, { status: "error", error });
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+app\components\admin\FilesPanel.tsx:222:25 lint/performance/noImgElement ΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! Don't use <img> element.
+  
+    220 Γöé                     <div className="aspect-square bg-gray-100 
+dark:bg-gray-900">
+    221 Γöé                       {preview ? (
+  > 222 Γöé                         <img
+        Γöé                         ^^^^
+  > 223 Γöé                           src={preview}
+  > 224 Γöé                           alt={file.fileName}
+  > 225 Γöé                           className="w-full h-full object-cover"
+  > 226 Γöé                           loading="lazy"
+  > 227 Γöé                         />
+        Γöé                         ^^
+    228 Γöé                       ) : (
+    229 Γöé                         <div className="w-full h-full flex 
+items-center justify-center text-xs text-gray-500">
+  
+  i Using the <img> can lead to slower LCP and higher bandwidth. Consider 
+using <Image /> from next/image to automatically optimize images.
+  
+
+app\components\admin\FolderSidebar.tsx:106:15 lint/performance/noImgElement 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! Don't use <img> element.
+  
+    104 Γöé           <div className="w-24 h-16 rounded-lg overflow-hidden 
+bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+    105 Γöé             {allThumbnailPreview || allThumbnailUrl ? (
+  > 106 Γöé               <img
+        Γöé               ^^^^
+  > 107 Γöé                 src={allThumbnailPreview || allThumbnailUrl || ""}
+  > 108 Γöé                 alt="All folder thumbnail preview"
+  > 109 Γöé                 className="w-full h-full object-cover"
+  > 110 Γöé               />
+        Γöé               ^^
+    111 Γöé             ) : (
+    112 Γöé               <span className="text-xs text-gray-400">No 
+thumbnail</span>
+  
+  i Using the <img> can lead to slower LCP and higher bandwidth. Consider 
+using <Image /> from next/image to automatically optimize images.
+  
+
+app\components\gallerycomponents\useURLParams.ts:35:10 
+lint/correctness/noUnusedVariables  FIXABLE  ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! This variable error is unused.
+  
+    33 Γöé     Record<string, string>
+    34 Γöé   >({});
+  > 35 Γöé   const [error, setError] = useState<string | null>(null);
+       Γöé          ^^^^^
+    36 Γöé 
+    37 Γöé   useEffect(() => {
+  
+  i Unused variables are often the result of an incomplete refactoring, typos, 
+or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend error with an underscore.
+  
+     33  33 Γöé       Record<string, string>ΓÉì
+     34  34 Γöé     >({});ΓÉì
+     35     Γöé - 
+┬╖┬╖const┬╖[error,┬╖setError]┬╖=┬╖useState<string┬╖|┬╖null>(null);ΓÉì
+         35 Γöé + 
+┬╖┬╖const┬╖[_error,┬╖setError]┬╖=┬╖useState<string┬╖|┬╖null>(null);ΓÉì
+     36  36 Γöé   ΓÉì
+     37  37 Γöé     useEffect(() => {ΓÉì
+  
+
+app\f\[slug]\page.tsx:10:9 lint/correctness/noUnusedVariables  FIXABLE  ΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! This variable router is unused.
+  
+     8 Γöé   const params = useParams();
+     9 Γöé   const searchParams = useSearchParams();
+  > 10 Γöé   const router = useRouter();
+       Γöé         ^^^^^^
+    11 Γöé   const slug = params.slug as string;
+    12 Γöé 
+  
+  i Unused variables are often the result of an incomplete refactoring, typos, 
+or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend router with an underscore.
+  
+     8  8 Γöé     const params = useParams();ΓÉì
+     9  9 Γöé     const searchParams = useSearchParams();ΓÉì
+    10    Γöé - ┬╖┬╖const┬╖router┬╖=┬╖useRouter();ΓÉì
+       10 Γöé + ┬╖┬╖const┬╖_router┬╖=┬╖useRouter();ΓÉì
+    11 11 Γöé     const slug = params.slug as string;ΓÉì
+    12 12 Γöé   ΓÉì
+  
+
+app\f\[slug]\page.tsx:16:10 lint/correctness/noUnusedVariables  FIXABLE  ΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! This variable folderName is unused.
+  
+    15 Γöé   const [folderId, setFolderId] = useState<string | null>(null);
+  > 16 Γöé   const [folderName, setFolderName] = useState<string | null>(null);
+       Γöé          ^^^^^^^^^^
+    17 Γöé   const [error, setError] = useState<string | null>(null);
+    18 Γöé   const [isLoading, setIsLoading] = useState(true);
+  
+  i Unused variables are often the result of an incomplete refactoring, typos, 
+or other sources of bugs.
+  
+  i Unsafe fix: If this is intentional, prepend folderName with an underscore.
+  
+    14 14 Γöé   ΓÉì
+    15 15 Γöé     const [folderId, setFolderId] = useState<string | 
+null>(null);ΓÉì
+    16    Γöé - 
+┬╖┬╖const┬╖[folderName,┬╖setFolderName]┬╖=┬╖useState<string┬╖|┬╖null>(null);ΓÉì
+       16 Γöé + ┬╖┬╖const┬╖[_folderName,┬╖setFolderName]┬╖=┬╖useState<string┬╖|
+┬╖null>(null);ΓÉì
+    17 17 Γöé     const [error, setError] = useState<string | null>(null);ΓÉì
+    18 18 Γöé     const [isLoading, setIsLoading] = useState(true);ΓÉì
+  
+
+app\lib\useUploads.tsx:14:12 lint/suspicious/noExplicitAny ΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ! Unexpected any. Specify a different type.
+  
+    12 Γöé   progress: number;
+    13 Γöé   error?: string;
+  > 14 Γöé   result?: any;
+       Γöé            ^^^
+    15 Γöé };
+    16 Γöé 
+  
+  i any disables many type checking rules. Its use should be avoided.
+  
+
+app\components\Drawer.tsx:28:11 lint/a11y/useSemanticElements ΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù The elements with this role can be changed to the following elements:
+    <button>
+  
+    26 Γöé             if (e.key === "Escape") onClose();
+    27 Γöé           }}
+  > 28 Γöé           role="button"
+       Γöé           ^^^^^^^^^^^^^
+    29 Γöé           tabIndex={0}
+    30 Γöé         />
+  
+  i For examples and more information, see WAI-ARIA Roles
+  
+
+app\components\FolderEditorModal.tsx:256:15 lint/a11y/noLabelWithoutControl 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù A form label must be associated with an input.
+  
+    255 Γöé             <div>
+  > 256 Γöé               <label className="block text-sm font-medium 
+text-gray-700 dark:text-gray-300 mb-2">
+        Γöé               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 257 Γöé                 Folder Name
+  > 258 Γöé               </label>
+        Γöé               ^^^^^^^^
+    259 Γöé               <input
+    260 Γöé                 type="text"
+  
+  i Consider adding a `for` or `htmlFor` attribute to the label element or 
+moving the input element to inside the label element.
+  
+
+app\components\FolderEditorModal.tsx:272:15 lint/a11y/noLabelWithoutControl 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù A form label must be associated with an input.
+  
+    271 Γöé             <div>
+  > 272 Γöé               <label className="block text-sm font-medium 
+text-gray-700 dark:text-gray-300 mb-2">
+        Γöé               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 273 Γöé                 Unique URL Slug
+  > 274 Γöé               </label>
+        Γöé               ^^^^^^^^
+    275 Γöé               <input
+    276 Γöé                 type="text"
+  
+  i Consider adding a `for` or `htmlFor` attribute to the label element or 
+moving the input element to inside the label element.
+  
+
+app\components\FolderEditorModal.tsx:400:13 lint/a11y/noLabelWithoutControl 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù A form label must be associated with an input.
+  
+    399 Γöé           <div>
+  > 400 Γöé             <label className="block text-sm font-medium 
+text-gray-700 dark:text-gray-300 mb-2">
+        Γöé             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 401 Γöé               Folder Group
+  > 402 Γöé             </label>
+        Γöé             ^^^^^^^^
+    403 Γöé             <select
+    404 Γöé               name="groupId"
+  
+  i Consider adding a `for` or `htmlFor` attribute to the label element or 
+moving the input element to inside the label element.
+  
+
+app\components\FolderEditorModal.tsx:428:15 lint/a11y/noLabelWithoutControl 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù A form label must be associated with an input.
+  
+    427 Γöé             <div>
+  > 428 Γöé               <label className="block text-sm font-medium 
+text-gray-700 dark:text-gray-300 mb-2">
+        Γöé               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 429 Γöé                 Access Passphrase (Optional)
+  > 430 Γöé               </label>
+        Γöé               ^^^^^^^^
+    431 Γöé               <input
+    432 Γöé                 type="text"
+  
+  i Consider adding a `for` or `htmlFor` attribute to the label element or 
+moving the input element to inside the label element.
+  
+
+app\components\FolderEditorModal.tsx:452:15 lint/a11y/noLabelWithoutControl 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù A form label must be associated with an input.
+  
+    451 Γöé             <div>
+  > 452 Γöé               <label className="block text-sm font-medium 
+text-gray-700 dark:text-gray-300 mb-2">
+        Γöé               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 453 Γöé                 Upload Thumbnail Image (Optional)
+  > 454 Γöé               </label>
+        Γöé               ^^^^^^^^
+    455 Γöé               <div className="flex flex-col gap-4">
+    456 Γöé                 {/* File input */}
+  
+  i Consider adding a `for` or `htmlFor` attribute to the label element or 
+moving the input element to inside the label element.
+  
+
+app\components\FolderEditorModal.tsx:230:11 lint/a11y/useButtonType ΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    228 Γöé             Edit Folder
+    229 Γöé           </h2>
+  > 230 Γöé           <button
+        Γöé           ^^^^^^^
+  > 231 Γöé             ref={closeButtonRef}
+         ...
+  > 235 Γöé             aria-label="Close modal"
+  > 236 Γöé           >
+        Γöé           ^
+    237 Γöé             <FiX size={24} />
+    238 Γöé           </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\Gallery.tsx:328:3 lint/correctness/useExhaustiveDependencies  
+FIXABLE  ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù This hook specifies more dependencies than necessary: activeFolder
+  
+    326 Γöé   }, [setImages]);
+    327 Γöé 
+  > 328 Γöé   useEffect(() => {
+        Γöé   ^^^^^^^^^
+    329 Γöé     setOffset(0);
+    330 Γöé     setSelectedIds(new Set());
+  
+  i This dependency can be removed from the list.
+  
+    329 Γöé     setOffset(0);
+    330 Γöé     setSelectedIds(new Set());
+  > 331 Γöé   }, [activeFolder]);
+        Γöé       ^^^^^^^^^^^^
+    332 Γöé 
+    333 Γöé   useEffect(() => {
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    331 Γöé ┬╖┬╖},┬╖[activeFolder]);ΓÉì
+        Γöé       ------------   
+
+app\components\ImageCard.tsx:84:5 lint/a11y/noStaticElementInteractions ΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Static Elements should not be interactive.
+  
+     83 Γöé   return (
+   > 84 Γöé     <div
+        Γöé     ^^^^
+   > 85 Γöé       className={`relative rounded-2xl overflow-hidden 
+transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group 
+select-none shadow-md cursor-pointer ${
+         ...
+  > 102 Γöé       onMouseLeave={() => setIsHovered(false)}
+  > 103 Γöé     >
+        Γöé     ^
+    104 Γöé       <div
+    105 Γöé         className={`absolute inset-0 bg-zinc-800 
+transition-opacity duration-700 ${
+  
+  i To add interactivity such as a mouse or key event listener to a static 
+element, give the element an appropriate role value.
+  
+
+app\components\ImageCard.tsx:84:5 lint/a11y/useKeyWithClickEvents ΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöü
+
+  ├ù Enforce to have the onClick mouse event with the onKeyUp, the onKeyDown, 
+or the onKeyPress keyboard event.
+  
+     83 Γöé   return (
+   > 84 Γöé     <div
+        Γöé     ^^^^
+   > 85 Γöé       className={`relative rounded-2xl overflow-hidden 
+transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group 
+select-none shadow-md cursor-pointer ${
+         ...
+  > 102 Γöé       onMouseLeave={() => setIsHovered(false)}
+  > 103 Γöé     >
+        Γöé     ^
+    104 Γöé       <div
+    105 Γöé         className={`absolute inset-0 bg-zinc-800 
+transition-opacity duration-700 ${
+  
+  i Actions triggered using mouse events should have corresponding keyboard 
+events to account for keyboard-only navigation.
+  
+
+app\components\ImageCard.tsx:145:9 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    144 Γöé       {(hasSelection || selected || isHovered) && (
+  > 145 Γöé         <button
+        Γöé         ^^^^^^^
+  > 146 Γöé           onClick={(e) => {
+         ...
+  > 154 Γöé           }`}
+  > 155 Γöé         >
+        Γöé         ^
+    156 Γöé           <MdCheckCircle
+    157 Γöé             size={16}
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\IngestFolderSelector.tsx:71:11 lint/a11y/noLabelWithoutControl 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù A form label must be associated with an input.
+  
+    69 Γöé       <div className="flex items-center gap-3">
+    70 Γöé         <div className="flex-1 min-w-0">
+  > 71 Γöé           <label className="block text-sm font-medium text-gray-700 
+dark:text-gray-300 mb-1">
+       Γöé           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 72 Γöé             Ingest Target
+  > 73 Γöé           </label>
+       Γöé           ^^^^^^^^
+    74 Γöé           <select
+    75 Γöé             value={selectedFolderId || ""}
+  
+  i Consider adding a `for` or `htmlFor` attribute to the label element or 
+moving the input element to inside the label element.
+  
+
+app\components\IngestFolderSelector.tsx:89:9 lint/a11y/useButtonType ΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    87 Γöé         </div>
+    88 Γöé 
+  > 89 Γöé         <button
+       Γöé         ^^^^^^^
+  > 90 Γöé           onClick={handleSave}
+  > 91 Γöé           disabled={loading || !selectedFolderId}
+  > 92 Γöé           className="px-3 py-2 mt-6 text-sm bg-blue-600 
+hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded 
+transition-colors"
+  > 93 Γöé         >
+       Γöé         ^
+    94 Γöé           {loading ? "..." : "Save"}
+    95 Γöé         </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\Lightbox.tsx:103:7 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    101 Γöé     <p className="text-white text-sm mb-2">Choose download 
+quality:</p>
+    102 Γöé     <div className="flex flex-col gap-2">
+  > 103 Γöé       <button
+        Γöé       ^^^^^^^
+  > 104 Γöé         onClick={() => onDownload("original")}
+  > 105 Γöé         className="px-4 py-2 bg-blue-500 text-white rounded-md 
+hover:bg-blue-600"
+  > 106 Γöé       >
+        Γöé       ^
+    107 Γöé         Highest Quality
+    108 Γöé       </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\Lightbox.tsx:54:3 lint/a11y/noSvgWithoutTitle ΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Alternative text title element cannot be empty
+  
+    52 Γöé /* ---------- ICONS ---------- */
+    53 Γöé const CloseIcon = () => (
+  > 54 Γöé   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" 
+stroke="currentColor" strokeWidth="2">
+       Γöé   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    55 Γöé     <path d="M18 6L6 18M6 6l12 12" />
+    56 Γöé   </svg>
+  
+  i For accessibility purposes, SVGs should have an alternative text, provided 
+via title element. If the svg element has role="img", you should add the 
+aria-label or aria-labelledby attribute.
+  
+
+app\components\Lightbox.tsx:60:3 lint/a11y/noSvgWithoutTitle ΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Alternative text title element cannot be empty
+  
+    59 Γöé const DownloadIcon = () => (
+  > 60 Γöé   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" 
+stroke="currentColor" strokeWidth="2">
+       Γöé   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    61 Γöé     <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 
+5-5M12 15V3" />
+    62 Γöé   </svg>
+  
+  i For accessibility purposes, SVGs should have an alternative text, provided 
+via title element. If the svg element has role="img", you should add the 
+aria-label or aria-labelledby attribute.
+  
+
+app\components\Lightbox.tsx:66:3 lint/a11y/noSvgWithoutTitle ΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Alternative text title element cannot be empty
+  
+    65 Γöé const ChevronLeftIcon = () => (
+  > 66 Γöé   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" 
+stroke="currentColor" strokeWidth="2">
+       Γöé   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    67 Γöé     <path d="M15 18l-6-6 6-6" />
+    68 Γöé   </svg>
+  
+  i For accessibility purposes, SVGs should have an alternative text, provided 
+via title element. If the svg element has role="img", you should add the 
+aria-label or aria-labelledby attribute.
+  
+
+app\components\Lightbox.tsx:72:3 lint/a11y/noSvgWithoutTitle ΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Alternative text title element cannot be empty
+  
+    71 Γöé const ChevronRightIcon = () => (
+  > 72 Γöé   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" 
+stroke="currentColor" strokeWidth="2">
+       Γöé   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    73 Γöé     <path d="M9 18l6-6-6-6" />
+    74 Γöé   </svg>
+  
+  i For accessibility purposes, SVGs should have an alternative text, provided 
+via title element. If the svg element has role="img", you should add the 
+aria-label or aria-labelledby attribute.
+  
+
+app\components\Lightbox.tsx:78:3 lint/a11y/noSvgWithoutTitle ΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Alternative text title element cannot be empty
+  
+    77 Γöé const VolumeOffIcon = () => (
+  > 78 Γöé   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" 
+stroke="currentColor" strokeWidth="2">
+       Γöé   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    79 Γöé     <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
+    80 Γöé   </svg>
+  
+  i For accessibility purposes, SVGs should have an alternative text, provided 
+via title element. If the svg element has role="img", you should add the 
+aria-label or aria-labelledby attribute.
+  
+
+app\components\Lightbox.tsx:84:3 lint/a11y/noSvgWithoutTitle ΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Alternative text title element cannot be empty
+  
+    83 Γöé const VolumeUpIcon = () => (
+  > 84 Γöé   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" 
+stroke="currentColor" strokeWidth="2">
+       Γöé   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    85 Γöé     <path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 
+14.14M15.54 8.46a5 5 0 010 7.07" />
+    86 Γöé   </svg>
+  
+  i For accessibility purposes, SVGs should have an alternative text, provided 
+via title element. If the svg element has role="img", you should add the 
+aria-label or aria-labelledby attribute.
+  
+
+app\components\Lightbox.tsx:476:13 lint/a11y/noSvgWithoutTitle ΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Alternative text title element cannot be empty
+  
+    474 Γöé             title={isSelected ? "Deselect" : "Select"}
+    475 Γöé           >
+  > 476 Γöé             <svg
+        Γöé             ^^^^
+  > 477 Γöé               width="20"
+         ...
+  > 482 Γöé               strokeWidth="2"
+  > 483 Γöé             >
+        Γöé             ^
+    484 Γöé               {isSelected ? (
+    485 Γöé                 <path d="M20 6L9 17l-5-5" />
+  
+  i For accessibility purposes, SVGs should have an alternative text, provided 
+via title element. If the svg element has role="img", you should add the 
+aria-label or aria-labelledby attribute.
+  
+
+app\components\Lightbox.tsx:109:7 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    107 Γöé         Highest Quality
+    108 Γöé       </button>
+  > 109 Γöé       <button
+        Γöé       ^^^^^^^
+  > 110 Γöé         onClick={() => onDownload("webp")}
+  > 111 Γöé         className="px-4 py-2 bg-gray-500 text-white rounded-md 
+hover:bg-gray-600"
+  > 112 Γöé       >
+        Γöé       ^
+    113 Γöé         Medium
+    114 Γöé       </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\Lightbox.tsx:127:5 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    125 Γöé       </label>
+    126 Γöé     </div>
+  > 127 Γöé     <button
+        Γöé     ^^^^^^^
+  > 128 Γöé       onClick={onCancel}
+  > 129 Γöé       className="mt-4 text-white text-xs hover:underline"
+  > 130 Γöé     >
+        Γöé     ^
+    131 Γöé       Cancel
+    132 Γöé     </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\Lightbox.tsx:212:3 lint/correctness/useExhaustiveDependencies  
+FIXABLE  ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù This hook specifies more dependencies than necessary: image?.id
+  
+    211 Γöé   // Reset mute when image changes
+  > 212 Γöé   useEffect(() => {
+        Γöé   ^^^^^^^^^
+    213 Γöé     setIsMuted(true);
+    214 Γöé   }, [image?.id]);
+  
+  i This dependency can be removed from the list.
+  
+    212 Γöé   useEffect(() => {
+    213 Γöé     setIsMuted(true);
+  > 214 Γöé   }, [image?.id]);
+        Γöé       ^^^^^^^^^
+    215 Γöé 
+    216 Γöé   useEffect(() => {
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    214 Γöé ┬╖┬╖},┬╖[image?.id]);ΓÉì
+        Γöé       ---------   
+
+app\components\Lightbox.tsx:216:3 lint/correctness/useExhaustiveDependencies 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù This hook specifies a dependency more specific that its captures: 
+image?.id
+  
+    214 Γöé   }, [image?.id]);
+    215 Γöé 
+  > 216 Γöé   useEffect(() => {
+        Γöé   ^^^^^^^^^
+    217 Γöé     if (!image || !isVideo(image)) return;
+    218 Γöé     const video = videoRef.current;
+  
+  i This capture is more generic than...
+  
+    216 Γöé   useEffect(() => {
+  > 217 Γöé     if (!image || !isVideo(image)) return;
+        Γöé                            ^^^^^
+    218 Γöé     const video = videoRef.current;
+    219 Γöé     if (!video) return;
+  
+  i ...this dependency.
+  
+    225 Γöé       });
+    226 Γöé     }
+  > 227 Γöé   }, [image?.id]);
+        Γöé       ^^^^^^^^^
+    228 Γöé 
+    229 Γöé   /* ---------- PRELOAD ---------- */
+  
+
+app\components\Lightbox.tsx:216:3 lint/correctness/useExhaustiveDependencies 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù This hook specifies a dependency more specific that its captures: 
+image?.id
+  
+    214 Γöé   }, [image?.id]);
+    215 Γöé 
+  > 216 Γöé   useEffect(() => {
+        Γöé   ^^^^^^^^^
+    217 Γöé     if (!image || !isVideo(image)) return;
+    218 Γöé     const video = videoRef.current;
+  
+  i This capture is more generic than...
+  
+    216 Γöé   useEffect(() => {
+  > 217 Γöé     if (!image || !isVideo(image)) return;
+        Γöé          ^^^^^
+    218 Γöé     const video = videoRef.current;
+    219 Γöé     if (!video) return;
+  
+  i ...this dependency.
+  
+    225 Γöé       });
+    226 Γöé     }
+  > 227 Γöé   }, [image?.id]);
+        Γöé       ^^^^^^^^^
+    228 Γöé 
+    229 Γöé   /* ---------- PRELOAD ---------- */
+  
+
+app\components\Lightbox.tsx:216:3 lint/correctness/useExhaustiveDependencies  
+FIXABLE  ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù This hook does not specify its dependency on image.
+  
+    214 Γöé   }, [image?.id]);
+    215 Γöé 
+  > 216 Γöé   useEffect(() => {
+        Γöé   ^^^^^^^^^
+    217 Γöé     if (!image || !isVideo(image)) return;
+    218 Γöé     const video = videoRef.current;
+  
+  i This dependency is being used here, but is not specified in the hook 
+dependency list.
+  
+    216 Γöé   useEffect(() => {
+  > 217 Γöé     if (!image || !isVideo(image)) return;
+        Γöé                            ^^^^^
+    218 Γöé     const video = videoRef.current;
+    219 Γöé     if (!video) return;
+  
+  i This dependency is being used here, but is not specified in the hook 
+dependency list.
+  
+    216 Γöé   useEffect(() => {
+  > 217 Γöé     if (!image || !isVideo(image)) return;
+        Γöé          ^^^^^
+    218 Γöé     const video = videoRef.current;
+    219 Γöé     if (!video) return;
+  
+  i Unsafe fix: Add the missing dependency to the list.
+  
+    227 Γöé ┬╖┬╖},┬╖[image?.id,┬╖image]);ΓÉì
+        Γöé                +++++++   
+
+app\components\Lightbox.tsx:453:9 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    451 Γöé       {/* ------ HEADER ------ */}
+    452 Γöé       <div className="absolute top-3 left-3 sm:top-6 sm:left-6 
+flex items-center gap-2 sm:gap-4 z-20 w-full sm:w-auto pr-20 sm:pr-0">
+  > 453 Γöé         <button
+        Γöé         ^^^^^^^
+  > 454 Γöé           aria-label="Close lightbox"
+  > 455 Γöé           onClick={onClose}
+  > 456 Γöé           className="p-2 sm:p-3 bg-white/10 hover:bg-white/20 
+rounded-lg sm:rounded-full text-white transition-colors flex-shrink-0"
+  > 457 Γöé         >
+        Γöé         ^
+    458 Γöé           <CloseIcon />
+    459 Γöé         </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\Lightbox.tsx:467:11 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    465 Γöé         </div>
+    466 Γöé         {onToggleSelect && (
+  > 467 Γöé           <button
+        Γöé           ^^^^^^^
+  > 468 Γöé             onClick={() => onToggleSelect(image.id)}
+         ...
+  > 474 Γöé             title={isSelected ? "Deselect" : "Select"}
+  > 475 Γöé           >
+        Γöé           ^
+    476 Γöé             <svg
+    477 Γöé               width="20"
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\Lightbox.tsx:496:9 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    494 Γöé       {/* ------ DOWNLOAD ------ */}
+    495 Γöé       <div className="absolute top-3 right-3 sm:top-6 sm:right-6 
+z-20 flex flex-col items-end gap-1">
+  > 496 Γöé         <button
+        Γöé         ^^^^^^^
+  > 497 Γöé           aria-label="Download image"
+  > 498 Γöé           onClick={handleDownloadClick}
+  > 499 Γöé           className="p-2 sm:p-3 bg-white/10 hover:bg-white/20 
+rounded-lg sm:rounded-xl text-white flex items-center gap-2 transition-colors"
+  > 500 Γöé         >
+        Γöé         ^
+    501 Γöé           <DownloadIcon />
+    502 Γöé           <span className="text-sm font-medium hidden 
+sm:inline">Download</span>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\Lightbox.tsx:519:7 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    518 Γöé       {/* ------ NAV BUTTONS ------ */}
+  > 519 Γöé       <button
+        Γöé       ^^^^^^^
+  > 520 Γöé         aria-label="Previous image"
+  > 521 Γöé         onClick={handlePrev}
+  > 522 Γöé         disabled={!prevImage}
+  > 523 Γöé         className="absolute left-2 sm:left-6 top-1/2 
+-translate-y-1/2 p-2 sm:p-4 bg-white/5 hover:bg-white/10 rounded-lg 
+sm:rounded-full text-white transition transform-gpu hover:scale-110 
+disabled:opacity-30 disabled:hover:scale-100 z-20"
+  > 524 Γöé       >
+        Γöé       ^
+    525 Γöé         <ChevronLeftIcon />
+    526 Γöé       </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\Lightbox.tsx:527:7 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    525 Γöé         <ChevronLeftIcon />
+    526 Γöé       </button>
+  > 527 Γöé       <button
+        Γöé       ^^^^^^^
+  > 528 Γöé         aria-label="Next image"
+  > 529 Γöé         onClick={handleNext}
+  > 530 Γöé         disabled={!nextImage}
+  > 531 Γöé         className="absolute right-2 sm:right-6 top-1/2 
+-translate-y-1/2 p-2 sm:p-4 bg-white/5 hover:bg-white/10 rounded-lg 
+sm:rounded-full text-white transition transform-gpu hover:scale-110 
+disabled:opacity-30 disabled:hover:scale-100 z-20"
+  > 532 Γöé       >
+        Γöé       ^
+    533 Γöé         <ChevronRightIcon />
+    534 Γöé       </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\Lightbox.tsx:577:13 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    575 Γöé           />
+    576 Γöé           {isVideo(image) && (
+  > 577 Γöé             <button
+        Γöé             ^^^^^^^
+  > 578 Γöé               aria-label={isMuted ? "Unmute video" : "Mute video"}
+  > 579 Γöé               onClick={toggleMute}
+  > 580 Γöé               className="absolute bottom-20 right-8 p-3 
+bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-30"
+  > 581 Γöé             >
+        Γöé             ^
+    582 Γöé               {isMuted ? <VolumeOffIcon /> : <VolumeUpIcon />}
+    583 Γöé             </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\LoadMoreButton.tsx:18:7 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    16 Γöé   return (
+    17 Γöé     <div className="flex flex-col items-center mt-16">
+  > 18 Γöé       <button
+       Γöé       ^^^^^^^
+  > 19 Γöé         onClick={onLoadMore}
+  > 20 Γöé         className="group relative px-12 py-4 bg-zinc-900 border 
+border-zinc-800 text-white font-bold rounded-2xl transition-all 
+overflow-hidden"
+  > 21 Γöé       >
+       Γöé       ^
+    22 Γöé         <div className="absolute inset-0 bg-white/5 
+translate-y-full group-hover:translate-y-0 transition-transform duration-300" 
+/>
+    23 Γöé         <span className="relative">Load More Assets</span>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\QualityModal.tsx:37:11 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    35 Γöé             Download Quality
+    36 Γöé           </h2>
+  > 37 Γöé           <button
+       Γöé           ^^^^^^^
+  > 38 Γöé             onClick={onCancel}
+  > 39 Γöé             className="p-2 hover:bg-gray-100 
+dark:hover:bg-slate-800 rounded-full transition-colors"
+  > 40 Γöé           >
+       Γöé           ^
+    41 Γöé             <MdClose size={20} className="text-gray-600 
+dark:text-gray-400" />
+    42 Γöé           </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\QualityModal.tsx:51:11 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    50 Γöé         <div className="space-y-3">
+  > 51 Γöé           <button
+       Γöé           ^^^^^^^
+  > 52 Γöé             onClick={() => onSelect("original")}
+  > 53 Γöé             className="w-full p-4 border-2 border-blue-500 
+bg-blue-50 dark:bg-blue-950/30 rounded-xl hover:bg-blue-100 
+dark:hover:bg-blue-950/50 transition-all text-left group"
+  > 54 Γöé           >
+       Γöé           ^
+    55 Γöé             <div className="font-bold text-gray-900 dark:text-white 
+group-hover:text-blue-600 dark:group-hover:text-blue-400">
+    56 Γöé               Highest Quality
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\QualityModal.tsx:63:11 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    61 Γöé           </button>
+    62 Γöé 
+  > 63 Γöé           <button
+       Γöé           ^^^^^^^
+  > 64 Γöé             onClick={() => onSelect("webp")}
+  > 65 Γöé             className="w-full p-4 border-2 border-gray-300 
+dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-xl 
+hover:bg-gray-100 dark:hover:bg-slate-700 transition-all text-left group"
+  > 66 Γöé           >
+       Γöé           ^
+    67 Γöé             <div className="font-bold text-gray-900 dark:text-white 
+group-hover:text-green-600 dark:group-hover:text-green-400">
+    68 Γöé               Medium Quality
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\QualityModal.tsx:76:9 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    74 Γöé         </div>
+    75 Γöé 
+  > 76 Γöé         <button
+       Γöé         ^^^^^^^
+  > 77 Γöé           onClick={onCancel}
+  > 78 Γöé           className="w-full mt-6 px-4 py-2 text-gray-600 
+dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors 
+text-sm font-medium"
+  > 79 Γöé         >
+       Γöé         ^
+    80 Γöé           Cancel
+    81 Γöé         </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\ThemeToggle.tsx:20:9 lint/a11y/noSvgWithoutTitle ΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöü
+
+  ├ù Alternative text title element cannot be empty
+  
+    18 Γöé       >
+    19 Γöé         {/* Sun Icon */}
+  > 20 Γöé         <svg
+       Γöé         ^^^^
+  > 21 Γöé           xmlns="http://www.w3.org/2000/svg"
+        ...
+  > 28 Γöé           }`}
+  > 29 Γöé         >
+       Γöé         ^
+    30 Γöé           <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 
+0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 
+6.106a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 
+1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 
+010-1.5h2.25a.75.75 0 01.75.75zM17.836 17.836a.75.75 0 00-1.06-1.06l-1.59 
+1.59a.75.75 0 101.06 1.06l1.59-1.59zM12 18a.75.75 0 01.75.75v2.25a.75.75 0 
+01-1.5 0v-2.25A.75.75 0 0112 18zM7.894 6.106a.75.75 0 00-1.06-1.06l-1.591 
+1.59a.75.75 0 101.06 1.061l1.591-1.59zM3 12a.75.75 0 01-.75.75H.75a.75.75 0 
+010-1.5h2.25A.75.75 0 013 12zM6.164 17.836a.75.75 0 00-1.06-1.06l-1.59 
+1.59a.75.75 0 101.06 1.06l1.59-1.59z" />
+    31 Γöé         </svg>
+  
+  i For accessibility purposes, SVGs should have an alternative text, provided 
+via title element. If the svg element has role="img", you should add the 
+aria-label or aria-labelledby attribute.
+  
+
+app\components\ThemeToggle.tsx:34:9 lint/a11y/noSvgWithoutTitle ΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöü
+
+  ├ù Alternative text title element cannot be empty
+  
+    33 Γöé         {/* Moon Icon */}
+  > 34 Γöé         <svg
+       Γöé         ^^^^
+  > 35 Γöé           xmlns="http://www.w3.org/2000/svg"
+        ...
+  > 42 Γöé           }`}
+  > 43 Γöé         >
+       Γöé         ^
+    44 Γöé           <path
+    45 Γöé             fillRule="evenodd"
+  
+  i For accessibility purposes, SVGs should have an alternative text, provided 
+via title element. If the svg element has role="img", you should add the 
+aria-label or aria-labelledby attribute.
+  
+
+app\components\ThemeToggle.tsx:14:7 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    12 Γöé   return (
+    13 Γöé     <div className="flex justify-center py-4">
+  > 14 Γöé       <button
+       Γöé       ^^^^^^^
+  > 15 Γöé         onClick={toggleTheme}
+  > 16 Γöé         className="w-[80%] relative flex items-center 
+justify-center rounded-full bg-[var(--card)] p-2 transition-colors 
+duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 
+focus:ring-offset-[var(--card)] focus:ring-[var(--primary)]"
+  > 17 Γöé         aria-label={`Switch to ${theme === "dark" ? "light" : 
+"dark"} mode`}
+  > 18 Γöé       >
+       Γöé       ^
+    19 Γöé         {/* Sun Icon */}
+    20 Γöé         <svg
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\UploadsToast.tsx:136:15 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    134 Γöé                 )}
+    135 Γöé               </div>
+  > 136 Γöé               <button
+        Γöé               ^^^^^^^
+  > 137 Γöé                 onClick={() => remove(upload.id)}
+  > 138 Γöé                 className="text-slate-400 hover:text-slate-600 
+dark:hover:text-slate-300 transition-colors"
+  > 139 Γöé               >
+        Γöé               ^
+    140 Γöé                 <X className="h-4 w-4" />
+    141 Γöé               </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FilesPanel.tsx:109:15 lint/a11y/useButtonType ΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    108 Γöé             <div className="flex flex-wrap items-center gap-2">
+  > 109 Γöé               <button
+        Γöé               ^^^^^^^
+  > 110 Γöé                 onClick={onSelectAll}
+  > 111 Γöé                 className="px-3 py-1.5 text-xs rounded border 
+border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+  > 112 Γöé               >
+        Γöé               ^
+    113 Γöé                 Select all
+    114 Γöé               </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FilesPanel.tsx:115:15 lint/a11y/useButtonType ΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    113 Γöé                 Select all
+    114 Γöé               </button>
+  > 115 Γöé               <button
+        Γöé               ^^^^^^^
+  > 116 Γöé                 onClick={onClearSelection}
+  > 117 Γöé                 className="px-3 py-1.5 text-xs rounded border 
+border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200"
+  > 118 Γöé               >
+        Γöé               ^
+    119 Γöé                 Clear
+    120 Γöé               </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FilesPanel.tsx:137:15 lint/a11y/useButtonType ΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    135 Γöé               </select>
+    136 Γöé 
+  > 137 Γöé               <button
+        Γöé               ^^^^^^^
+  > 138 Γöé                 onClick={() => onApplyBulkAction("copy")}
+         ...
+  > 144 Γöé                 className="px-3 py-1.5 text-xs rounded bg-gray-100 
+dark:bg-gray-700 text-gray-800 dark:text-gray-200 disabled:opacity-50"
+  > 145 Γöé               >
+        Γöé               ^
+    146 Γöé                 <FiCopy className="inline mr-1" /> Copy
+    147 Γöé               </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FilesPanel.tsx:148:15 lint/a11y/useButtonType ΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    146 Γöé                 <FiCopy className="inline mr-1" /> Copy
+    147 Γöé               </button>
+  > 148 Γöé               <button
+        Γöé               ^^^^^^^
+  > 149 Γöé                 onClick={() => onApplyBulkAction("move")}
+         ...
+  > 155 Γöé                 className="px-3 py-1.5 text-xs rounded bg-blue-600 
+text-white disabled:opacity-50"
+  > 156 Γöé               >
+        Γöé               ^
+    157 Γöé                 <FiMove className="inline mr-1" /> Move
+    158 Γöé               </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FilesPanel.tsx:159:15 lint/a11y/useButtonType ΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    157 Γöé                 <FiMove className="inline mr-1" /> Move
+    158 Γöé               </button>
+  > 159 Γöé               <button
+        Γöé               ^^^^^^^
+  > 160 Γöé                 onClick={() => onApplyBulkAction("delete")}
+  > 161 Γöé                 disabled={selectedIds.size === 0 || isBulkWorking}
+  > 162 Γöé                 className="px-3 py-1.5 text-xs rounded bg-red-600 
+text-white disabled:opacity-50"
+  > 163 Γöé               >
+        Γöé               ^
+    164 Γöé                 <FiTrash2 className="inline mr-1" /> Delete
+    165 Γöé               </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FilesPanel.tsx:182:17 lint/a11y/useButtonType ΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    180 Γöé               </div>
+    181 Γöé               <div className="flex flex-wrap gap-2">
+  > 182 Γöé                 <button
+        Γöé                 ^^^^^^^
+  > 183 Γöé                   onClick={() => onResolveConflicts("rename")}
+  > 184 Γöé                   className="px-3 py-1.5 text-xs rounded 
+bg-yellow-600 text-white"
+  > 185 Γöé                 >
+        Γöé                 ^
+    186 Γöé                   Auto-rename
+    187 Γöé                 </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FilesPanel.tsx:188:17 lint/a11y/useButtonType ΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    186 Γöé                   Auto-rename
+    187 Γöé                 </button>
+  > 188 Γöé                 <button
+        Γöé                 ^^^^^^^
+  > 189 Γöé                   onClick={() => onResolveConflicts("replace")}
+  > 190 Γöé                   className="px-3 py-1.5 text-xs rounded 
+bg-red-600 text-white"
+  > 191 Γöé                 >
+        Γöé                 ^
+    192 Γöé                   Replace
+    193 Γöé                 </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FilesPanel.tsx:194:17 lint/a11y/useButtonType ΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    192 Γöé                   Replace
+    193 Γöé                 </button>
+  > 194 Γöé                 <button
+        Γöé                 ^^^^^^^
+  > 195 Γöé                   onClick={() => onResolveConflicts("skip")}
+  > 196 Γöé                   className="px-3 py-1.5 text-xs rounded 
+bg-gray-200 text-gray-900"
+  > 197 Γöé                 >
+        Γöé                 ^
+    198 Γöé                   Skip conflicts
+    199 Γöé                 </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FolderList.tsx:46:13 
+lint/a11y/noStaticElementInteractions 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Static Elements should not be interactive.
+  
+    44 Γöé             </div>
+    45 Γöé           ) : (
+  > 46 Γöé             <div
+       Γöé             ^^^^
+  > 47 Γöé               className={`p-3 rounded-lg cursor-pointer 
+transition-colors ${
+        ...
+  > 56 Γöé               onClick={() => onSelectFolder(item.folder.id)}
+  > 57 Γöé             >
+       Γöé             ^
+    58 Γöé               <div className="flex items-center justify-between">
+    59 Γöé                 <div className="flex-1">
+  
+  i To add interactivity such as a mouse or key event listener to a static 
+element, give the element an appropriate role value.
+  
+
+app\components\admin\FolderList.tsx:46:13 lint/a11y/useKeyWithClickEvents 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Enforce to have the onClick mouse event with the onKeyUp, the onKeyDown, 
+or the onKeyPress keyboard event.
+  
+    44 Γöé             </div>
+    45 Γöé           ) : (
+  > 46 Γöé             <div
+       Γöé             ^^^^
+  > 47 Γöé               className={`p-3 rounded-lg cursor-pointer 
+transition-colors ${
+        ...
+  > 56 Γöé               onClick={() => onSelectFolder(item.folder.id)}
+  > 57 Γöé             >
+       Γöé             ^
+    58 Γöé               <div className="flex items-center justify-between">
+    59 Γöé                 <div className="flex-1">
+  
+  i Actions triggered using mouse events should have corresponding keyboard 
+events to account for keyboard-only navigation.
+  
+
+app\components\admin\FolderList.tsx:74:19 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    72 Γöé                 </div>
+    73 Γöé                 <div className="flex gap-2">
+  > 74 Γöé                   <button
+       Γöé                   ^^^^^^^
+  > 75 Γöé                     onClick={(e) => {
+        ...
+  > 80 Γöé                     title="Edit folder settings"
+  > 81 Γöé                   >
+       Γöé                   ^
+    82 Γöé                     <FiEdit2 size={16} />
+    83 Γöé                   </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FolderList.tsx:84:19 lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    82 Γöé                     <FiEdit2 size={16} />
+    83 Γöé                   </button>
+  > 84 Γöé                   <button
+       Γöé                   ^^^^^^^
+  > 85 Γöé                     onClick={(e) => {
+        ...
+  > 90 Γöé                     title="Delete folder"
+  > 91 Γöé                   >
+       Γöé                   ^
+    92 Γöé                     <FiTrash2 size={16} />
+    93 Γöé                   </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FolderSidebar.tsx:144:11 lint/a11y/noLabelWithoutControl 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù A form label must be associated with an input.
+  
+    143 Γöé         <div className="space-y-3">
+  > 144 Γöé           <label className="text-xs text-gray-600 
+dark:text-gray-300">
+        Γöé           
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  > 145 Γöé             Folder
+  > 146 Γöé           </label>
+        Γöé           ^^^^^^^^
+    147 Γöé           <select
+    148 Γöé             value={filterTargetId}
+  
+  i Consider adding a `for` or `htmlFor` attribute to the label element or 
+moving the input element to inside the label element.
+  
+
+app\components\admin\FolderSidebar.tsx:122:13 lint/a11y/useButtonType ΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    120 Γöé               className="block w-full text-xs text-gray-600 
+dark:text-gray-300 file:mr-4 file:py-2 file:px-3 file:rounded file:border-0 
+file:text-xs file:font-semibold file:bg-gray-100 dark:file:bg-gray-700 
+file:text-gray-700 dark:file:text-gray-200"
+    121 Γöé             />
+  > 122 Γöé             <button
+        Γöé             ^^^^^^^
+  > 123 Γöé               onClick={onUploadAllThumbnail}
+  > 124 Γöé               disabled={allThumbnailUploading || 
+!hasAllThumbnailFile}
+  > 125 Γöé               className="mt-3 px-3 py-1.5 text-xs rounded 
+bg-gray-900 text-white disabled:opacity-50"
+  > 126 Γöé             >
+        Γöé             ^
+    127 Γöé               {allThumbnailUploading ? "Uploading..." : "Upload"}
+    128 Γöé             </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FolderSidebar.tsx:192:11 lint/a11y/useButtonType ΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    190 Γöé           </div>
+    191 Γöé 
+  > 192 Γöé           <button
+        Γöé           ^^^^^^^
+  > 193 Γöé             onClick={onSaveFilter}
+  > 194 Γöé             disabled={filterSaving}
+  > 195 Γöé             className="px-3 py-1.5 text-xs rounded bg-gray-900 
+text-white disabled:opacity-50"
+  > 196 Γöé           >
+        Γöé           ^
+    197 Γöé             {filterSaving ? "Saving..." : "Save filter"}
+    198 Γöé           </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\FolderSidebar.tsx:211:9 lint/a11y/useButtonType ΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    209 Γöé           onKeyPress={(e) => e.key === "Enter" && onCreateFolder()}
+    210 Γöé         />
+  > 211 Γöé         <button
+        Γöé         ^^^^^^^
+  > 212 Γöé           onClick={onCreateFolder}
+  > 213 Γöé           disabled={isLoading}
+  > 214 Γöé           className="w-full bg-blue-500 hover:bg-blue-600 
+disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg 
+transition-colors flex items-center justify-center"
+  > 215 Γöé         >
+        Γöé         ^
+    216 Γöé           <FiPlus className="mr-2" /> Create Folder
+    217 Γöé         </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\admin\hooks\useAdminFiles.ts:44:3 
+lint/correctness/useExhaustiveDependencies  FIXABLE  
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù This hook specifies more dependencies than necessary: activeFolder, 
+files.length
+  
+    42 Γöé   }, [activeFolder, fetchFiles]);
+    43 Γöé 
+  > 44 Γöé   useEffect(() => {
+       Γöé   ^^^^^^^^^
+    45 Γöé     setSelectedIds(new Set());
+    46 Γöé     setActionTargetFolderId(null);
+  
+  i Outer scope values aren't valid dependencies because mutating them doesn't 
+re-render the component.
+  
+    45 Γöé     setSelectedIds(new Set());
+    46 Γöé     setActionTargetFolderId(null);
+  > 47 Γöé   }, [activeFolder, files.length]);
+       Γöé       ^^^^^^^^^^^^
+    48 Γöé 
+    49 Γöé   const clearFiles = () => setFiles([]);
+  
+  i This dependency can be removed from the list.
+  
+    45 Γöé     setSelectedIds(new Set());
+    46 Γöé     setActionTargetFolderId(null);
+  > 47 Γöé   }, [activeFolder, files.length]);
+       Γöé                     ^^^^^^^^^^^^
+    48 Γöé 
+    49 Γöé   const clearFiles = () => setFiles([]);
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    47 Γöé ┬╖┬╖},┬╖[activeFolder,┬╖files.length]);ΓÉì
+       Γöé       --------------------------   
+
+app\components\admin\hooks\useFolderOrdering.ts:155:29 
+lint/correctness/useExhaustiveDependencies  FIXABLE  
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù This hook specifies more dependencies than necessary: setOrderItems
+  
+    153 Γöé   );
+    154 Γöé 
+  > 155 Γöé   const moveFolderByDelta = useCallback(
+        Γöé                             ^^^^^^^^^^^
+    156 Γöé     (folderId: string | null, delta: number) => {
+    157 Γöé       if (!folderId) return;
+  
+  i This dependency can be removed from the list.
+  
+    170 Γöé       setIsOrderDirty(true);
+    171 Γöé     },
+  > 172 Γöé     [effectiveOrderItems, setOrderItems],
+        Γöé                           ^^^^^^^^^^^^^
+    173 Γöé   );
+    174 Γöé 
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    172 Γöé ┬╖┬╖┬╖┬╖[effectiveOrderItems,┬╖setOrderItems],ΓÉì
+        Γöé                         ---------------  
+
+app\components\gallerycomponents\ErrorDisplay.tsx:20:9 lint/a11y/useButtonType 
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    18 Γöé           </p>
+    19 Γöé         </div>
+  > 20 Γöé         <button
+       Γöé         ^^^^^^^
+  > 21 Γöé           onClick={onClose}
+  > 22 Γöé           className="text-red-500 hover:text-red-700 
+dark:hover:text-red-300 transition-colors flex-shrink-0"
+  > 23 Γöé           aria-label="Dismiss error"
+  > 24 Γöé         >
+       Γöé         ^
+    25 Γöé           <MdClose size={18} />
+    26 Γöé         </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\gallerycomponents\PassphraseModal.tsx:75:15 
+lint/a11y/noAutofocus  FIXABLE  ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Avoid the autoFocus attribute.
+  
+Checked 94 files in 68ms. No fixes applied.
+Found 66 errors.
+Found 16 warnings.
+    73 Γöé               className="w-full px-4 py-3 bg-gray-50 
+dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg 
+focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 
+text-gray-900 dark:text-white"
+    74 Γöé               placeholder="ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó"
+  > 75 Γöé               autoFocus
+       Γöé               ^^^^^^^^^
+    76 Γöé             />
+    77 Γöé           </div>
+  
+  i Unsafe fix: Remove the autoFocus attribute.
+  
+     72 72 Γöé                 onChange={(e) => setInput(e.target.value)}ΓÉì
+     73 73 Γöé                 className="w-full px-4 py-3 bg-gray-50 
+dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg 
+focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 
+text-gray-900 dark:text-white"ΓÉì
+     74    Γöé - 
+┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖placeholder="ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó"ΓÉì
+     75    Γöé - ┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖autoFocusΓÉì
+        74 Γöé + 
+┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖┬╖placeholder="ΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇóΓÇó"ΓÉì
+     76 75 Γöé               />ΓÉì
+     77 76 Γöé             </div>ΓÉì
+  
+
+app\components\gallerycomponents\PassphraseModal.tsx:45:11 
+lint/a11y/useButtonType ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Provide an explicit type prop for the button element.
+  
+    43 Γöé             </div>
+    44 Γöé           </div>
+  > 45 Γöé           <button
+       Γöé           ^^^^^^^
+  > 46 Γöé             onClick={onCancel}
+  > 47 Γöé             className="text-gray-400 hover:text-gray-600 
+dark:hover:text-gray-300 transition-colors"
+  > 48 Γöé             aria-label="Close"
+  > 49 Γöé           >
+       Γöé           ^
+    50 Γöé             <FiX size={24} />
+    51 Γöé           </button>
+  
+  i The default type of a button is submit, which causes the submission of a 
+form when placed inside a `form` element. This is likely not the behaviour 
+that you want inside a React application.
+  
+  i Allowed button types are: submit, button or reset
+  
+
+app\components\gallerycomponents\useImageFetch.ts:74:3 
+lint/correctness/useExhaustiveDependencies  FIXABLE  
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù This hook does not specify its dependency on hasMore.
+  
+    72 Γöé   }, [folders, folderPassphrases, onError, onPassphraseRequired]);
+    73 Γöé 
+  > 74 Γöé   useEffect(() => {
+       Γöé   ^^^^^^^^^
+    75 Γöé     // Don't fetch if offset is 0 and images already loaded for the 
+same folder
+    76 Γöé     if (offset === 0 && images.length > 0 && 
+lastLoadedFolderRef.current === activeFolder) {
+  
+  i This dependency is being used here, but is not specified in the hook 
+dependency list.
+  
+    80 Γöé     // Don't fetch if no more results to load
+  > 81 Γöé     if (!hasMore && offset > 0) {
+       Γöé          ^^^^^^^
+    82 Γöé       return;
+    83 Γöé     }
+  
+  i Unsafe fix: Add the missing dependency to the list.
+  
+    132 Γöé 
+┬╖┬╖},┬╖[offset,┬╖activeFolder,┬╖passphraseModal,┬╖batchSize,┬╖hasMore]);ΓÉì
+        Γöé                                                       +++++++++   
+
+app\components\gallerycomponents\useImageFetch.ts:74:3 
+lint/correctness/useExhaustiveDependencies  FIXABLE  
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù This hook does not specify its dependency on images.length.
+  
+    72 Γöé   }, [folders, folderPassphrases, onError, onPassphraseRequired]);
+    73 Γöé 
+  > 74 Γöé   useEffect(() => {
+       Γöé   ^^^^^^^^^
+    75 Γöé     // Don't fetch if offset is 0 and images already loaded for the 
+same folder
+    76 Γöé     if (offset === 0 && images.length > 0 && 
+lastLoadedFolderRef.current === activeFolder) {
+  
+  i This dependency is being used here, but is not specified in the hook 
+dependency list.
+  
+    74 Γöé   useEffect(() => {
+    75 Γöé     // Don't fetch if offset is 0 and images already loaded for the 
+same folder
+  > 76 Γöé     if (offset === 0 && images.length > 0 && 
+lastLoadedFolderRef.current === activeFolder) {
+       Γöé                         ^^^^^^^^^^^^^
+    77 Γöé       return;
+    78 Γöé     }
+  
+  i Unsafe fix: Add the missing dependency to the list.
+  
+    132 Γöé ┬╖┬╖},┬╖[offset,┬╖activeFolder,┬╖passphraseModal,┬╖batchSize,┬╖imag
+es.length]);ΓÉì
+        Γöé                                                       
++++++++++++++++   
+
+app\components\gallerycomponents\useImageFetch.ts:135:3 
+lint/correctness/useExhaustiveDependencies  FIXABLE  
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù This hook specifies more dependencies than necessary: activeFolder
+  
+    134 Γöé   // Reset when changing folder
+  > 135 Γöé   useEffect(() => {
+        Γöé   ^^^^^^^^^
+    136 Γöé     setImages([]);
+    137 Γöé     setHasMore(true);
+  
+  i Outer scope values aren't valid dependencies because mutating them doesn't 
+re-render the component.
+  
+    136 Γöé     setImages([]);
+    137 Γöé     setHasMore(true);
+  > 138 Γöé   }, [activeFolder]);
+        Γöé       ^^^^^^^^^^^^
+    139 Γöé 
+    140 Γöé   return { images, setImages, isLoading, hasMore };
+  
+  i Unsafe fix: Remove the extra dependencies from the list.
+  
+    138 Γöé ┬╖┬╖},┬╖[activeFolder]);ΓÉì
+        Γöé       ------------   
+
+lint ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓö
+üΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+ΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓ
+öüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöüΓöü
+
+  ├ù Some errors were emitted while running checks.
+  
+
