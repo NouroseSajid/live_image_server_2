@@ -39,6 +39,13 @@ export default function CategoryNavigation({
 }: CategoryNavigationProps) {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
+  const resolveThumbnailPath = (path: string | null | undefined) => {
+    if (!path) return null;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    if (path.startsWith("/")) return path;
+    return `/${path}`;
+  };
+
   // 1. Logic to organize categories and groups
   const { allCategory, orderedItems } = useMemo(() => {
     const all = categories.find((cat) => cat.id === "all") || null;
@@ -135,12 +142,10 @@ export default function CategoryNavigation({
   };
 
   const renderCard = (cat: Category, isSubItem = false) => {
-    const thumbnailPath = cat.thumbnail?.variants?.[0]?.path;
+    const thumbnailVariant = cat.thumbnail?.variants?.find((variant) => variant.path);
+    const thumbnailPath = thumbnailVariant?.path;
     const isActive = activeFolder === cat.id;
-    // Ensure path is absolute and properly formatted
-    const absoluteThumbnailPath = thumbnailPath?.startsWith('/') 
-      ? thumbnailPath 
-      : thumbnailPath ? `/${thumbnailPath}` : null;
+    const absoluteThumbnailPath = resolveThumbnailPath(thumbnailPath);
 
     return (
       <button
@@ -156,12 +161,8 @@ export default function CategoryNavigation({
         <div className="relative w-full aspect-[3/2] bg-[var(--card)] overflow-hidden">
           {absoluteThumbnailPath ? (
             <div
-              className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
+              className="absolute inset-0 bg-cover bg-center blur-[2px] opacity-60 transition-transform duration-700 group-hover:opacity-80 group-hover:scale-110"
               style={{ backgroundImage: `url('${absoluteThumbnailPath}')` }}
-              onError={(e) => {
-                // Fallback if image fails to load
-                (e.target as HTMLElement).style.backgroundImage = 'none';
-              }}
             />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-[var(--card)] to-[var(--background)] opacity-50" />
@@ -197,9 +198,8 @@ export default function CategoryNavigation({
     const isOpen = openGroups[group.id];
     const thumbPaths = group.items
       .map((cat) => {
-        const path = cat.thumbnail?.variants?.[0]?.path;
-        // Ensure paths are absolute
-        return path?.startsWith('/') ? path : path ? `/${path}` : null;
+        const variant = cat.thumbnail?.variants?.find((item) => item.path);
+        return resolveThumbnailPath(variant?.path);
       })
       .filter((path): path is string => path !== null)
       .slice(0, 4);

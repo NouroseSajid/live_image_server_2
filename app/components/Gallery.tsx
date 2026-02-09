@@ -427,11 +427,15 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   };
 
   const categories = useMemo(() => {
+    const fallbackAllThumbnail =
+      allFolderThumbnailUrl ||
+      folders.find((folder) => folder.thumbnail?.variants?.[0]?.path)?.thumbnail?.variants?.[0]?.path ||
+      null;
     const allCategory = {
       id: "all",
       name: "All",
-      thumbnail: allFolderThumbnailUrl
-        ? { id: "all", variants: [{ path: allFolderThumbnailUrl }] }
+      thumbnail: fallbackAllThumbnail
+        ? { id: "all", variants: [{ path: fallbackAllThumbnail }] }
         : null,
     };
     return [allCategory, ...folders];
