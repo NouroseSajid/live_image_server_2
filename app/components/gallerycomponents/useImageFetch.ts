@@ -56,6 +56,7 @@ export function useImageFetch({
   const [isLoading, setIsLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const lastLoadedFolderRef = useRef<string | null>(null);
+  const lastRequestKeyRef = useRef<string | null>(null);
   
   // Use refs to access folders and passphrases without triggering re-fetches
   const foldersRef = useRef(folders);
@@ -72,13 +73,13 @@ export function useImageFetch({
   }, [folders, folderPassphrases, onError, onPassphraseRequired]);
 
   useEffect(() => {
-    // Don't fetch if offset is 0 and images already loaded for the same folder
-    if (offset === 0 && images.length > 0 && lastLoadedFolderRef.current === activeFolder) {
+    // Don't fetch if no more results to load
+    if (!hasMore && offset > 0) {
       return;
     }
 
-    // Don't fetch if no more results to load
-    if (!hasMore && offset > 0) {
+    const requestKey = `${activeFolder}:${offset}`;
+    if (lastRequestKeyRef.current === requestKey) {
       return;
     }
 
@@ -88,6 +89,7 @@ export function useImageFetch({
         return;
       }
 
+      lastRequestKeyRef.current = requestKey;
       setIsLoading(true);
       try {
         const currentFolder = foldersRef.current.find((f) => f.id === activeFolder);
@@ -129,13 +131,14 @@ export function useImageFetch({
     };
 
     fetchImages();
-  }, [offset, activeFolder, passphraseModal, batchSize, hasMore, images.length]);
+  }, [offset, activeFolder, passphraseModal, batchSize, hasMore]);
 
   // Reset when changing folder
   useEffect(() => {
     setImages([]);
     setHasMore(true);
-  }, []);
+    lastRequestKeyRef.current = null;
+  }, [activeFolder]);
 
   return { images, setImages, isLoading, hasMore };
 }
