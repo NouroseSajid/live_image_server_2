@@ -59,6 +59,14 @@ export async function PUT(
       return new NextResponse("Missing folder name", { status: 400 });
     }
 
+    const normalizedPassphrase =
+      typeof passphrase === "string" ? passphrase.trim() : "";
+    if (isPrivate && !normalizedPassphrase) {
+      return new NextResponse("Passphrase required for private folders", {
+        status: 400,
+      });
+    }
+
     // Fetch the existing folder to compare name changes
     const existingFolder = await prisma.folder.findUnique({
       where: { id },
@@ -98,7 +106,7 @@ export async function PUT(
         isPrivate,
         visible,
         uniqueUrl,
-        passphrase,
+        passphrase: normalizedPassphrase || null,
         inGridView,
         groupId: groupId || null,
         folderThumbnailId,

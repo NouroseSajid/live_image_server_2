@@ -26,6 +26,8 @@ interface LightboxProps {
   onClose: () => void;
   onNext: () => void;
   onPrev: () => void;
+  canNext?: boolean;
+  isLoadingMore?: boolean;
   nextImage?: ImageData | null;
   prevImage?: ImageData | null;
   isSelected?: boolean;
@@ -176,6 +178,8 @@ export default function Lightbox({
   onClose,
   onNext,
   onPrev,
+  canNext = false,
+  isLoadingMore = false,
   nextImage,
   prevImage,
   isSelected = false,
@@ -282,7 +286,12 @@ export default function Lightbox({
 
   /* ---------- NAVIGATION ---------- */
   const handleNext = useCallback(() => {
-    if (isAnimatingRef.current || !nextImage) return;
+    if (isAnimatingRef.current) return;
+    if (!nextImage && !canNext) return;
+    if (!nextImage && canNext) {
+      cbRef.current.onNext();
+      return;
+    }
     isAnimatingRef.current = true;
     
     // Slide out
@@ -300,7 +309,7 @@ export default function Lightbox({
         isAnimatingRef.current = false;
       }, 50);
     }, ANIM_MS);
-  }, [nextImage, width]);
+  }, [nextImage, width, canNext]);
 
   const handlePrev = useCallback(() => {
     if (isAnimatingRef.current || !prevImage) return;
@@ -527,10 +536,15 @@ export default function Lightbox({
       <button
         aria-label="Next image"
         onClick={handleNext}
-        disabled={!nextImage}
+        disabled={!canNext}
         className="absolute right-2 sm:right-6 top-1/2 -translate-y-1/2 p-2 sm:p-4 bg-white/5 hover:bg-white/10 rounded-lg sm:rounded-full text-white transition transform-gpu hover:scale-110 disabled:opacity-30 disabled:hover:scale-100 z-20"
       >
-        <ChevronRightIcon />
+        <div className="relative">
+          <ChevronRightIcon />
+          {isLoadingMore && !nextImage && (
+            <span className="absolute -right-2 -top-2 w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+          )}
+        </div>
       </button>
 
       {/* ------ CAROUSEL ------ */}

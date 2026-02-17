@@ -42,6 +42,8 @@ export default function FolderEditorModal({
 }: FolderEditorModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const passphraseInputRef = useRef<HTMLInputElement>(null);
+  const prevPrivateRef = useRef(folder.isPrivate);
   const [formData, setFormData] = useState({
     name: folder.name,
     uniqueUrl: folder.uniqueUrl,
@@ -64,6 +66,15 @@ export default function FolderEditorModal({
   useEffect(() => {
     closeButtonRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    const wasPrivate = prevPrivateRef.current;
+    prevPrivateRef.current = formData.isPrivate;
+    if (!wasPrivate && formData.isPrivate && !formData.passphrase.trim()) {
+      setError("Passphrase required for private folders.");
+      passphraseInputRef.current?.focus();
+    }
+  }, [formData.isPrivate, formData.passphrase]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -190,6 +201,12 @@ export default function FolderEditorModal({
       return;
     }
 
+    if (formData.isPrivate && !formData.passphrase.trim()) {
+      setError("Passphrase required for private folders.");
+      passphraseInputRef.current?.focus();
+      return;
+    }
+
     // Validate URL slug format (alphanumeric, hyphens, underscores only)
     const slugRegex = /^[a-zA-Z0-9_-]+$/;
     if (!slugRegex.test(formData.uniqueUrl)) {
@@ -312,7 +329,7 @@ export default function FolderEditorModal({
                     </span>
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Show this folder in public galleries
+                    Show this folder in public lists; hidden folders need a direct link
                   </p>
                 </div>
               </label>
@@ -337,7 +354,7 @@ export default function FolderEditorModal({
                     </span>
                   </div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Restrict access to authenticated users
+                    Require passphrase or access link for this folder
                   </p>
                 </div>
               </label>
@@ -355,7 +372,7 @@ export default function FolderEditorModal({
                     Show in Gallery
                   </span>
                   <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Display images on main gallery/homepage
+                    Include this folder in the main homepage (All view)
                   </p>
                 </div>
               </label>
@@ -426,19 +443,25 @@ export default function FolderEditorModal({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Access Passphrase (Optional)
+                Access Passphrase (Required for private folders)
               </label>
               <input
+                ref={passphraseInputRef}
                 type="text"
                 name="passphrase"
                 value={formData.passphrase}
                 onChange={handleChange}
-                placeholder="Leave empty for no passphrase"
+                placeholder="Set a passphrase for private folders"
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Visitors must enter this passphrase to view the folder
               </p>
+              {formData.isPrivate && !formData.passphrase.trim() && (
+                <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                  Passphrase required when a folder is private.
+                </p>
+              )}
             </div>
           </div>
 

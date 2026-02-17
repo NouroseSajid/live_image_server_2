@@ -1,4 +1,4 @@
-import { FiEdit2, FiFolder, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiEyeOff, FiFolder, FiTrash2 } from "react-icons/fi";
 import type { Folder, FolderListItem } from "./types";
 
 interface FolderListProps {
@@ -64,6 +64,14 @@ export default function FolderList({
                     <p className="font-semibold text-gray-900 dark:text-white">
                       {item.folder.name}
                     </p>
+                    {!item.folder.visible && (
+                      <span
+                        className="inline-flex items-center text-gray-400"
+                        title="Hidden from public gallery"
+                      >
+                        <FiEyeOff size={14} />
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {item.folder.uniqueUrl}

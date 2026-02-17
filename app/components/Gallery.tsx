@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MdInfo } from "react-icons/md";
 import { buildRows, type Image } from "../lib/imageData";
 import { useFetch } from "../lib/useFetch";
@@ -40,6 +40,7 @@ interface Folder {
   isPrivate?: boolean;
   passphrase?: string | null;
   inGridView?: boolean;
+  folderThumb?: string | null;
   groupId?: string | null;
   group?: {
     id: string;
@@ -95,6 +96,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     name: string;
   } | null>(null);
   const [passphraseError, setPassphraseError] = useState<string>("");
+  const pendingAdvanceRef = useRef(false);
   const BATCH_SIZE = 20;
   const { containerRef, width } = useContainerWidth();
 
@@ -418,6 +420,14 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     });
   };
 
+  const scrollToImage = (id: string) => {
+    if (typeof window === "undefined") return;
+    const el = document.getElementById(`image-${id}`);
+    if (el) {
+      el.scrollIntoView({ block: "center", behavior: "auto" });
+    }
+  };
+
   const handleSelectAll = () => {
     if (selectedIds.size === processedImages.length) {
       setSelectedIds(new Set());
@@ -429,6 +439,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   const categories = useMemo(() => {
     const fallbackAllThumbnail =
       allFolderThumbnailUrl ||
+      folders.find((folder) => folder.folderThumb || folder.thumbnail?.variants?.[0]?.path)?.folderThumb ||
       folders.find((folder) => folder.thumbnail?.variants?.[0]?.path)?.thumbnail?.variants?.[0]?.path ||
       null;
     const allCategory = {
@@ -479,6 +490,35 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
       window.history.replaceState({}, "", `?f=${folder.id}`);
     }
   };
+
+  useEffect(() => {
+    if (!pendingAdvanceRef.current || !lightboxImg) return;
+    if (isLoading) return;
+    const idx = processedImages.findIndex((i) => i.id === lightboxImg.id);
+    if (idx === -1) {
+      if (!hasMore) pendingAdvanceRef.current = false;
+      return;
+    }
+    const next = processedImages[idx + 1];
+    if (next) {
+      pendingAdvanceRef.current = false;
+      setLightboxImg(next);
+      scrollToImage(next.id);
+      return;
+    }
+    if (!hasMore) {
+      pendingAdvanceRef.current = false;
+    }
+  }, [processedImages, lightboxImg, hasMore, isLoading]);
+
+  useEffect(() => {
+    if (!lightboxImg || isLoading || !hasMore) return;
+    const idx = processedImages.findIndex((i) => i.id === lightboxImg.id);
+    if (idx === -1) return;
+    if (processedImages.length - 1 - idx <= 3) {
+      triggerLoadMore();
+    }
+  }, [processedImages, lightboxImg, isLoading, hasMore, triggerLoadMore]);
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] font-sans selection:bg-[var(--primary)]/20 pb-24">
       {/* Header */}
@@ -585,7 +625,10 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
           return (
         <Lightbox
           image={lightboxImg}
-          onClose={() => setLightboxImg(null)}
+          onClose={() => {
+            pendingAdvanceRef.current = false;
+            setLightboxImg(null);
+          }}
           onNext={() => {
             const idx = processedImages.findIndex(
               (i) => i.id === lightboxImg.id,
@@ -593,9 +636,11 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
             const next = idx + 1;
             if (next < processedImages.length) {
               setLightboxImg(processedImages[next]);
+              scrollToImage(processedImages[next].id);
               return;
             }
             if (hasMore && !isLoading) {
+              pendingAdvanceRef.current = true;
               triggerLoadMore();
             }
           }}
@@ -606,8 +651,11 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
             const prev = idx - 1;
             if (prev >= 0) {
               setLightboxImg(processedImages[prev]);
+              scrollToImage(processedImages[prev].id);
             }
           }}
+          canNext={Boolean(nextImage) || (hasMore && !isLoading)}
+          isLoadingMore={isLoading}
           nextImage={nextImage}
           prevImage={prevImage}
           isSelected={selectedIds.has(lightboxImg.id)}

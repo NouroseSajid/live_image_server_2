@@ -18,13 +18,14 @@ export async function GET(request: NextRequest) {
     const validLimit = Math.min(Math.max(limit, 1), 100); // Between 1-100
     const validOffset = Math.max(offset, 0);
 
-    // No folderId? Only return public (non-private, visible) images.
+    // No folderId? Only return public images meant for the main gallery.
     if (!folderId) {
       const repoImages = await prisma.file.findMany({
         where: {
           folder: {
             visible: true,
             isPrivate: false,
+            inGridView: true,
           },
         },
         include: {

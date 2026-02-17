@@ -8,6 +8,7 @@ interface Category {
   id: string;
   name: string;
   isPrivate?: boolean;
+  folderThumb?: string | null;
   group?: {
     id: string;
     name: string;
@@ -143,7 +144,7 @@ export default function CategoryNavigation({
 
   const renderCard = (cat: Category, isSubItem = false) => {
     const thumbnailVariant = cat.thumbnail?.variants?.find((variant) => variant.path);
-    const thumbnailPath = thumbnailVariant?.path;
+    const thumbnailPath = cat.folderThumb || thumbnailVariant?.path;
     const isActive = activeFolder === cat.id;
     const absoluteThumbnailPath = resolveThumbnailPath(thumbnailPath);
 
@@ -198,8 +199,8 @@ export default function CategoryNavigation({
     const isOpen = openGroups[group.id];
     const thumbPaths = group.items
       .map((cat) => {
-        const variant = cat.thumbnail?.variants?.find((item) => item.path);
-        return resolveThumbnailPath(variant?.path);
+        const thumbPath = cat.folderThumb || cat.thumbnail?.variants?.find((item) => item.path)?.path;
+        return resolveThumbnailPath(thumbPath);
       })
       .filter((path): path is string => path !== null)
       .slice(0, 4);

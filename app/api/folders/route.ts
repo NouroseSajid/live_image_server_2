@@ -85,14 +85,21 @@ export async function GET(request: NextRequest) {
         },
       },
     });
+
+    // Transform response to include folderThumb field with the thumbnail path
+    const transformedFolders = folders.map((folder) => ({
+      ...folder,
+      folderThumb: folder.thumbnail?.variants?.[0]?.path || null,
+    }));
+
     const dbOrder = await readFolderOrderFromDb();
     const order = dbOrder.length ? dbOrder : await readFolderOrder();
     if (order.length) {
       const orderMap = new Map<string, number>(
         order.map((id, index) => [id, index]),
       );
-      const fallbackIndex = new Map(folders.map((f, idx) => [f.id, idx]));
-      const sorted = [...folders].sort((a, b) => {
+      const fallbackIndex = new Map(transformedFolders.map((f, idx) => [f.id, idx]));
+      const sorted = [...transformedFolders].sort((a, b) => {
         const aIndex = orderMap.get(a.id);
         const bIndex = orderMap.get(b.id);
         if (aIndex === undefined && bIndex === undefined) {
@@ -105,7 +112,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(sorted);
     }
 
-    return NextResponse.json(folders);
+    return NextResponse.json(transformedFolders);
   } catch (error) {
     console.error("Error fetching folders:", error);
     return new NextResponse("Internal Server Error", { status: 500 });
@@ -139,6 +146,15 @@ export async function POST(request: Request) {
       );
     }
 
+    const normalizedPassphrase =
+      typeof passphrase === "string" ? passphrase.trim() : "";
+    if (isPrivate && !normalizedPassphrase) {
+      return NextResponse.json(
+        { error: "Passphrase required for private folders" },
+        { status: 400 },
+      );
+    }
+
     if (!uniqueUrl) {
       const baseSlug = slugify(name, { lower: true, strict: true });
       let slug = baseSlug;
@@ -167,7 +183,7 @@ export async function POST(request: Request) {
         isPrivate: isPrivate || false,
         visible: visible || false,
         uniqueUrl,
-        passphrase,
+        passphrase: normalizedPassphrase || null,
         inGridView: inGridView || false,
         groupId: groupId || null,
         folderThumbnailId,

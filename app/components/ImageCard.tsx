@@ -82,6 +82,7 @@ export default function ImageCard({
 
   return (
     <div
+      id={`image-${img.id}`}
       className={`relative rounded-2xl overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] group select-none shadow-md cursor-pointer ${
         selected
           ? "ring-4 ring-blue-500 scale-[0.96]"
