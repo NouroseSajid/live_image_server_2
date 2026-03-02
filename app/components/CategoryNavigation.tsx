@@ -43,6 +43,9 @@ export default function CategoryNavigation({
   const resolveThumbnailPath = (path: string | null | undefined) => {
     if (!path) return null;
     if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    if (path.startsWith("/images/")) {
+      return path.replace(/^\/images\//, "/api/serve/");
+    }
     if (path.startsWith("/")) return path;
     return `/${path}`;
   };
