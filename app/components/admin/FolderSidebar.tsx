@@ -75,6 +75,18 @@ export default function FolderSidebar({
   onEditFolder,
   onDeleteFolder,
 }: FolderSidebarProps) {
+  const normalizeAssetPath = (path: string | null | undefined) => {
+    if (!path) return null;
+    if (path.startsWith("http://") || path.startsWith("https://")) return path;
+    if (path.startsWith("/images/")) {
+      return path.replace(/^\/images\//, "/api/serve/");
+    }
+    if (path.startsWith("/")) return path;
+    return `/${path}`;
+  };
+
+  const allThumbnailSrc = allThumbnailPreview || normalizeAssetPath(allThumbnailUrl);
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
       <div className="flex items-center mb-6">
@@ -102,9 +114,9 @@ export default function FolderSidebar({
         </div>
         <div className="flex items-center gap-4">
           <div className="w-24 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-            {allThumbnailPreview || allThumbnailUrl ? (
+            {allThumbnailSrc ? (
               <img
-                src={allThumbnailPreview || allThumbnailUrl || ""}
+                src={allThumbnailSrc}
                 alt="All folder thumbnail preview"
                 className="w-full h-full object-cover"
               />
