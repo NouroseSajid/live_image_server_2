@@ -1,19 +1,3 @@
-export const CATEGORIES = [
-  "Nature",
-  "Architecture",
-  "Travel",
-  "Portraits",
-  "Street",
-  "Food",
-  "Events",
-  "Studio",
-  "Weddings",
-  "Products",
-  "Sports",
-  "Night",
-  "Abstract",
-];
-
 export interface Image {
   id: string;
   width: number;

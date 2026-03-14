@@ -18,7 +18,7 @@ function forwardToSSE(payload) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Internal-Secret": "ingest-123",
+      "X-Internal-Secret": process.env.INTERNAL_SECRET || "ingest-123",
     },
   });
   req.on("error", (err) => {

@@ -2,13 +2,16 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
 import prisma from "../../../../../prisma/client";
+import { authOptions } from "../../../auth/[...nextauth]/route";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const session = await getServerSession(authOptions);
   const { searchParams } = new URL(request.url);
   const quality = searchParams.get("quality") || "original";
 
@@ -19,11 +22,16 @@ export async function GET(
   try {
     const file = await prisma.file.findUnique({
       where: { id },
-      include: { variants: true },
+      include: { variants: true, folder: { select: { isPrivate: true } } },
     });
 
     if (!file) {
       return new NextResponse("File not found", { status: 404 });
+    }
+
+    // Require auth for private folder files
+    if (file.folder?.isPrivate && !session?.user) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const variant = file.variants.find((v) => v.name === quality);

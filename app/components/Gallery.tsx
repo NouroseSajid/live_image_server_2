@@ -78,7 +78,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
   const [offset, setOffset] = useState(0);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [lightboxImg, setLightboxImg] = useState<Image | null>(null);
-  const [_scrolled, setScrolled] = useState(false);
   const [showQualityModal, setShowQualityModal] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<{
@@ -247,7 +246,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
 
   useEffect(() => {
     try {
-      localStorage.setItem("folderPassphrases", JSON.stringify(folderPassphrases));
+      sessionStorage.setItem("folderPassphrases", JSON.stringify(folderPassphrases));
     } catch (err) {
       console.error("[Gallery] Failed to persist passphrases", err);
     }
@@ -332,12 +331,24 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
     setSelectedIds(new Set());
   }, [activeFolder]);
 
+  // Handle #hash scroll after hydration (e.g. #latest-uploads)
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
+    const hash = window.location.hash;
+    if (!hash) return;
+    const id = hash.slice(1);
+    const scrollToHash = () => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+        return true;
+      }
+      return false;
     };
+    // Try immediately, then retry after a short delay for layout settling
+    if (!scrollToHash()) {
+      const timer = setTimeout(scrollToHash, 300);
+      return () => clearTimeout(timer);
+    }
   }, []);
 
   const maxAgeMinutes = folderMaxAgeMinutes?.[activeFolder] ?? null;
@@ -585,8 +596,6 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
           </div>
         )}
       </main>
-
-      {error && <ErrorDisplay error={error} onClose={() => setError(null)} />}
 
       {passphraseModal && (
         <PassphraseModal
