@@ -10,7 +10,7 @@ import { authOptions } from "../../auth/[...nextauth]/route";
 const imagesPrefix = "/images/";
 
 const publicPathToAbsolute = (publicPath: string) =>
-  join(process.cwd(), "public", publicPath.replace(/^\/+/, ""));
+  join(process.cwd(), "image_repo", publicPath.replace(/^\/+/, ""));
 
 const mapVariantPath = (
   variantPath: string,

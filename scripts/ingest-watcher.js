@@ -9,7 +9,7 @@ const WebSocket = require("ws");
 require("dotenv").config({ path: ".env.local" });
 
 const prisma = new PrismaClient();
-const ingestFolder = path.join(__dirname, "..", "public", "ingest");
+const ingestFolder = path.join(__dirname, "..", "image_repo", "ingest");
 const configPath = path.join(__dirname, "..", "ingest-config.json");
 
 // Get WebSocket configuration from environment
@@ -251,7 +251,7 @@ async function processRawFile(filePath) {
   const permanentFolderBase = path.join(
     __dirname,
     "..",
-    "public",
+    "image_repo",
     "images",
     String(targetFolderId),
   );
@@ -278,7 +278,7 @@ async function processVideo(filePath, fileTypeResult) {
   const permanentFolderBase = path.join(
     __dirname,
     "..",
-    "public",
+    "image_repo",
     "images",
     String(targetFolderId),
   );
@@ -370,7 +370,7 @@ async function processImage(filePath, _imageBuffer) {
   const permanentFolderBase = path.join(
     __dirname,
     "..",
-    "public",
+    "image_repo",
     "images",
     String(targetFolderId),
   );

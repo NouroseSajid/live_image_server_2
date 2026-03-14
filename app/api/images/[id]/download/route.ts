@@ -32,7 +32,7 @@ export async function GET(
       return new NextResponse("Requested quality not found", { status: 404 });
     }
 
-    const filePath = join(process.cwd(), "public", variant.path);
+    const filePath = join(process.cwd(), "image_repo", variant.path);
 
     try {
       const stats = await stat(filePath);
