@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     const fileBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(fileBuffer);
 
-    const baseDir = join(process.cwd(), "public", "images", "_all");
+    const baseDir = join(process.cwd(), "image_repo", "images", "_all");
     const originalFolder = join(baseDir, "original");
     const webpFolder = join(baseDir, "webp");
     const thumbFolder = join(baseDir, "thumbs");

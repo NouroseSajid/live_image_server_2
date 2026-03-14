@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Construct the full path to the image file.
-        const filePath = path.join(process.cwd(), "public", variant.path);
+        const filePath = path.join(process.cwd(), "image_repo", variant.path);
         const fileSize = Number(variant.size) || 0;
         return {
           fileName: file.fileName,

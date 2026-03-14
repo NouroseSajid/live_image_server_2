@@ -7,7 +7,7 @@ import prisma from "../../../../prisma/client";
 import { authOptions } from "../../auth/[...nextauth]/route";
 
 const publicPathToAbsolute = (publicPath: string) =>
-  join(process.cwd(), "public", publicPath.replace(/^\/+/, ""));
+  join(process.cwd(), "image_repo", publicPath.replace(/^\/+/, ""));
 
 export async function DELETE(
   _request: NextRequest,

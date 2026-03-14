@@ -47,7 +47,7 @@ export async function GET(
   try {
     const filePath = join(
       process.cwd(),
-      "public",
+      "image_repo",
       "images",
       folderId,
       variant,

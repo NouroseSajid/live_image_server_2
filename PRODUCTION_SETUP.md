@@ -70,7 +70,7 @@ CORS_ORIGINS="https://repo.nourose.com"
 # ============================================
 # INGEST WATCHER
 # ============================================
-INGEST_FOLDER_PATH="public/ingest"
+INGEST_FOLDER_PATH="image_repo/ingest"
 FILE_STABLE_THRESHOLD="2000"
 CONFIG_UPDATE_INTERVAL="10000"
 DEFAULT_INGEST_FOLDER="LIVE"
@@ -391,8 +391,8 @@ Since you have Nginx, update to:
 
 ### File Upload Issues
 1. Check `MAX_FILE_SIZE` matches Nginx `client_max_body_size`
-2. Verify `public/images` and `public/ingest` directories exist
-3. Check permissions: `ls -la /home/nourose/live_image_server/public/`
+2. Verify `image_repo/images` and `image_repo/ingest` directories exist
+3. Check permissions: `ls -la /home/nourose/live_image_server/image_repo/`
 
 ### Database Connection
 1. Verify PostgreSQL is running: `sudo systemctl status postgresql`
@@ -406,7 +406,7 @@ Since you have Nginx, update to:
 sudo systemctl restart nourose-repo.service nourose-repo-ws.service
 
 # View disk usage
-du -sh /home/nourose/live_image_server/public/images
+du -sh /home/nourose/live_image_server/image_repo/images
 
 # Clear logs
 sudo journalctl --vacuum=30d

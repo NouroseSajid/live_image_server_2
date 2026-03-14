@@ -84,7 +84,7 @@ export async function POST(
 
     const permanentFolderBase = join(
       process.cwd(),
-      "public",
+      "image_repo",
       "images",
       id,
     );

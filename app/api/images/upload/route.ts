@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     const permanentFolderBase = join(
       process.cwd(),
-      "public",
+      "image_repo",
       "images",
       folderId,
     );
