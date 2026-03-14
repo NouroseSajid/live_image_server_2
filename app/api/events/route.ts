@@ -7,7 +7,8 @@ export async function POST(request: NextRequest) {
   try {
     // Simple auth check
     const secret = request.headers.get("X-Internal-Secret");
-    if (secret !== "ingest-123") {
+    const expectedSecret = process.env.INTERNAL_SECRET || "ingest-123";
+    if (secret !== expectedSecret) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

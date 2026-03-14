@@ -1,20 +1,18 @@
 "use client";
 
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Gallery from "../../components/Gallery";
 
 export default function FolderPage() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const _router = useRouter();
   const slug = params.slug as string;
 
   const passphrase = searchParams.get("p");
   const tokenParam = searchParams.get("t") || searchParams.get("token");
 
   const [folderId, setFolderId] = useState<string | null>(null);
-  const [_folderName, setFolderName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -38,7 +36,6 @@ export default function FolderPage() {
         }
 
         setFolderId(folder.id);
-        setFolderName(folder.name);
 
         // If passphrase in URL, set it in sessionStorage for Gallery to pick up
         if (passphrase) {

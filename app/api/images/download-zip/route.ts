@@ -1,12 +1,14 @@
 // app/api/images/download-zip/route.ts
 
 import fs from "node:fs";
+import { access } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
 import { PassThrough } from "node:stream";
-import { PrismaClient } from "@prisma/client";
 import archiver from "archiver";
 import { type NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../auth/[...nextauth]/route";
 
 const _WS_SERVER_HOST = process.env.WS_SERVER_HOST || "localhost";
 const _WS_SERVER_PORT = parseInt(process.env.WS_SERVER_PORT || "8080", 10);
@@ -24,14 +26,15 @@ function broadcastDownloadProgress(
   };
 
   const body = JSON.stringify(payload);
+  const appPort = parseInt(process.env.PORT || "3000", 10);
   const req = http.request({
     hostname: "localhost",
-    port: 3000,
+    port: appPort,
     path: "/api/events",
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "X-Internal-Secret": "ingest-123",
+      "X-Internal-Secret": process.env.INTERNAL_SECRET || "ingest-123",
     },
   });
 
@@ -43,12 +46,18 @@ function broadcastDownloadProgress(
   req.end();
 }
 
-const prisma = new PrismaClient();
+import prisma from "../../../../prisma/client";
 
 const DOWNLOAD_TIMEOUT = 15 * 60 * 1000; // 15 minute timeout for large files
 const MAX_BATCH_SIZE = 500; // Max number of images per request
 
 export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+
+  if (!session || !session.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { imageIds, quality = "webp" } = await req.json();
 
@@ -177,7 +186,12 @@ export async function POST(req: NextRequest) {
 
     // Add files to archive with progress logging
     for (const file of filesWithPaths) {
-      if (fs.existsSync(file.filePath)) {
+      let exists = false;
+      try {
+        await access(file.filePath);
+        exists = true;
+      } catch {}
+      if (exists) {
         fileCount++;
         console.log(
           `[Download] Adding file ${fileCount}/${filesWithPaths.length}: ${file.fileName} (${(file.size / 1024 / 1024).toFixed(1)}MB)`,
@@ -297,7 +311,5 @@ export async function POST(req: NextRequest) {
       { error: `Failed to generate zip file: ${errorMsg}` },
       { status: 500 },
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

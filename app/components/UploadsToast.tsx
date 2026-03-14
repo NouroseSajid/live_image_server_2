@@ -2,17 +2,39 @@
 
 import { AlertCircle, Check, UploadCloud, X } from "lucide-react";
 import Image from "next/image";
+import { useEffect, useMemo, useRef } from "react";
 import { type Upload, useUploads } from "@/app/lib/useUploads";
 
 const UploadToast = () => {
   const uploads = useUploads((state) => state.uploads);
   const remove = useUploads((state) => state.remove);
 
+  // Track blob URLs for cleanup
+  const blobUrlsRef = useRef<Map<string, string>>(new Map());
+
+  // Clean up blob URLs on unmount or when uploads change
+  useEffect(() => {
+    return () => {
+      for (const url of blobUrlsRef.current.values()) {
+        URL.revokeObjectURL(url);
+      }
+      blobUrlsRef.current.clear();
+    };
+  }, []);
+
+  const getOrCreateBlobUrl = (file: File): string => {
+    const key = `${file.name}-${file.size}-${file.lastModified}`;
+    if (!blobUrlsRef.current.has(key)) {
+      blobUrlsRef.current.set(key, URL.createObjectURL(file));
+    }
+    return blobUrlsRef.current.get(key)!;
+  };
+
   const getThumbnail = (upload: Upload) => {
     if (upload.file.type.startsWith("image/")) {
       return (
         <Image
-          src={URL.createObjectURL(upload.file)}
+          src={getOrCreateBlobUrl(upload.file)}
           alt={upload.file.name}
           width={40}
           height={40}

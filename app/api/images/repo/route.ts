@@ -38,14 +38,17 @@ export async function GET(request: NextRequest) {
         take: validLimit,
       });
 
-      const serializedImages = repoImages.map((image) => ({
-        ...image,
-        fileSize: image.fileSize.toString(),
-        variants: image.variants.map((variant) => ({
-          ...variant,
-          size: variant.size.toString(),
-        })),
-      }));
+      const serializedImages = repoImages.map((image) => {
+        const { folder: _folder, ...rest } = image;
+        return {
+          ...rest,
+          fileSize: image.fileSize.toString(),
+          variants: image.variants.map((variant) => ({
+            ...variant,
+            size: variant.size.toString(),
+          })),
+        };
+      });
 
       return NextResponse.json(serializedImages);
     }
@@ -113,14 +116,17 @@ export async function GET(request: NextRequest) {
       take: validLimit,
     });
 
-    const serializedImages = repoImages.map((image) => ({
-      ...image,
-      fileSize: image.fileSize.toString(),
-      variants: image.variants.map((variant) => ({
-        ...variant,
-        size: variant.size.toString(),
-      })),
-    }));
+    const serializedImages = repoImages.map((image) => {
+      const { folder: _folder, ...rest } = image;
+      return {
+        ...rest,
+        fileSize: image.fileSize.toString(),
+        variants: image.variants.map((variant) => ({
+          ...variant,
+          size: variant.size.toString(),
+        })),
+      };
+    });
 
     const res = NextResponse.json(serializedImages);
 

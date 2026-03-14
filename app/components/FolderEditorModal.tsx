@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FiEye, FiEyeOff, FiGrid, FiLink, FiLock, FiSave, FiUnlock, FiX } from "react-icons/fi";
+import { FiEye, FiGrid, FiLink, FiLock, FiSave, FiX } from "react-icons/fi";
 import axios from "axios";
 
 export interface FolderUpdate {

@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { unlink } from "node:fs/promises";
 import { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
@@ -30,22 +29,24 @@ export async function DELETE(
       return new NextResponse("File not found", { status: 404 });
     }
 
-    // Try to delete variants from disk
-    for (const variant of file.variants) {
-      if (!variant.path.startsWith("/images/")) continue;
-      const absPath = publicPathToAbsolute(variant.path);
-      if (!existsSync(absPath)) continue;
-      try {
-        await unlink(absPath);
-      } catch (e) {
-        console.error("Error deleting variant from disk:", e);
-      }
-    }
-
-    // Delete from database
+    // Delete from database first to prevent serving during cleanup
     await prisma.file.delete({
       where: { id },
     });
+
+    // Clean up variant files from disk
+    for (const variant of file.variants) {
+      if (!variant.path.startsWith("/images/")) continue;
+      const absPath = publicPathToAbsolute(variant.path);
+      try {
+        await unlink(absPath);
+      } catch (e) {
+        // File may already be gone — not an error
+        if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+          console.error("Error deleting variant from disk:", e);
+        }
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

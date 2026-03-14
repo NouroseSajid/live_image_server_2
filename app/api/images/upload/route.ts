@@ -137,6 +137,7 @@ export async function POST(request: NextRequest) {
         data: {
           fileName,
           hash,
+          mimeType,
           width: imageWidth,
           height: imageHeight,
           fileSize: BigInt(buffer.length),

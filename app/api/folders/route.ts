@@ -87,8 +87,11 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform response to include folderThumb field with the thumbnail path
+    // Strip passphrase from public responses
+    const isAdmin = session?.user;
     const transformedFolders = folders.map((folder) => ({
       ...folder,
+      passphrase: isAdmin ? folder.passphrase : undefined,
       folderThumb: folder.thumbnail?.variants?.[0]?.path || null,
     }));
 
