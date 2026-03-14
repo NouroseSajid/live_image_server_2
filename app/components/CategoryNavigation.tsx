@@ -171,7 +171,7 @@ export default function CategoryNavigation({
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-[var(--card)] to-[var(--background)] opacity-50" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20 backdrop-blur-[2px]" />
           
           {cat.isPrivate && (
             <div className="absolute top-2 right-2">
@@ -233,7 +233,7 @@ export default function CategoryNavigation({
           ))}
         </div>
         
-        <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors" />
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-md group-hover:bg-black/30 transition-colors" />
         
         <div className="absolute top-2 left-2">
           <div className="p-1.5 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">

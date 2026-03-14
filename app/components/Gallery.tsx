@@ -546,7 +546,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
           onSelectCategory={handleSelectCategory}
         />
 
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div id="latest-uploads" className="mb-4 flex flex-wrap items-center justify-between gap-3 scroll-mt-24">
           <div>
             <p className="text-lg font-semibold text-[var(--foreground)]">
               Latest uploads

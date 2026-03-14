@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "../../../../prisma/client";
@@ -67,12 +68,18 @@ export async function GET(request: NextRequest) {
       if (!link) return false;
       if (link.folderId !== folderId) return false;
       if (link.expiresAt && link.expiresAt < new Date()) return false;
+      if (link.usesLeft !== null && link.usesLeft <= 0) return false;
       return true;
+    };
+
+    const safeCompare = (a: string, b: string) => {
+      if (a.length !== b.length) return false;
+      return timingSafeEqual(Buffer.from(a), Buffer.from(b));
     };
 
     if (folder.isPrivate && folder.passphrase) {
       // Passphrase path
-      if (passphrase && passphrase === folder.passphrase) {
+      if (passphrase && safeCompare(passphrase, folder.passphrase)) {
         accessGranted = true;
       }
 

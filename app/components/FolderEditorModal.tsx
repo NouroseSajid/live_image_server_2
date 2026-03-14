@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FiEye, FiEyeOff, FiLock, FiSave, FiUnlock, FiX } from "react-icons/fi";
+import { FiEye, FiEyeOff, FiGrid, FiLink, FiLock, FiSave, FiUnlock, FiX } from "react-icons/fi";
 import axios from "axios";
 
 export interface FolderUpdate {
@@ -58,6 +58,34 @@ export default function FolderEditorModal({
   const [isDirty, setIsDirty] = useState(false);
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+
+  // Visibility slider: 0=Private, 1=Hidden, 2=Visible, 3=In Gallery
+  const VISIBILITY_LEVELS = [
+    { label: "Private", icon: FiLock, color: "text-orange-500", desc: "Requires passphrase or access link" },
+    { label: "Hidden", icon: FiLink, color: "text-yellow-500", desc: "Accessible via direct link only" },
+    { label: "Visible", icon: FiEye, color: "text-blue-500", desc: "Shown in folder list" },
+    { label: "In Gallery", icon: FiGrid, color: "text-green-500", desc: "Images appear in main gallery" },
+  ] as const;
+
+  const deriveSliderLevel = (data: { isPrivate: boolean; visible: boolean; inGridView: boolean }) => {
+    if (data.isPrivate) return 0;
+    if (!data.visible) return 1;
+    if (data.inGridView) return 3;
+    return 2;
+  };
+
+  const applySliderLevel = (level: number) => {
+    const map = [
+      { isPrivate: true, visible: false, inGridView: false },
+      { isPrivate: false, visible: false, inGridView: false },
+      { isPrivate: false, visible: true, inGridView: false },
+      { isPrivate: false, visible: true, inGridView: true },
+    ];
+    setFormData((prev) => ({ ...prev, ...map[level] }));
+    setIsDirty(true);
+  };
+
+  const visibilityLevel = deriveSliderLevel(formData);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [accessLinkToken, setAccessLinkToken] = useState<string | null>(null);
   const [isGeneratingAccessLink, setIsGeneratingAccessLink] = useState(false);
@@ -308,74 +336,79 @@ export default function FolderEditorModal({
               Visibility & Access
             </h3>
 
-            <div className="space-y-3">
-              <label className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                <input
-                  type="checkbox"
-                  name="visible"
-                  checked={formData.visible}
-                  onChange={handleChange}
-                  className="w-4 h-4"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    {formData.visible ? (
-                      <FiEye size={16} className="text-blue-500" />
-                    ) : (
-                      <FiEyeOff size={16} className="text-gray-500" />
-                    )}
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      Visible
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Show this folder in public lists; hidden folders need a direct link
-                  </p>
-                </div>
-              </label>
+            {/* Notched slider */}
+            <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50 space-y-4">
+              {/* Current level indicator */}
+              <div className="flex items-center gap-3">
+                {(() => { const L = VISIBILITY_LEVELS[visibilityLevel]; const Icon = L.icon; return (
+                  <>
+                    <div className={`p-2 rounded-lg bg-gray-200 dark:bg-gray-600 ${L.color}`}>
+                      <Icon size={18} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm">{L.label}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{L.desc}</p>
+                    </div>
+                  </>
+                ); })()}
+              </div>
 
-              <label className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                <input
-                  type="checkbox"
-                  name="isPrivate"
-                  checked={formData.isPrivate}
-                  onChange={handleChange}
-                  className="w-4 h-4"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    {formData.isPrivate ? (
-                      <FiLock size={16} className="text-orange-500" />
-                    ) : (
-                      <FiUnlock size={16} className="text-gray-500" />
-                    )}
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      Private
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Require passphrase or access link for this folder
-                  </p>
+              {/* Slider track */}
+              <div className="relative px-1">
+                {/* Track background */}
+                <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-600 relative">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full transition-all duration-200"
+                    style={{
+                      width: `${(visibilityLevel / 3) * 100}%`,
+                      background: ["#f97316", "#eab308", "#3b82f6", "#22c55e"][visibilityLevel],
+                    }}
+                  />
                 </div>
-              </label>
 
-              <label className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                <input
-                  type="checkbox"
-                  name="inGridView"
-                  checked={formData.inGridView}
-                  onChange={handleChange}
-                  className="w-4 h-4"
-                />
-                <div className="flex-1">
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    Show in Gallery
-                  </span>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
-                    Include this folder in the main homepage (All view)
-                  </p>
+                {/* Notch buttons */}
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between">
+                  {VISIBILITY_LEVELS.map((level, i) => (
+                    <button
+                      key={level.label}
+                      type="button"
+                      onClick={() => applySliderLevel(i)}
+                      className={`w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
+                        i <= visibilityLevel
+                          ? "border-current bg-white dark:bg-gray-800 shadow-md scale-110"
+                          : "border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700"
+                      }`}
+                      style={i <= visibilityLevel ? { color: ["#f97316", "#eab308", "#3b82f6", "#22c55e"][i] } : undefined}
+                      aria-label={level.label}
+                    >
+                      {i === visibilityLevel && (
+                        <div
+                          className="w-2 h-2 rounded-full"
+                          style={{ background: ["#f97316", "#eab308", "#3b82f6", "#22c55e"][i] }}
+                        />
+                      )}
+                    </button>
+                  ))}
                 </div>
-              </label>
+              </div>
+
+              {/* Labels below */}
+              <div className="flex justify-between">
+                {VISIBILITY_LEVELS.map((level, i) => (
+                  <button
+                    key={level.label}
+                    type="button"
+                    onClick={() => applySliderLevel(i)}
+                    className={`text-[10px] font-semibold uppercase tracking-wide transition-colors ${
+                      i === visibilityLevel
+                        ? "text-gray-900 dark:text-white"
+                        : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                    }`}
+                  >
+                    {level.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">

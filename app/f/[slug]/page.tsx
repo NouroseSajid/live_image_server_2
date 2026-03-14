@@ -11,6 +11,7 @@ export default function FolderPage() {
   const slug = params.slug as string;
 
   const passphrase = searchParams.get("p");
+  const tokenParam = searchParams.get("t") || searchParams.get("token");
 
   const [folderId, setFolderId] = useState<string | null>(null);
   const [_folderName, setFolderName] = useState<string | null>(null);
@@ -47,6 +48,22 @@ export default function FolderPage() {
           sessionStorage.setItem("folderPassphrases", JSON.stringify(passphrases));
         }
 
+        // If access token in URL, validate it immediately (sets httpOnly cookie)
+        if (tokenParam) {
+          try {
+            const tokenRes = await fetch(`/api/access-links/${tokenParam}`);
+            if (!tokenRes.ok) {
+              setError("Access link is invalid or expired.");
+              setIsLoading(false);
+              return;
+            }
+          } catch {
+            setError("Access link validation failed.");
+            setIsLoading(false);
+            return;
+          }
+        }
+
         setIsLoading(false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load folder");
@@ -55,7 +72,7 @@ export default function FolderPage() {
     };
 
     resolveFolderSlug();
-  }, [slug, passphrase]);
+  }, [slug, passphrase, tokenParam]);
 
   if (isLoading) {
     return (
