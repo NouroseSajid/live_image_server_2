@@ -17,14 +17,18 @@ export async function GET(
       return new NextResponse("Access link expired", { status: 410 });
     }
 
-    // Decrement usesLeft if limited
-    if (typeof link.usesLeft === "number" && link.usesLeft > 0) {
-      await prisma.accessLink.update({
-        where: { token },
-        data: { usesLeft: link.usesLeft - 1 },
+    // Atomic decrement usesLeft to prevent race conditions
+    if (link.usesLeft !== null) {
+      if (link.usesLeft <= 0) {
+        return new NextResponse("Access link exhausted", { status: 410 });
+      }
+      const updated = await prisma.accessLink.updateMany({
+        where: { token, usesLeft: { gt: 0 } },
+        data: { usesLeft: { decrement: 1 } },
       });
-    } else if (link.usesLeft !== null && link.usesLeft <= 0) {
-      return new NextResponse("Access link exhausted", { status: 410 });
+      if (updated.count === 0) {
+        return new NextResponse("Access link exhausted", { status: 410 });
+      }
     }
 
     const cookieName = `access_folder_${link.folderId}`;
