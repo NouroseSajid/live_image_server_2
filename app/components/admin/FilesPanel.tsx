@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { FiCopy, FiImage, FiMove, FiTrash2 } from "react-icons/fi";
 import { formatFileSize, getPreviewPath } from "./fileUtils";
 import type { ConflictInfo, FileEntry, Folder } from "./types";
@@ -7,11 +8,11 @@ interface FilesPanelProps {
   folders: Folder[];
   files: FileEntry[];
   dragActive: boolean;
-  dragRef: React.RefObject<HTMLLabelElement | null>;
-  onDragEnter: (event: React.DragEvent<HTMLLabelElement>) => void;
-  onDragLeave: (event: React.DragEvent<HTMLLabelElement>) => void;
-  onDragOver: (event: React.DragEvent<HTMLLabelElement>) => void;
-  onDrop: (event: React.DragEvent<HTMLLabelElement>) => void;
+  dragRef: React.RefObject<HTMLDivElement | null>;
+  onDragEnter: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragLeave: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDrop: (event: React.DragEvent<HTMLDivElement>) => void;
   onUploadImage: (event: React.ChangeEvent<HTMLInputElement>) => void;
   selectedIds: Set<string>;
   actionTargetFolderId: string | null;
@@ -55,6 +56,8 @@ export default function FilesPanel({
   isBulkWorking,
   loading,
 }: FilesPanelProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
       <div className="flex items-center mb-6">
@@ -69,7 +72,7 @@ export default function FilesPanel({
       {activeFolder ? (
         <>
           <div className="mb-6">
-            <label
+            <div
               ref={dragRef}
               className={`block border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors
                 ${dragActive ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20" : "border-gray-300 dark:border-gray-600 hover:border-blue-500"}`}
@@ -77,13 +80,15 @@ export default function FilesPanel({
               onDragLeave={onDragLeave}
               onDragOver={onDragOver}
               onDrop={onDrop}
+              onClick={() => fileInputRef.current?.click()}
             >
               <input
+                ref={fileInputRef}
                 type="file"
                 multiple
                 accept="image/*,video/*"
                 onChange={onUploadImage}
-                className="hidden"
+                className="sr-only"
                 disabled={loading}
               />
               <div className="text-gray-600 dark:text-gray-400">
@@ -95,7 +100,7 @@ export default function FilesPanel({
                 </p>
                 <p className="text-sm">PNG, JPG, GIF, WebP, or video files</p>
               </div>
-            </label>
+            </div>
           </div>
 
           <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -207,11 +212,18 @@ export default function FilesPanel({
                 const selected = selectedIds.has(file.id);
                 const preview = getPreviewPath(file);
                 return (
-                  <button
+                  <div
                     key={file.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onToggleSelect(file.id)}
-                    className={`relative text-left rounded-lg overflow-hidden border transition-all group ${
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onToggleSelect(file.id);
+                      }
+                    }}
+                    className={`relative text-left rounded-lg overflow-hidden border transition-all group cursor-pointer ${
                       selected
                         ? "border-blue-500 ring-2 ring-blue-400"
                         : "border-gray-200 dark:border-gray-700"
@@ -262,7 +274,7 @@ export default function FilesPanel({
                     >
                       Set thumbnail
                     </button>
-                  </button>
+                  </div>
                 );
               })}
             </div>
