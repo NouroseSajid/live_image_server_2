@@ -4,6 +4,7 @@ export interface Folder {
   uniqueUrl: string;
   isPrivate: boolean;
   visible: boolean;
+  archived: boolean;
   passphrase: string | null;
   inGridView: boolean;
   folderThumb: string | null;

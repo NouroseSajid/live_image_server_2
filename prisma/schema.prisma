@@ -19,8 +19,9 @@ model User {
 model Folder {
   id                String        @id @default(cuid())
   name              String
-  isPrivate         Boolean       @default(true)
+  isPrivate         Boolean       @default(false)
   visible           Boolean       @default(true)
+  archived          Boolean       @default(false)
   uniqueUrl         String        @unique
   passphrase        String?
   inGridView        Boolean       @default(false)
@@ -40,6 +41,7 @@ model Folder {
   @@index([createdAt])
   @@index([groupId])
   @@index([visible])
+  @@index([archived])
 }
 
 model FolderGroup {

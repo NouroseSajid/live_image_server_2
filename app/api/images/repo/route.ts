@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
         where: {
           folder: {
             visible: true,
+            archived: false,
             isPrivate: false,
             inGridView: true,
           },
