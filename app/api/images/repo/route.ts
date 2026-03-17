@@ -24,10 +24,12 @@ export async function GET(request: NextRequest) {
       const repoImages = await prisma.file.findMany({
         where: {
           folder: {
-            visible: true,
-            archived: false,
-            isPrivate: false,
-            inGridView: true,
+            is: {
+              visible: true,
+              archived: false,
+              isPrivate: false,
+              inGridView: true,
+            },
           },
         },
         include: {

@@ -17,7 +17,7 @@ export async function GET() {
       where: {
         OR: [
           { isLive: true }, // Live mode files
-          { folder: { inGridView: true } }, // Files in folders marked for grid view
+          { folder: { is: { inGridView: true } } }, // Files in folders marked for grid view
         ],
       },
       include: {
