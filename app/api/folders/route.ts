@@ -41,14 +41,28 @@ export async function GET(request: NextRequest) {
   };
 
   try {
+    // Slug lookup: resolve a uniqueUrl to folder id + minimal info
+    // Returns non-archived folders (hidden or visible) for direct link access
+    const slug = request.nextUrl.searchParams.get("slug");
+    if (slug) {
+      const folder = await prisma.folder.findUnique({
+        where: { uniqueUrl: slug },
+        select: { id: true, name: true, isPrivate: true, archived: true },
+      });
+      if (!folder || folder.archived) {
+        return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+      }
+      return NextResponse.json({ id: folder.id, name: folder.name, isPrivate: folder.isPrivate });
+    }
+
     // Public scope should always hide non-visible folders, even for admins.
     // Admins (no scope) see all folders for management.
     const folders = await prisma.folder.findMany({
       where:
         scope === "public"
-          ? { visible: true }
+          ? { visible: true, archived: false }
           : !session || !session.user
-            ? { visible: true }
+            ? { visible: true, archived: false }
             : undefined,
       orderBy: { createdAt: "desc" },
       select: {
@@ -56,6 +70,7 @@ export async function GET(request: NextRequest) {
         name: true,
         visible: true,
         isPrivate: true,
+        archived: true,
         passphrase: true,
         uniqueUrl: true,
         inGridView: true,
@@ -185,6 +200,7 @@ export async function POST(request: Request) {
         name,
         isPrivate: isPrivate || false,
         visible: visible || false,
+        archived: body.archived || false,
         uniqueUrl,
         passphrase: normalizedPassphrase || null,
         inGridView: inGridView || false,

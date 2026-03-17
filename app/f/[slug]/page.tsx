@@ -20,20 +20,13 @@ export default function FolderPage() {
   useEffect(() => {
     const resolveFolderSlug = async () => {
       try {
-        const res = await fetch("/api/folders");
-        if (!res.ok) throw new Error("Failed to fetch folders");
-        const folders = await res.json();
-
-        const folder = folders.find(
-          (f: { uniqueUrl: string; id: string; name: string }) =>
-            f.uniqueUrl === slug,
-        );
-
-        if (!folder) {
+        const res = await fetch(`/api/folders?slug=${encodeURIComponent(slug)}`);
+        if (!res.ok) {
           setError("Folder not found");
           setIsLoading(false);
           return;
         }
+        const folder = await res.json();
 
         setFolderId(folder.id);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FiEye, FiGrid, FiLink, FiLock, FiSave, FiX } from "react-icons/fi";
+import { FiArchive, FiEye, FiGrid, FiLink, FiLock, FiSave, FiX } from "react-icons/fi";
 import axios from "axios";
 
 export interface FolderUpdate {
@@ -9,6 +9,7 @@ export interface FolderUpdate {
   uniqueUrl: string;
   isPrivate: boolean;
   visible: boolean;
+  archived: boolean;
   passphrase: string | null;
   inGridView: boolean;
   folderThumbnailId?: string | null;
@@ -22,6 +23,7 @@ interface FolderEditorModalProps {
     uniqueUrl: string;
     isPrivate: boolean;
     visible: boolean;
+    archived: boolean;
     passphrase: string | null;
     inGridView: boolean;
     folderThumbnailId?: string | null;
@@ -49,6 +51,7 @@ export default function FolderEditorModal({
     uniqueUrl: folder.uniqueUrl,
     isPrivate: folder.isPrivate,
     visible: folder.visible,
+    archived: folder.archived ?? false,
     passphrase: folder.passphrase || "",
     inGridView: folder.inGridView,
     groupId: folder.groupId || "",
@@ -59,16 +62,18 @@ export default function FolderEditorModal({
   const [thumbnailUploading, setThumbnailUploading] = useState(false);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
 
-  // Visibility slider: 0=Private, 1=Hidden, 2=Visible, 3=In Gallery
+  // Visibility slider: 0=Archived, 1=Hidden, 2=Visible, 3=In Gallery
   const VISIBILITY_LEVELS = [
-    { label: "Private", icon: FiLock, color: "text-orange-500", desc: "Requires passphrase or access link" },
+    { label: "Archived", icon: FiArchive, color: "text-gray-500", desc: "Admin-only. Not accessible publicly." },
     { label: "Hidden", icon: FiLink, color: "text-yellow-500", desc: "Accessible via direct link only" },
-    { label: "Visible", icon: FiEye, color: "text-blue-500", desc: "Shown in folder list" },
+    { label: "Visible", icon: FiEye, color: "text-blue-500", desc: "Shown in folder navigation" },
     { label: "In Gallery", icon: FiGrid, color: "text-green-500", desc: "Images appear in main gallery" },
   ] as const;
 
-  const deriveSliderLevel = (data: { isPrivate: boolean; visible: boolean; inGridView: boolean }) => {
-    if (data.isPrivate) return 0;
+  const SLIDER_COLORS = ["#6b7280", "#eab308", "#3b82f6", "#22c55e"];
+
+  const deriveSliderLevel = (data: { archived: boolean; visible: boolean; inGridView: boolean }) => {
+    if (data.archived) return 0;
     if (!data.visible) return 1;
     if (data.inGridView) return 3;
     return 2;
@@ -76,10 +81,10 @@ export default function FolderEditorModal({
 
   const applySliderLevel = (level: number) => {
     const map = [
-      { isPrivate: true, visible: false, inGridView: false },
-      { isPrivate: false, visible: false, inGridView: false },
-      { isPrivate: false, visible: true, inGridView: false },
-      { isPrivate: false, visible: true, inGridView: true },
+      { archived: true, visible: false, inGridView: false },
+      { archived: false, visible: false, inGridView: false },
+      { archived: false, visible: true, inGridView: false },
+      { archived: false, visible: true, inGridView: true },
     ];
     setFormData((prev) => ({ ...prev, ...map[level] }));
     setIsDirty(true);
@@ -99,7 +104,6 @@ export default function FolderEditorModal({
     const wasPrivate = prevPrivateRef.current;
     prevPrivateRef.current = formData.isPrivate;
     if (!wasPrivate && formData.isPrivate && !formData.passphrase.trim()) {
-      setError("Passphrase required for private folders.");
       passphraseInputRef.current?.focus();
     }
   }, [formData.isPrivate, formData.passphrase]);
@@ -230,7 +234,7 @@ export default function FolderEditorModal({
     }
 
     if (formData.isPrivate && !formData.passphrase.trim()) {
-      setError("Passphrase required for private folders.");
+      setError("Passphrase required when password protection is enabled.");
       passphraseInputRef.current?.focus();
       return;
     }
@@ -361,7 +365,7 @@ export default function FolderEditorModal({
                     className="absolute inset-y-0 left-0 rounded-full transition-all duration-200"
                     style={{
                       width: `${(visibilityLevel / 3) * 100}%`,
-                      background: ["#f97316", "#eab308", "#3b82f6", "#22c55e"][visibilityLevel],
+                      background: SLIDER_COLORS[visibilityLevel],
                     }}
                   />
                 </div>
@@ -378,13 +382,13 @@ export default function FolderEditorModal({
                           ? "border-current bg-white dark:bg-gray-800 shadow-md scale-110"
                           : "border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700"
                       }`}
-                      style={i <= visibilityLevel ? { color: ["#f97316", "#eab308", "#3b82f6", "#22c55e"][i] } : undefined}
+                      style={i <= visibilityLevel ? { color: SLIDER_COLORS[i] } : undefined}
                       aria-label={level.label}
                     >
                       {i === visibilityLevel && (
                         <div
                           className="w-2 h-2 rounded-full"
-                          style={{ background: ["#f97316", "#eab308", "#3b82f6", "#22c55e"][i] }}
+                          style={{ background: SLIDER_COLORS[i] }}
                         />
                       )}
                     </button>
@@ -474,28 +478,60 @@ export default function FolderEditorModal({
               Security
             </h3>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Access Passphrase (Required for private folders)
-              </label>
-              <input
-                ref={passphraseInputRef}
-                type="text"
-                name="passphrase"
-                value={formData.passphrase}
-                onChange={handleChange}
-                placeholder="Set a passphrase for private folders"
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Visitors must enter this passphrase to view the folder
-              </p>
-              {formData.isPrivate && !formData.passphrase.trim() && (
-                <p className="text-xs text-red-600 dark:text-red-300 mt-1">
-                  Passphrase required when a folder is private.
-                </p>
-              )}
+            {/* Password protection toggle */}
+            <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50">
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${formData.isPrivate ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-500' : 'bg-gray-200 dark:bg-gray-600 text-gray-400'}`}>
+                  <FiLock size={18} />
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">Password Protected</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Require a passphrase to view this folder</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData((prev) => ({ ...prev, isPrivate: !prev.isPrivate, passphrase: !prev.isPrivate ? prev.passphrase : "" }));
+                  setIsDirty(true);
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  formData.isPrivate ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+                role="switch"
+                aria-checked={formData.isPrivate}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  formData.isPrivate ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
             </div>
+
+            {/* Passphrase input - only shown when password protection is on */}
+            {formData.isPrivate && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Passphrase
+                </label>
+                <input
+                  ref={passphraseInputRef}
+                  type="text"
+                  name="passphrase"
+                  value={formData.passphrase}
+                  onChange={handleChange}
+                  placeholder="Enter a passphrase"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Visitors must enter this passphrase to view the folder
+                </p>
+                {formData.isPrivate && !formData.passphrase.trim() && (
+                  <p className="text-xs text-red-600 dark:text-red-300 mt-1">
+                    Passphrase is required when password protection is enabled.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Thumbnail */}
