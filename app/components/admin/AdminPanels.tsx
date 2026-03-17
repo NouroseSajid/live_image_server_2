@@ -39,11 +39,11 @@ interface AdminPanelsProps {
   onDeleteFolder: (folderId: string) => void;
   files: FileEntry[];
   dragActive: boolean;
-  dragRef: React.RefObject<HTMLLabelElement | null>;
-  onDragEnter: (event: React.DragEvent<HTMLLabelElement>) => void;
-  onDragLeave: (event: React.DragEvent<HTMLLabelElement>) => void;
-  onDragOver: (event: React.DragEvent<HTMLLabelElement>) => void;
-  onDrop: (event: React.DragEvent<HTMLLabelElement>) => void;
+  dragRef: React.RefObject<HTMLDivElement | null>;
+  onDragEnter: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragLeave: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDrop: (event: React.DragEvent<HTMLDivElement>) => void;
   onUploadImage: (event: React.ChangeEvent<HTMLInputElement>) => void;
   selectedIds: Set<string>;
   actionTargetFolderId: string | null;

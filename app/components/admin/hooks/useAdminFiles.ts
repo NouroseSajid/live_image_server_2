@@ -16,13 +16,14 @@ export default function useAdminFiles({
 }: UseAdminFilesOptions) {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [dragActive, setDragActive] = useState<boolean>(false);
-  const dragRef = useRef<HTMLLabelElement | null>(null);
+  const dragRef = useRef<HTMLDivElement | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [actionTargetFolderId, setActionTargetFolderId] = useState<string | null>(
     null,
   );
   const [isBulkWorking, setIsBulkWorking] = useState(false);
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
 
   const fetchFiles = useCallback(async (folderId: string) => {
     try {
@@ -44,11 +45,11 @@ export default function useAdminFiles({
   useEffect(() => {
     setSelectedIds(new Set());
     setActionTargetFolderId(null);
-  }, []);
+  }, [activeFolder]);
 
   const clearFiles = () => setFiles([]);
 
-  const handleDrag = (e: React.DragEvent<HTMLLabelElement>) => {
+  const handleDrag = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     if (e.type === "dragenter" || e.type === "dragover") {
@@ -58,7 +59,7 @@ export default function useAdminFiles({
     }
   };
 
-  const handleDrop = (e: React.DragEvent<HTMLLabelElement>) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
@@ -67,15 +68,11 @@ export default function useAdminFiles({
       return;
     }
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      addUploads(Array.from(e.dataTransfer.files), activeFolder);
-      setSuccess(
-        `Added ${e.dataTransfer.files.length} file(s) from drop to upload queue.`,
-      );
-      setTimeout(() => setSuccess(null), 3000);
+      setStagedFiles(Array.from(e.dataTransfer.files));
     }
   };
 
-  const uploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!activeFolder) {
       setError("Please select a folder first");
       return;
@@ -84,10 +81,25 @@ export default function useAdminFiles({
     const inputFiles = e.target.files;
     if (!inputFiles || inputFiles.length === 0) return;
 
+    const filesCopy = Array.from(inputFiles);
     e.target.value = "";
-    addUploads(Array.from(inputFiles), activeFolder);
-    setSuccess(`Added ${inputFiles.length} file(s) to upload queue.`);
+    setStagedFiles(filesCopy);
+  };
+
+  const confirmStagedUpload = () => {
+    if (!activeFolder || stagedFiles.length === 0) return;
+    addUploads(stagedFiles, activeFolder);
+    setSuccess(`Added ${stagedFiles.length} file(s) to upload queue.`);
     setTimeout(() => setSuccess(null), 3000);
+    setStagedFiles([]);
+  };
+
+  const cancelStagedUpload = () => {
+    setStagedFiles([]);
+  };
+
+  const removeStagedFile = (index: number) => {
+    setStagedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const toggleSelect = (id: string) => {
@@ -201,6 +213,10 @@ export default function useAdminFiles({
     handleDrag,
     handleDrop,
     uploadImage,
+    stagedFiles,
+    confirmStagedUpload,
+    cancelStagedUpload,
+    removeStagedFile,
     selectedIds,
     actionTargetFolderId,
     setActionTargetFolderId,

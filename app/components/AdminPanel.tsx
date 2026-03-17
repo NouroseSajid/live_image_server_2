@@ -6,6 +6,7 @@ import IngestFolderSelector from "./IngestFolderSelector";
 import AdminAlerts from "./admin/AdminAlerts";
 import AdminModals from "./admin/AdminModals";
 import AdminPanels from "./admin/AdminPanels";
+import UploadPreviewModal from "./admin/UploadPreviewModal";
 import useAdminFiles from "./admin/hooks/useAdminFiles";
 import useFolderOrdering from "./admin/hooks/useFolderOrdering";
 import useGalleryConfig from "./admin/hooks/useGalleryConfig";
@@ -28,7 +29,6 @@ export default function AdminPanel() {
   const [newFolderName, setNewFolderName] = useState("");
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [_uploadedFile, _setUploadedFile] = useState<File | null>(null);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [groupDrafts, setGroupDrafts] = useState<Record<string, string>>({});
   const [newGroupName, setNewGroupName] = useState("");
@@ -61,6 +61,10 @@ export default function AdminPanel() {
     handleDrag,
     handleDrop,
     uploadImage,
+    stagedFiles,
+    confirmStagedUpload,
+    cancelStagedUpload,
+    removeStagedFile,
     selectedIds,
     actionTargetFolderId,
     setActionTargetFolderId,
@@ -473,6 +477,13 @@ export default function AdminPanel() {
         onSaveGroup={handleSaveGroup}
         onDeleteGroup={handleDeleteGroup}
         onCloseGroupModal={() => setShowGroupModal(false)}
+      />
+
+      <UploadPreviewModal
+        files={stagedFiles}
+        onConfirm={confirmStagedUpload}
+        onCancel={cancelStagedUpload}
+        onRemove={removeStagedFile}
       />
     </div>
   );
