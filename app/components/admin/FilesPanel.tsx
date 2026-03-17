@@ -86,7 +86,7 @@ export default function FilesPanel({
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept="image/*,video/*"
+                accept="image/*,video/*,.arw,.cr2,.cr3,.nef,.orf,.raf,.rw2,.pef,.dng"
                 onChange={onUploadImage}
                 className="sr-only"
                 disabled={loading}

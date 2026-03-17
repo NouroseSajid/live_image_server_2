@@ -8,8 +8,17 @@ import prisma from "../../../../prisma/client";
 import { authOptions } from "../../auth/[...nextauth]/route";
 
 const VIDEO_THUMB_PLACEHOLDER = "/icons/video-placeholder.svg";
+const RAW_THUMB_PLACEHOLDER = "/icons/video-placeholder.svg";
 const VIDEO_FALLBACK_WIDTH = 1920;
 const VIDEO_FALLBACK_HEIGHT = 1080;
+
+const RAW_EXTENSIONS = new Set([
+  ".arw", ".cr2", ".cr3", ".nef", ".orf", ".raf", ".rw2", ".pef", ".dng",
+]);
+
+function isRawFile(fileName: string): boolean {
+  return RAW_EXTENSIONS.has(path.extname(fileName).toLowerCase());
+}
 
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -47,15 +56,16 @@ export async function POST(request: NextRequest) {
 
     // Determine file type based on MIME type
     const mimeType = file.type;
+    const raw = isRawFile(fileName);
     let fileType: "image" | "video";
 
-    if (mimeType.startsWith("image/")) {
+    if (raw || mimeType.startsWith("image/")) {
       fileType = "image";
     } else if (mimeType.startsWith("video/")) {
       fileType = "video";
     } else {
       return NextResponse.json(
-        { error: "Invalid file type. Only images and videos allowed." },
+        { error: "Invalid file type. Only images, videos, and RAW files allowed." },
         { status: 400 },
       );
     }
@@ -82,7 +92,66 @@ export async function POST(request: NextRequest) {
       folderId,
     );
 
-    if (fileType === "image") {
+    if (fileType === "image" && raw) {
+      // RAW file handling — save original, skip sharp processing
+      const originalFolder = join(permanentFolderBase, "original");
+      await mkdir(originalFolder, { recursive: true });
+
+      const originalPath = join(originalFolder, fileName);
+      await writeFile(originalPath, buffer);
+      const originalStats = await stat(originalPath);
+
+      const placeholderAbsolute = join(process.cwd(), "public", RAW_THUMB_PLACEHOLDER);
+      let placeholderSize = BigInt(0);
+      try {
+        const placeholderStats = await stat(placeholderAbsolute);
+        placeholderSize = BigInt(placeholderStats.size);
+      } catch (_err) {
+        // placeholder missing — non-fatal
+      }
+
+      const newFile = await prisma.file.create({
+        data: {
+          fileName,
+          hash,
+          mimeType: mimeType || "application/octet-stream",
+          width: null,
+          height: null,
+          fileSize: BigInt(originalStats.size),
+          fileType,
+          folderId,
+          variants: {
+            create: [
+              {
+                name: "original",
+                path: `/images/${folderId}/original/${fileName.replace(/\\/g, "/")}`,
+                size: BigInt(originalStats.size),
+              },
+              {
+                name: "thumbnail",
+                path: RAW_THUMB_PLACEHOLDER,
+                size: placeholderSize,
+              },
+            ],
+          },
+        },
+        include: { variants: true },
+      });
+
+      const serializedVariants = newFile.variants.map((variant) => ({
+        ...variant,
+        size: variant.size.toString(),
+      }));
+
+      return NextResponse.json(
+        {
+          ...newFile,
+          fileSize: newFile.fileSize.toString(),
+          variants: serializedVariants,
+        },
+        { status: 201 },
+      );
+    } else if (fileType === "image") {
       const fileExtension = path.extname(fileName);
       const fileBaseName = path.basename(fileName, fileExtension);
       const originalFolder = join(permanentFolderBase, "original");
