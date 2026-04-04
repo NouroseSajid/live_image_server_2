@@ -166,21 +166,29 @@ export default function CategoryNavigation({
         }}
         className={`group relative w-full overflow-hidden rounded-xl border transition-all duration-300 text-left ${
           isActive
-            ? "border-[var(--primary)] shadow-lg scale-[1.02] z-10"
-            : "border-[var(--foreground)]/15 hover:border-[var(--foreground)]/30"
+            ? "border-[var(--primary)] shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] ring-2 ring-[var(--primary)]/20 scale-[1.02] z-10 bg-[var(--primary)]/5"
+            : "border-[var(--foreground)]/15 hover:border-[var(--foreground)]/30 hover:scale-[1.01]"
         } ${isSubItem ? "bg-[var(--card)]/50" : ""}`}
       >
         <div className="relative w-full aspect-[3/2] bg-[var(--card)] overflow-hidden">
           {absoluteThumbnailPath ? (
             <div
-              className="absolute inset-0 bg-cover bg-center blur-[2px] opacity-60 transition-transform duration-700 group-hover:opacity-80 group-hover:scale-110"
+              className={`absolute inset-0 bg-cover bg-center blur-[1px] transition-all duration-700 ${
+                isActive ? "opacity-100 scale-105" : "opacity-60 group-hover:opacity-80 group-hover:scale-110"
+              }`}
               style={{ backgroundImage: `url('${absoluteThumbnailPath}')` }}
             />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-[var(--card)] to-[var(--background)] opacity-50" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20 backdrop-blur-[2px]" />
+          <div className={`absolute inset-0 bg-gradient-to-t transition-opacity duration-300 ${
+            isActive ? "from-black/80 via-black/40 to-transparent" : "from-black/70 via-black/40 to-black/20"
+          } backdrop-blur-[1px]`} />
           
+          {isActive && (
+            <div className="absolute inset-0 border-2 border-[var(--primary)]/30 rounded-xl pointer-events-none" />
+          )}
+
           {cat.isPrivate && (
             <div className="absolute top-2 right-2">
               <div className="p-1 bg-black/40 backdrop-blur-md rounded-full border border-white/10">
@@ -191,11 +199,15 @@ export default function CategoryNavigation({
 
           <div className="absolute bottom-0 left-0 right-0 p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-white text-[11px] font-bold truncate tracking-wide uppercase">
+              <p className={`text-[11px] font-bold truncate tracking-wide uppercase transition-colors duration-300 ${
+                isActive ? "text-[var(--primary)]" : "text-white"
+              }`}>
                 {cat.name}
               </p>
               {cat._count?.files !== undefined && (
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-white/20 text-white backdrop-blur-sm">
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm transition-colors duration-300 ${
+                  isActive ? "bg-[var(--primary)] text-white" : "bg-white/20 text-white"
+                }`}>
                   {cat._count.files}
                 </span>
               )}
@@ -215,11 +227,17 @@ export default function CategoryNavigation({
       .filter((path): path is string => path !== null)
       .slice(0, 4);
 
+    const isAnyActive = group.items.some(item => item.id === activeFolder);
+
     return (
       <button
         type="button"
         onClick={() => setSelectedGroup(group)}
-        className="group relative w-full aspect-[3/2] overflow-hidden rounded-xl border border-[var(--foreground)]/15 hover:border-[var(--foreground)]/40 transition-all duration-300"
+        className={`group relative w-full aspect-[3/2] overflow-hidden rounded-xl border transition-all duration-300 ${
+          isAnyActive 
+            ? "border-[var(--primary)] shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)] scale-[1.01]" 
+            : "border-[var(--foreground)]/15 hover:border-[var(--foreground)]/40 hover:scale-[1.01]"
+        }`}
       >
         <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-0.5 bg-[var(--foreground)]/5 p-0.5">
           {[0, 1, 2, 3].map((i) => (
@@ -236,16 +254,20 @@ export default function CategoryNavigation({
           ))}
         </div>
         
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-md group-hover:bg-black/30 transition-colors" />
+        <div className={`absolute inset-0 transition-colors duration-300 ${
+          isAnyActive ? "bg-black/50 backdrop-blur-md" : "bg-black/40 backdrop-blur-md group-hover:bg-black/30"
+        }`} />
         
         <div className="absolute top-2 left-2">
-          <div className="p-1.5 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
-            <FiFolder size={14} className="text-white" />
+          <div className={`p-1.5 backdrop-blur-md rounded-lg border transition-colors duration-300 ${
+            isAnyActive ? "bg-[var(--primary)]/20 border-[var(--primary)]/40" : "bg-white/10 border-white/20"
+          }`}>
+            <FiFolder size={14} className={isAnyActive ? "text-[var(--primary)]" : "text-white"} />
           </div>
         </div>
 
         <div className="absolute top-2 right-2 flex items-center gap-1.5">
-          <span className="text-[10px] font-bold text-white bg-[var(--primary)] px-2 py-0.5 rounded-full">
+          <span className="text-[10px] font-bold text-white bg-[var(--primary)] px-2 py-0.5 rounded-full shadow-lg shadow-[var(--primary)]/20">
             {group.items.length}
           </span>
           <div className="text-white opacity-60">
@@ -254,7 +276,9 @@ export default function CategoryNavigation({
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-          <p className="text-white text-[11px] font-bold uppercase tracking-widest">{group.name}</p>
+          <p className={`text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 ${
+            isAnyActive ? "text-[var(--primary)]" : "text-white"
+          }`}>{group.name}</p>
           <p className="text-white/60 text-[9px] font-medium uppercase mt-0.5">Collection</p>
         </div>
       </button>
@@ -262,17 +286,20 @@ export default function CategoryNavigation({
   };
 
   return (
-    <div className="space-y-6 mb-12">
+    <div className="space-y-4 mb-12">
       <div className="flex items-center justify-between px-1">
-        <h2 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">Folder list</h2>
+        <h2 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">Folders</h2>
       </div>
 
-      <div className="rounded-3xl border border-[var(--foreground)]/10 bg-[var(--background)] p-4 md:p-6 shadow-2xl">
-        <div className="flex overflow-x-auto pb-4 -mx-2 px-2 gap-3 snap-x snap-mandatory sm:grid sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 sm:gap-4 sm:pb-0 sm:overflow-x-visible sm:px-0 sm:mx-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          
+      <div className="group/nav relative rounded-3xl border border-[var(--foreground)]/10 bg-[var(--background)] p-4 md:p-6 shadow-2xl">
+        <div className="flex overflow-x-auto pb-4 gap-4 snap-x snap-mandatory 
+          custom-scrollbar
+          scrollbar-thin scrollbar-thumb-[var(--primary)]/20 scrollbar-track-transparent 
+          hover:scrollbar-thumb-[var(--primary)]/40 transition-colors duration-300"
+        >
           {/* 1. All Category */}
           {allCategory && (
-            <div className="flex-shrink-0 w-[140px] snap-start sm:w-auto sm:col-span-1">
+            <div className="flex-shrink-0 w-[160px] md:w-[200px] snap-start">
               {renderCard(allCategory)}
             </div>
           )}
@@ -281,19 +308,41 @@ export default function CategoryNavigation({
           {orderedItems.map((item, _index) => {
             if (item.type === "group") {
               return (
-                <div key={`group-wrapper-${item.group.id}`} className="flex-shrink-0 w-[140px] snap-start sm:w-auto sm:col-span-1">
+                <div key={`group-wrapper-${item.group.id}`} className="flex-shrink-0 w-[160px] md:w-[200px] snap-start">
                   {renderGroupCard(item.group)}
                 </div>
               );
             }
 
             return (
-              <div key={item.folder.id} className="flex-shrink-0 w-[140px] snap-start sm:w-auto sm:col-span-1">
+              <div key={item.folder.id} className="flex-shrink-0 w-[160px] md:w-[200px] snap-start">
                 {renderCard(item.folder)}
               </div>
             );
           })}
         </div>
+        
+        <style jsx global>{`
+          .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            display: block;
+          }
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+            margin: 0 24px;
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(var(--primary-rgb), 0.1);
+            border-radius: 20px;
+            transition: all 0.3s ease;
+          }
+          .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+            background: rgba(var(--primary-rgb), 0.3);
+          }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(var(--primary-rgb), 0.5);
+          }
+        `}</style>
       </div>
 
       {/* Drawer Overlay */}
