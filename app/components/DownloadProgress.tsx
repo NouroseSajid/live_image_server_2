@@ -22,14 +22,10 @@ export default function DownloadProgress({
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const wsUrl = `ws://${process.env.NEXT_PUBLIC_WS_SERVER_HOST || "localhost"}:${process.env.NEXT_PUBLIC_WS_SERVER_PORT || "8080"}`;
-    const ws = new WebSocket(wsUrl);
+    // Use SSE instead of WebSocket because the server broadcasts to /api/events
+    const eventSource = new EventSource("/api/events");
 
-    ws.onopen = () => {
-      console.log("[DownloadProgress] WebSocket connected");
-    };
-
-    ws.onmessage = (event) => {
+    eventSource.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === "download-progress" && msg.payload.downloadId === downloadId) {
@@ -39,21 +35,23 @@ export default function DownloadProgress({
           setProgress(percent);
           setStatus("downloading");
         }
+        
+        // Handle completion if sent from server
+        if (msg.type === "download-complete" && msg.payload.downloadId === downloadId) {
+          setStatus("complete");
+        }
       } catch (err) {
-        console.error("[DownloadProgress] Error parsing message:", err);
+        console.error("[DownloadProgress] Error parsing SSE message:", err);
       }
     };
 
-    ws.onerror = (error) => {
-      console.error("[DownloadProgress] WebSocket error:", error);
-    };
-
-    ws.onclose = () => {
-      console.log("[DownloadProgress] WebSocket closed");
+    eventSource.onerror = (error) => {
+      console.error("[DownloadProgress] SSE error:", error);
+      // Don't close immediately, EventSource will automatically try to reconnect
     };
 
     return () => {
-      ws.close();
+      eventSource.close();
     };
   }, [downloadId]);
 
