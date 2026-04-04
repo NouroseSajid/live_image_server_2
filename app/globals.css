@@ -12,8 +12,13 @@
   --card: #d4e6f1; /* A professional and modern blue */
   --primary: #29363b; /* Dark primary color */
   --primary_dark: #f8f8f8; /* Light text for dark backgrounds */
+  --primary-rgb: 41, 54, 59;
 
   --popover: #ffffff;
+  
+  --scrollbar-thumb: rgba(41, 54, 59, 0.2);
+  --scrollbar-thumb-hover: rgba(41, 54, 59, 0.4);
+  --scrollbar-track: rgba(41, 54, 59, 0.05);
 }
 
 .dark {
@@ -23,8 +28,13 @@
   --card: #162536; /* A bit darker blue with better contrast */
   --primary: #f4f4f4; /* Light primary color */
   --primary_dark: #121212; /* Dark text for light backgrounds */
+  --primary-rgb: 244, 244, 244;
 
   --popover: #29363b;
+
+  --scrollbar-thumb: rgba(244, 244, 244, 0.2);
+  --scrollbar-thumb-hover: rgba(244, 244, 244, 0.4);
+  --scrollbar-track: rgba(244, 244, 244, 0.05);
 }
 
 body {
@@ -34,31 +44,33 @@ body {
 
 .folder-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.5) rgba(255, 255, 255, 0.08);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
 
 .folder-scrollbar::-webkit-scrollbar {
-  height: 12px;
+  height: 8px;
+  display: block; /* Ensure it's not hidden */
 }
 
 .folder-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 999px;
+  background: var(--scrollbar-track);
+  border-radius: 10px;
+  margin: 0 10px;
 }
 
 .folder-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.85));
-  border-radius: 999px;
-  border: 3px solid rgba(20, 20, 20, 0.35);
-  background-clip: padding-box;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.25);
+  background: var(--scrollbar-thumb);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 
 .folder-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 1));
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.45);
+  background: var(--scrollbar-thumb-hover);
+  border: 1px solid transparent;
+  background-clip: content-box;
 }
 
 .admin-theme {

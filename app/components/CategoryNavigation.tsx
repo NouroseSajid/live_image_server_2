@@ -292,7 +292,7 @@ export default function CategoryNavigation({
       </div>
 
       <div className="group/nav relative rounded-3xl border border-[var(--foreground)]/10 bg-[var(--background)] p-4 md:p-6 shadow-2xl">
-        <div className="flex overflow-x-auto pb-4 gap-4 snap-x snap-mandatory custom-scrollbar scrollbar-thin scrollbar-thumb-[var(--primary)]/20 scrollbar-track-transparent hover:scrollbar-thumb-[var(--primary)]/40 transition-colors duration-300">
+        <div className="flex overflow-x-auto pb-4 gap-4 snap-x snap-mandatory folder-scrollbar transition-colors duration-300">
           {/* 1. All Category */}
           {allCategory && (
             <div className="flex-shrink-0 w-[160px] md:w-[200px] snap-start">
@@ -317,28 +317,6 @@ export default function CategoryNavigation({
             );
           })}
         </div>
-        
-        <style jsx global>{`
-          .custom-scrollbar::-webkit-scrollbar {
-            height: 6px;
-            display: block;
-          }
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-            margin: 0 24px;
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(var(--primary-rgb), 0.1);
-            border-radius: 20px;
-            transition: all 0.3s ease;
-          }
-          .custom-scrollbar:hover::-webkit-scrollbar-thumb {
-            background: rgba(var(--primary-rgb), 0.3);
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(var(--primary-rgb), 0.5);
-          }
-        `}</style>
       </div>
 
       {/* Drawer Overlay */}
