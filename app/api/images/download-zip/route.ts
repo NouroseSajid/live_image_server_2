@@ -59,7 +59,24 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { imageIds, quality = "webp" } = await req.json();
+    let body;
+    const contentType = req.headers.get("content-type") || "";
+    
+    if (contentType.includes("application/json")) {
+      body = await req.json();
+    } else if (contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      const imageIdsRaw = formData.get("imageIds");
+      body = {
+        imageIds: typeof imageIdsRaw === "string" ? JSON.parse(imageIdsRaw) : [],
+        quality: formData.get("quality") as string || "webp",
+        downloadId: formData.get("downloadId") as string || null,
+      };
+    } else {
+      return NextResponse.json({ error: "Unsupported Content-Type" }, { status: 400 });
+    }
+
+    const { imageIds, quality = "webp", downloadId: providedDownloadId } = body;
 
     if (!imageIds || !Array.isArray(imageIds) || imageIds.length === 0) {
       return NextResponse.json(
@@ -67,6 +84,8 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    
+    // ... rest of validation ...
 
     // Limit to reasonable batch size
     if (imageIds.length > MAX_BATCH_SIZE) {
@@ -151,7 +170,7 @@ export async function POST(req: NextRequest) {
 
     let bytesStreamed = 0;
     let fileCount = 0;
-    const downloadId = `dl-${Date.now()}`;
+    const finalDownloadId = providedDownloadId || `dl-${Date.now()}`;
 
     // Handle archive warnings and errors
     archive.on("warning", (err) => {
@@ -241,7 +260,7 @@ export async function POST(req: NextRequest) {
             // Send WebSocket progress update every 100KB to avoid spam
             if (bytesStreamed % (100 * 1024) < chunk.length) {
               const progress = Math.round((bytesStreamed / totalSize) * 100);
-              broadcastDownloadProgress(downloadId, bytesStreamed, totalSize, progress);
+              broadcastDownloadProgress(finalDownloadId, bytesStreamed, totalSize, progress);
             }
             
             resetTimeout(); // Reset timeout on each chunk received
@@ -258,6 +277,27 @@ export async function POST(req: NextRequest) {
           console.log(
             `[Download] Stream completed. Total: ${(bytesStreamed / 1024 / 1024).toFixed(1)}MB`,
           );
+          
+          // Broadcast completion
+          const completionPayload = JSON.stringify({
+            type: "download-complete",
+            payload: { downloadId: finalDownloadId }
+          });
+          const appPort = parseInt(process.env.PORT || "3000", 10);
+          const req = http.request({
+            hostname: "localhost",
+            port: appPort,
+            path: "/api/events",
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Internal-Secret": process.env.INTERNAL_SECRET || "ingest-123",
+            },
+          });
+          req.on("error", () => {});
+          req.write(completionPayload);
+          req.end();
+
           try {
             controller.close();
           } catch (err) {
@@ -295,11 +335,11 @@ export async function POST(req: NextRequest) {
     console.log("[Download] Starting ZIP stream response");
     
     // Send initial progress event
-    broadcastDownloadProgress(downloadId, 0, totalSize, 0);
+    broadcastDownloadProgress(finalDownloadId, 0, totalSize, 0);
     
     return new NextResponse(webStream, {
       headers: Object.assign(headers, {
-        "X-Download-ID": downloadId,
+        "X-Download-ID": finalDownloadId,
       }),
       status: 200,
     });

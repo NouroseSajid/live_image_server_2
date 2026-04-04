@@ -723,112 +723,77 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
           setError(null);
 
           try {
+            const downloadId = `dl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            
             console.log(
-              `[Download] Starting download of ${selectedIds.size} images (quality: ${quality})`,
+              `[Download] Starting download of ${selectedIds.size} images (quality: ${quality}, id: ${downloadId})`,
             );
-
-            const response = await fetch("/api/images/download-zip", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                imageIds: Array.from(selectedIds),
-                quality,
-              }),
-              signal: AbortSignal.timeout(20 * 60 * 1000),
-            });
-
-            console.log(
-              `[Download] Response received: status=${response.status}`,
-            );
-
-            const downloadId = response.headers.get("X-Download-ID") || `dl-${Date.now()}`;
 
             setDownloadProgress({
               id: downloadId,
               totalFiles: selectedIds.size,
             });
 
-            if (!response.ok) {
-              let errorMsg = `Download failed (HTTP ${response.status})`;
+            // Set up SSE listener for completion to clear selection
+            const eventSource = new EventSource("/api/events");
+            eventSource.onmessage = (event) => {
               try {
-                const errorData = await response.json();
-                errorMsg = errorData.error || errorMsg;
-              } catch {
-                errorMsg = `${errorMsg}: ${response.statusText}`;
+                const msg = JSON.parse(event.data);
+                if (msg.type === "download-complete" && msg.payload.downloadId === downloadId) {
+                  console.log("[Download] Received completion event from server");
+                  setSelectedIds(new Set());
+                  setError(null);
+                  setIsDownloading(false);
+                  setTimeout(() => setDownloadProgress(null), 3000);
+                  eventSource.close();
+                }
+              } catch (err) {
+                console.error("[Download] SSE parse error:", err);
               }
-              console.error("[Download] Error:", errorMsg);
-              setError(errorMsg);
-              return;
+            };
+            eventSource.onerror = () => {
+              // If SSE fails, we still want to allow the download to proceed
+              // but we might not get the completion event
+              console.warn("[Download] SSE connection failed");
+            };
+
+            // Use a hidden form to trigger the download. 
+            // This is MUCH more robust on iOS as it bypasses fetch() and blob()
+            const form = document.createElement("form");
+            form.method = "POST";
+            form.action = "/api/images/download-zip";
+            form.style.display = "none";
+
+            const fields = {
+              imageIds: JSON.stringify(Array.from(selectedIds)),
+              quality: quality,
+              downloadId: downloadId,
+            };
+
+            for (const [key, value] of Object.entries(fields)) {
+              const input = document.createElement("input");
+              input.type = "hidden";
+              input.name = key;
+              input.value = value;
+              form.appendChild(input);
             }
 
-            const contentType = response.headers.get("content-type");
-            console.log(`[Download] Content-Type: ${contentType}`);
-            if (!contentType?.includes("application/zip")) {
-              setError("Unexpected response format. Please try again.");
-              return;
-            }
-
-            console.log("[Download] Reading blob...");
-            const blob = await response.blob();
-            console.log(
-              `[Download] Blob received: ${(blob.size / 1024 / 1024).toFixed(1)}MB`,
-            );
-
-            if (blob.size === 0) {
-              setError("Downloaded file is empty. Please try again.");
-              return;
-            }
-
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "selected_images.zip";
-            document.body.appendChild(a);
-
-            console.log("[Download] Triggering browser download...");
-            a.click();
-
+            document.body.appendChild(form);
+            form.submit();
+            
+            // Cleanup form after a short delay
             setTimeout(() => {
-              window.URL.revokeObjectURL(url);
-              a.remove();
-            }, 100);
+              document.body.removeChild(form);
+            }, 1000);
 
-            setSelectedIds(new Set());
-            setError(null);
             setShowQualityModal(false);
-
-            const sizeStr = (blob.size / 1024 / 1024).toFixed(1);
-
-            console.log(
-              `[Download] Success! File size: ${sizeStr}MB`,
-            );
-
-            setTimeout(() => {
-              setDownloadProgress(null);
-            }, 2000);
           } catch (error) {
             const errorMsg =
               error instanceof Error ? error.message : "Unknown error";
             console.error("[Download] Exception:", errorMsg, error);
 
             setDownloadProgress(null);
-
-            if (errorMsg.includes("timeout")) {
-              setError(
-                "Download took too long (20 min). Network may be slow. Try again or select fewer images.",
-              );
-            } else if (errorMsg.includes("abort")) {
-              setError("Download was cancelled or interrupted.");
-            } else if (errorMsg.includes("network")) {
-              setError(
-                "Network error. Check your connection and try again.",
-              );
-            } else {
-              setError(`Download failed: ${errorMsg}`);
-            }
-          } finally {
+            setError(`Download failed to start: ${errorMsg}`);
             setIsDownloading(false);
           }
         }}
