@@ -33,6 +33,7 @@ interface LightboxProps {
   isSelected?: boolean;
   onToggleSelect?: (id: string) => void;
   isDownloading?: boolean;
+  passphrase?: string;
 }
 
 /* ---------- CONFIG ---------- */
@@ -185,6 +186,7 @@ export default function Lightbox({
   isSelected = false,
   onToggleSelect,
   isDownloading = false,
+  passphrase,
 }: LightboxProps) {
   /* ---------- STATE ---------- */
   const [showDL, setShowDL] = useState(false);
@@ -434,7 +436,11 @@ export default function Lightbox({
   const triggerDownload = (quality: string) => {
     if (savePref) localStorage.setItem("downloadPreference", quality);
     setLocalDownloading(true);
-    window.open(`/api/images/${image?.id}/download?quality=${quality}`, "_blank");
+    let url = `/api/images/${image?.id}/download?quality=${quality}`;
+    if (passphrase) {
+      url += `&passphrase=${encodeURIComponent(passphrase)}`;
+    }
+    window.open(url, "_blank");
     setShowDL(false);
     setTimeout(() => setLocalDownloading(false), 1500);
   };

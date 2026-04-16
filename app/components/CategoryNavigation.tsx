@@ -133,7 +133,12 @@ export default function CategoryNavigation({
     if (groupId) {
       const groupData = (orderedItems.find(item => item.type === 'group' && item.group.id === groupId) as any)?.group;
       if (groupData) {
-        setSelectedGroup(groupData);
+        // Only set if not already set to avoid loops, 
+        // but we actually want to CLOSE it if the user just selected a folder
+        // Actually, if activeFolder is set, it means we are VIEWING that folder.
+        // If the drawer is open, it might be blocking the view.
+        // Let's ensure the drawer is closed when a folder is active.
+        setSelectedGroup(null);
       }
     }
   }, [activeFolder, categories, orderedItems]);
