@@ -10,6 +10,8 @@ require("dotenv").config({ path: ".env.local" });
 
 const prisma = new PrismaClient();
 const ingestFolder = path.join(__dirname, "..", "image_repo", "ingest");
+const failedFolder = path.join(__dirname, "..", "image_repo", "failed");
+const failedLogPath = path.join(__dirname, "..", "failed-log.txt");
 const configPath = path.join(__dirname, "..", "ingest-config.json");
 
 // Get WebSocket configuration from environment
@@ -23,7 +25,6 @@ const _VARIANT_NAMES = {
   WEBP: "webp",
   THUMB: "thumb",
 };
-// Get configuration from environment variables with fallback defaults
 const _THUMB_SIZE = Number.parseInt(process.env.THUMB_WIDTH || "300", 10);
 const _WEBP_QUALITY = Number.parseInt(process.env.WEBP_QUALITY || "80", 10);
 const _WS_RECONNECT_DELAY = 5000;
@@ -35,7 +36,10 @@ const _VIDEO_FALLBACK_HEIGHT = 1080;
 
 let liveFolderId = null;
 let ws;
-const watcher = null;
+let watcher = null;
+
+// Track retries to avoid infinite loops
+const retryCount = new Map();
 
 // Graceful shutdown
 async function shutdown() {
@@ -52,6 +56,16 @@ process.on("SIGTERM", shutdown);
 // Simple logger used across this script
 function log(message) {
   console.log(`[${new Date().toISOString()}] ${message}`);
+}
+
+async function logFailed(fileName, error) {
+  const timestamp = new Date().toISOString();
+  const entry = `[${timestamp}] ${fileName}: ${error}\n`;
+  try {
+    await fs.appendFile(failedLogPath, entry);
+  } catch (err) {
+    console.error("Failed to write to failure log:", err);
+  }
 }
 
 // Simple processing queue controls
@@ -79,7 +93,6 @@ function connectWebSocket() {
 
 function broadcastNewFile(file) {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    // Serialize BigInt properties (Prisma uses BigInt for sizes) to strings
     const serialize = (obj) => {
       if (!obj || typeof obj !== "object") return obj;
       const out = Array.isArray(obj) ? [] : {};
@@ -96,7 +109,6 @@ function broadcastNewFile(file) {
       }
       return out;
     };
-
     const payload = serialize(file);
     const message = JSON.stringify({ type: "new-file", payload });
     ws.send(message);
@@ -106,24 +118,14 @@ function broadcastNewFile(file) {
   }
 }
 
-// --- End WebSocket Client Setup ---
-
 async function getIngestFolderId() {
   try {
     const data = await fs.readFile(configPath, "utf-8");
     const config = JSON.parse(data);
-    // Handle legacy single-folder shape or new array shape
-    if (config.folderId) {
-      return config.folderId;
-    }
-    if (Array.isArray(config.folderIds) && config.folderIds.length > 0) {
-      // Normalize to first configured folder for the live watcher
-      return config.folderIds[0];
-    }
+    if (config.folderId) return config.folderId;
+    if (Array.isArray(config.folderIds) && config.folderIds.length > 0) return config.folderIds[0];
   } catch (error) {
-    if (error.code !== "ENOENT") {
-      console.error("Error reading ingest-config.json:", error);
-    }
+    if (error.code !== "ENOENT") console.error("Error reading ingest-config.json:", error);
     return null;
   }
 }
@@ -131,12 +133,8 @@ async function getIngestFolderId() {
 async function updateIngestFolderId() {
   try {
     const folderId = await getIngestFolderId();
-
-    // If a folderId is configured, prefer and use that (validate it exists)
     if (folderId) {
-      const folder = await prisma.folder.findUnique({
-        where: { id: folderId },
-      });
+      const folder = await prisma.folder.findUnique({ where: { id: folderId } });
       if (folder) {
         if (liveFolderId !== folder.id) {
           log(`Ingest folder changed to: ${folder.name} (ID: ${folder.id})`);
@@ -144,40 +142,54 @@ async function updateIngestFolderId() {
         }
         return;
       }
-      // Config pointed to a non-existent folder; clear selection and pause ingest
-      log(`Warning: Folder ID ${folderId} from config not found. Ingest paused.`);
+      log(`Warning: Folder ID ${folderId} not found. Ingest paused.`);
       liveFolderId = null;
       return;
     }
-
     if (liveFolderId !== null) {
       log("No ingest folder selected. Ingest paused.");
       liveFolderId = null;
     }
   } catch (error) {
     console.error("Error while updating ingest folder:", error);
-    return;
   }
 }
 
 // Enqueue file paths to process one by one
 function runNext() {
-  // Fill available worker slots
+  if (activeWorkers === 0 && processingQueue.length === 0) {
+    checkAndRetryFailed();
+  }
+
   while (activeWorkers < MAX_WORKERS && processingQueue.length > 0) {
     const nextFile = processingQueue.shift();
     if (!nextFile) break;
-
     activeWorkers += 1;
-
     processFile(nextFile)
       .catch((error) => {
         log(`Error processing file in queue: ${error.message}`);
       })
       .finally(() => {
         activeWorkers -= 1;
-        // Continue with next items if any are waiting
         runNext();
       });
+  }
+}
+
+async function checkAndRetryFailed() {
+  try {
+    const files = await fs.readdir(failedFolder);
+    for (const file of files) {
+      const fullPath = path.join(failedFolder, file);
+      const count = retryCount.get(file) || 0;
+      if (count < 1) { 
+        log(`Retrying failed file: ${file}`);
+        retryCount.set(file, count + 1);
+        enqueueFile(fullPath);
+      }
+    }
+  } catch (err) {
+    // Ignore
   }
 }
 
@@ -186,17 +198,32 @@ async function enqueueFile(filePath) {
   runNext();
 }
 
+async function handleFailure(filePath, error) {
+  const fileName = path.basename(filePath);
+  log(`FAILURE for ${fileName}: ${error}`);
+  await logFailed(fileName, error);
+  
+  try {
+    await fs.mkdir(failedFolder, { recursive: true });
+    const destPath = path.join(failedFolder, fileName);
+    if (filePath !== destPath) {
+        await fs.rename(filePath, destPath);
+        log(`Moved failed file to: ${destPath}`);
+    }
+  } catch (err) {
+    log(`Critical error: Could not move failed file ${fileName}: ${err.message}`);
+  }
+}
+
 async function processFile(filePath) {
+  const currentPath = filePath;
   try {
     if (!liveFolderId) {
-      log(`Ingest paused (no folder selected). Leaving file in ingest: ${filePath}`);
+      log(`Ingest paused (no folder selected). Leaving file: ${filePath}`);
       return;
     }
 
-    // Check if file still exists (could have been moved/deleted)
     await fs.access(filePath);
-
-    // Read file buffer and detect type early to ignore unsupported
     const fileBuffer = await fs.readFile(filePath);
     const fileTypeResult = await fileTypeFromBuffer(fileBuffer);
     const isRaw = isRawFile(filePath);
@@ -207,9 +234,7 @@ async function processFile(filePath) {
       return;
     }
 
-    const mime = fileTypeResult
-      ? fileTypeResult.mime
-      : "application/octet-stream";
+    const mime = fileTypeResult ? fileTypeResult.mime : "application/octet-stream";
     const isImage = mime.startsWith("image/");
     const isVideo = mime.startsWith("video/");
 
@@ -220,346 +245,157 @@ async function processFile(filePath) {
     } else if (isImage) {
       await processImage(filePath, fileBuffer);
     } else {
-      log(`Skipping unsupported file (not image, video, or raw): ${filePath}`);
+      log(`Skipping unsupported file: ${filePath}`);
       await fs.unlink(filePath);
     }
   } catch (error) {
-    log(`Error processing file ${filePath}: ${error.message}`);
+    await handleFailure(currentPath, error.message);
   }
 }
 
 function isRawFile(filePath) {
-  const rawExtensions = [
-    ".arw",
-    ".cr2",
-    ".cr3",
-    ".nef",
-    ".orf",
-    ".raf",
-    ".rw2",
-    ".pef",
-    ".dng",
-  ];
-  const extension = path.extname(filePath).toLowerCase();
-  return rawExtensions.includes(extension);
+  const rawExtensions = [".arw", ".cr2", ".cr3", ".nef", ".orf", ".raf", ".rw2", ".pef", ".dng"];
+  return rawExtensions.includes(path.extname(filePath).toLowerCase());
 }
 
 async function processRawFile(filePath) {
   const fileName = path.basename(filePath);
-  log(`Processing RAW file: ${fileName}`);
   const targetFolderId = liveFolderId;
-  const permanentFolderBase = path.join(
-    __dirname,
-    "..",
-    "image_repo",
-    "images",
-    String(targetFolderId),
-  );
-  const rawFolder = path.join(permanentFolderBase, "raw");
+  const rawFolder = path.join(__dirname, "..", "image_repo", "images", String(targetFolderId), "raw");
 
-  try {
-    await fs.mkdir(rawFolder, { recursive: true });
-    const originalPath = path.join(rawFolder, fileName);
-    await fs.rename(filePath, originalPath);
-    log(`Moved RAW file to: ${originalPath}`);
-  } catch (error) {
-    log(`Error moving RAW file ${fileName}: ${error.message}`);
-  }
+  await fs.mkdir(rawFolder, { recursive: true });
+  const originalPath = path.join(rawFolder, fileName);
+  await fs.rename(filePath, originalPath);
+  log(`Moved RAW file to: ${originalPath}`);
 }
 
 async function processVideo(filePath, fileTypeResult) {
   const fileName = path.basename(filePath);
-  const fileExtension = path.extname(fileName);
-  const _fileBaseName = path.basename(fileName, fileExtension);
-  log(`Processing video file: ${fileName}`);
   const targetFolderId = liveFolderId;
+  const originalFolder = path.join(__dirname, "..", "image_repo", "images", String(targetFolderId), "original");
+  
+  await fs.mkdir(originalFolder, { recursive: true });
+  const originalPath = path.join(originalFolder, fileName);
 
-  // Create permanent storage folders
-  const permanentFolderBase = path.join(
-    __dirname,
-    "..",
-    "image_repo",
-    "images",
-    String(targetFolderId),
-  );
-  const originalFolder = path.join(permanentFolderBase, "original");
-  const placeholderAbsolutePath = path.join(
-    __dirname,
-    "..",
-    "public",
-    _VIDEO_PLACEHOLDER,
-  );
+  const videoBuffer = await fs.readFile(filePath);
+  const hash = crypto.createHash("md5").update(videoBuffer).digest("hex");
 
-  let placeholderSize = BigInt(0);
-  try {
-    const placeholderStats = await fs.stat(placeholderAbsolutePath);
-    placeholderSize = BigInt(placeholderStats.size);
-  } catch (err) {
-    log(
-      `Warning: video placeholder missing at ${placeholderAbsolutePath}. Thumbnails will use zero size. ${err.message}`,
-    );
+  const existing = await prisma.file.findFirst({ where: { hash } });
+  if (existing) {
+    log(`Duplicate video detected! Deleting ${fileName}.`);
+    await fs.unlink(filePath);
+    return;
   }
 
+  await fs.rename(filePath, originalPath);
+
   try {
-    await fs.mkdir(originalFolder, { recursive: true });
-    const originalPath = path.join(originalFolder, fileName);
-
-    // Move video file to permanent original folder
-    await fs.rename(filePath, originalPath);
-    log(`Moved video original to: ${originalPath}`);
-
     const fileStats = await fs.stat(originalPath);
-    const videoBuffer = await fs.readFile(originalPath);
-    const hash = crypto.createHash("md5").update(videoBuffer).digest("hex");
-
-    const existing = await prisma.file.findFirst({ where: { hash } });
-    if (existing) {
-      log(`Duplicate video detected! Deleting ${fileName} and skipping.`);
-      await fs.unlink(originalPath);
-      return;
-    }
-
     const newFile = await prisma.file.create({
       data: {
-        fileName,
-        hash,
-        mimeType: fileTypeResult?.mime || null,
-        width: _VIDEO_FALLBACK_WIDTH,
-        height: _VIDEO_FALLBACK_HEIGHT,
-        fileSize: BigInt(fileStats.size),
-        fileType: "video",
-        folderId: targetFolderId,
+        fileName, hash, mimeType: fileTypeResult?.mime || null,
+        width: _VIDEO_FALLBACK_WIDTH, height: _VIDEO_FALLBACK_HEIGHT,
+        fileSize: BigInt(fileStats.size), fileType: "video", folderId: targetFolderId,
         variants: {
           create: [
-            {
-              name: "original",
-              path:
-                "/images/" +
-                targetFolderId +
-                "/original/" +
-                fileName,
-              size: BigInt(fileStats.size),
-            },
-            {
-              name: "thumbnail",
-              path: _VIDEO_PLACEHOLDER,
-              size: placeholderSize,
-            },
+            { name: "original", path: `/images/${targetFolderId}/original/${fileName}`, size: BigInt(fileStats.size) },
+            { name: "thumbnail", path: _VIDEO_PLACEHOLDER, size: BigInt(0) },
           ],
         },
       },
       include: { variants: true },
     });
-
     log(`Video file saved to DB: ${newFile.fileName}`);
     broadcastNewFile(newFile);
-  } catch (error) {
-    log(`Error processing video file ${fileName}: ${error.message}`);
+  } catch (dbError) {
+    await handleFailure(originalPath, dbError.message);
   }
 }
 
-async function processImage(filePath, _imageBuffer) {
+async function processImage(filePath, fileBuffer) {
   const fileName = path.basename(filePath);
-  log(`Processing image file: ${fileName}`);
-
   const fileExtension = path.extname(filePath);
   const fileBaseName = path.basename(fileName, fileExtension);
   const targetFolderId = liveFolderId;
 
-  // Create permanent storage folders
-  const permanentFolderBase = path.join(
-    __dirname,
-    "..",
-    "image_repo",
-    "images",
-    String(targetFolderId),
-  );
-  const originalFolder = path.join(permanentFolderBase, "original");
-  const webpFolder = path.join(permanentFolderBase, "webp");
-  const thumbFolder = path.join(permanentFolderBase, "thumbs");
+  const baseFolder = path.join(__dirname, "..", "image_repo", "images", String(targetFolderId));
+  const originalFolder = path.join(baseFolder, "original");
+  const webpFolder = path.join(baseFolder, "webp");
+  const thumbFolder = path.join(baseFolder, "thumbs");
+
+  await Promise.all([
+    fs.mkdir(originalFolder, { recursive: true }),
+    fs.mkdir(webpFolder, { recursive: true }),
+    fs.mkdir(thumbFolder, { recursive: true }),
+  ]);
+
+  const hash = crypto.createHash("md5").update(fileBuffer).digest("hex");
+  const existing = await prisma.file.findFirst({ where: { hash } });
+  if (existing) {
+    log(`Duplicate detected! Deleting ${fileName}.`);
+    await fs.unlink(filePath);
+    return;
+  }
+
+  const originalPath = path.join(originalFolder, fileName);
+  const webpPath = path.join(webpFolder, `${fileBaseName}.webp`);
+  const thumbPath = path.join(thumbFolder, `${fileBaseName}_thumb.webp`);
+
+  const rotatedSharp = sharp(fileBuffer, { failOnError: false }).rotate();
+  const meta = await rotatedSharp.metadata();
+
+  await rotatedSharp.clone().webp({ quality: 75, effort: 6 }).toFile(webpPath);
+  await rotatedSharp.clone().resize(300, 300, { fit: "cover" }).webp({ quality: 80 }).toFile(thumbPath);
+
+  await fs.rename(filePath, originalPath);
 
   try {
-    await Promise.all([
-      fs.mkdir(originalFolder, { recursive: true }),
-      fs.mkdir(webpFolder, { recursive: true }),
-      fs.mkdir(thumbFolder, { recursive: true }),
+    const [origStats, webpStats, thumbStats] = await Promise.all([
+      fs.stat(originalPath), fs.stat(webpPath), fs.stat(thumbPath)
     ]);
-
-    // Move original file to permanent folder
-    const originalPath = path.join(originalFolder, fileName);
-    await fs.rename(filePath, originalPath);
-    log(`Moved original to: ${originalPath}`);
-
-    // Read original again (in case of rename timing)
-    const originalBuffer = await fs.readFile(originalPath);
-    const fileStats = await fs.stat(originalPath);
-
-    const hash = crypto.createHash("md5").update(originalBuffer).digest("hex");
-
-    const existing = await prisma.file.findFirst({
-      where: { hash: hash },
-    });
-
-    if (existing) {
-      log(`Duplicate detected! Deleting ${fileName} and skipping.`);
-      await fs.unlink(originalPath);
-      return;
-    }
-
-    // PROPER ROTATION HANDLING - FIXED VERSION
-    // First, get the original metadata to check EXIF orientation
-    const originalSharp = sharp(originalBuffer, { failOnError: false });
-    const originalMetadata = await originalSharp.metadata();
-    const originalOrientation = originalMetadata.orientation || 1;
-
-    log(`Original orientation for ${fileName}: ${originalOrientation}`);
-
-    // Auto-rotate according to EXIF orientation, producing an upright image
-    // This physically rotates the image pixels
-    const rotatedSharp = sharp(originalBuffer, { failOnError: false }).rotate();
-    const rotatedMetadata = await rotatedSharp.metadata();
-
-    // Get the final dimensions after rotation
-    const imageWidth = rotatedMetadata.width || null;
-    const imageHeight = rotatedMetadata.height || null;
-
-    // After applying rotate(), set orientation to normal for stored variants
-    const imageRotation = 1; // Always 1 after physically rotating
-
-    log(`Dimensions after rotation: ${imageWidth}x${imageHeight}`);
-
-    // Determine if image should be landscape or portrait based on final dimensions
-    if (imageWidth && imageHeight) {
-      const isPortrait = imageHeight > imageWidth;
-      log(`Image orientation: ${isPortrait ? "Portrait" : "Landscape"}`);
-    }
-
-    // Use rotatedSharp as the source for variant generation
-    const sharpForVariants = rotatedSharp.withMetadata({
-      orientation: imageRotation,
-    });
-
-    // Create WebP and thumbnail variants
-    const webpPath = path.join(webpFolder, `${fileBaseName}.webp`);
-    const thumbPath = path.join(thumbFolder, `${fileBaseName}_thumb.webp`);
-
-    // Generate variants with proper quality settings
-    // Quality 75 targets ~1-2MB file size (WhatsApp-like compression)
-    await sharpForVariants
-      .clone()
-      .webp({ quality: 75, effort: 6 })
-      .toFile(webpPath);
-    log(`Generated WebP: ${webpPath}`);
-
-    await sharpForVariants
-      .clone()
-      .resize(300, 300, {
-        fit: "cover",
-        position: "center",
-        withoutEnlargement: false,
-      })
-      .webp({ quality: 80, effort: 6 })
-      .toFile(thumbPath);
-    log(`Generated thumbnail: ${thumbPath}`);
-
-    const [webpStats, thumbStats] = await Promise.all([
-      fs.stat(webpPath),
-      fs.stat(thumbPath),
-    ]);
-
-    const folderExists = await prisma.folder.findUnique({
-      where: { id: targetFolderId },
-    });
-    if (!folderExists) {
-      log(
-        `Error: Folder with ID ${targetFolderId} does not exist. Cannot create file.`,
-      );
-      return;
-    }
 
     const newFile = await prisma.file.create({
       data: {
-        fileName,
-        hash,
-        mimeType: "image/webp", // Normalized to webp
-        width: imageWidth,
-        height: imageHeight,
-        fileSize: BigInt(fileStats.size),
-        fileType: "image",
-        folderId: targetFolderId,
+        fileName, hash, mimeType: "image/webp",
+        width: meta.width, height: meta.height,
+        fileSize: BigInt(origStats.size), fileType: "image", folderId: targetFolderId,
         variants: {
           create: [
-            {
-              name: "original",
-              path:
-                "/images/" +
-                targetFolderId +
-                "/original/" +
-                fileName,
-              size: BigInt(fileStats.size),
-            },
-            {
-              name: "webp",
-              path:
-                "/images/" +
-                targetFolderId +
-                "/webp/" +
-                `${fileBaseName}.webp`,
-              size: BigInt(webpStats.size),
-            },
-            {
-              name: "thumbnail",
-              path:
-                "/images/" +
-                targetFolderId +
-                "/thumbs/" +
-                `${fileBaseName}_thumb.webp`,
-              size: BigInt(thumbStats.size),
-            },
+            { name: "original", path: `/images/${targetFolderId}/original/${fileName}`, size: BigInt(origStats.size) },
+            { name: "webp", path: `/images/${targetFolderId}/webp/${fileBaseName}.webp`, size: BigInt(webpStats.size) },
+            { name: "thumbnail", path: `/images/${targetFolderId}/thumbs/${fileBaseName}_thumb.webp`, size: BigInt(thumbStats.size) },
           ],
         },
       },
       include: { variants: true },
     });
 
-    log(
-      `File and variants saved to DB: ${newFile.fileName} (${imageWidth}x${imageHeight})`,
-    );
+    log(`Image saved: ${newFile.fileName}`);
     broadcastNewFile(newFile);
-  } catch (error) {
-    log(`Error processing image file ${fileName}: ${error.message}`);
+  } catch (dbError) {
+    await handleFailure(originalPath, dbError.message);
   }
 }
 
 async function startWatching() {
   try {
     await fs.mkdir(ingestFolder, { recursive: true });
-    log(`Ready. Watching for new files in: ${ingestFolder}`);
+    await fs.mkdir(failedFolder, { recursive: true });
+    log(`Ready. Watching: ${ingestFolder}`);
   } catch (err) {
-    console.error("Error creating ingest folder:", err);
+    console.error("Error creating folders:", err);
     return;
   }
 
-  chokidar
-    .watch(ingestFolder, {
-      ignored: /(^|[/\\])\../,
-      persistent: true,
-      ignoreInitial: false,
-      depth: 10,
-      awaitWriteFinish: {
-        stabilityThreshold: 1500,
-        pollInterval: 100,
-      },
-    })
-    .on("add", (filePath) => {
-      log(`Detected new file: ${filePath}`);
-      enqueueFile(filePath);
-    })
-    .on("error", (error) => log(`Watcher error: ${error.message}`))
-    .on("ready", () => log("Watcher is now active..."));
+  watcher = chokidar.watch(ingestFolder, {
+    ignored: /(^|[/\\])\../,
+    persistent: true,
+    awaitWriteFinish: { stabilityThreshold: 1500, pollInterval: 100 },
+  })
+  .on("add", (path) => enqueueFile(path))
+  .on("error", (error) => log(`Watcher error: ${error.message}`));
 }
 
-// Bootstrapping startup process
 (async () => {
   connectWebSocket();
   await updateIngestFolderId();
