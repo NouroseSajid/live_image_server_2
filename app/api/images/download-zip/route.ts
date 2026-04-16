@@ -1,6 +1,5 @@
 // app/api/images/download-zip/route.ts
 
-import fs from "node:fs";
 import { access } from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
@@ -8,25 +7,21 @@ import { PassThrough } from "node:stream";
 import archiver from "archiver";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
+import prisma from "../../../../prisma/client";
 import { authOptions } from "../../auth/[...nextauth]/route";
 
 const _WS_SERVER_HOST = process.env.WS_SERVER_HOST || "localhost";
 const _WS_SERVER_PORT = parseInt(process.env.WS_SERVER_PORT || "8080", 10);
+const DOWNLOAD_TIMEOUT = 15 * 60 * 1000; // 15 minute timeout
+const MAX_BATCH_SIZE = 500;
 
-// Send download progress to WebSocket server
-function broadcastDownloadProgress(
-  downloadId: string,
-  current: number,
-  total: number,
-  percent: number,
-) {
-  const payload = {
-    type: "download-progress",
-    payload: { downloadId, current, total, percent },
-  };
-
+/**
+ * Sends internal events (progress, completion) to the SSE endpoint.
+ */
+function sendInternalEvent(payload: any) {
   const body = JSON.stringify(payload);
   const appPort = parseInt(process.env.PORT || "3000", 10);
+  
   const req = http.request({
     hostname: "localhost",
     port: appPort,
@@ -35,31 +30,46 @@ function broadcastDownloadProgress(
     headers: {
       "Content-Type": "application/json",
       "X-Internal-Secret": process.env.INTERNAL_SECRET || "ingest-123",
+      "Content-Length": Buffer.byteLength(body),
     },
+  }, (res) => {
+    // Consume response to avoid memory leaks
+    res.on("data", () => {});
+    res.on("end", () => {});
   });
 
   req.on("error", (_err) => {
-    // Silent fail - don't break download if WS broadcast fails
+    // Silent fail for background tasks
   });
 
   req.write(body);
   req.end();
 }
 
-import prisma from "../../../../prisma/client";
+function broadcastDownloadProgress(
+  downloadId: string,
+  current: number,
+  total: number,
+  percent: number,
+) {
+  sendInternalEvent({
+    type: "download-progress",
+    payload: { downloadId, current, total, percent },
+  });
+}
 
-const DOWNLOAD_TIMEOUT = 15 * 60 * 1000; // 15 minute timeout for large files
-const MAX_BATCH_SIZE = 500; // Max number of images per request
+function broadcastDownloadComplete(downloadId: string) {
+  sendInternalEvent({
+    type: "download-complete",
+    payload: { downloadId },
+  });
+}
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    let body;
+    let body: any;
     const contentType = req.headers.get("content-type") || "";
     
     if (contentType.includes("application/json")) {
@@ -71,23 +81,18 @@ export async function POST(req: NextRequest) {
         imageIds: typeof imageIdsRaw === "string" ? JSON.parse(imageIdsRaw) : [],
         quality: formData.get("quality") as string || "webp",
         downloadId: formData.get("downloadId") as string || null,
+        passphrase: formData.get("passphrase") as string || null,
       };
     } else {
       return NextResponse.json({ error: "Unsupported Content-Type" }, { status: 400 });
     }
 
-    const { imageIds, quality = "webp", downloadId: providedDownloadId } = body;
+    const { imageIds, quality = "webp", downloadId: providedDownloadId, passphrase } = body;
 
     if (!imageIds || !Array.isArray(imageIds) || imageIds.length === 0) {
-      return NextResponse.json(
-        { error: "No image IDs provided." },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "No image IDs provided." }, { status: 400 });
     }
-    
-    // ... rest of validation ...
 
-    // Limit to reasonable batch size
     if (imageIds.length > MAX_BATCH_SIZE) {
       return NextResponse.json(
         { error: `Too many images selected (max ${MAX_BATCH_SIZE}).` },
@@ -96,260 +101,156 @@ export async function POST(req: NextRequest) {
     }
 
     const filesToZip = await prisma.file.findMany({
-      where: {
-        id: {
-          in: imageIds,
-        },
-      },
+      where: { id: { in: imageIds } },
       include: {
         variants: true,
+        folder: {
+          select: { id: true, isPrivate: true, passphrase: true }
+        }
       },
     });
 
     if (filesToZip.length === 0) {
-      return NextResponse.json(
-        { error: "No images found for the provided IDs." },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "No images found." }, { status: 404 });
     }
 
-    // Filter for files that have the requested variant quality
+    // Authorization check
+    if (!session?.user) {
+      const folderIds = new Set(filesToZip.map(f => f.folder.id));
+      for (const folderId of folderIds) {
+        const folder = filesToZip.find(f => f.folder.id === folderId)?.folder;
+        if (folder?.isPrivate) {
+          let authorized = false;
+          if (passphrase && folder.passphrase && passphrase === folder.passphrase) {
+            authorized = true;
+          }
+          if (!authorized) {
+            const cookieName = `access_folder_${folderId}`;
+            const token = req.cookies.get(cookieName)?.value;
+            if (token) {
+              const link = await prisma.accessLink.findUnique({ where: { token } });
+              if (link && link.folderId === folderId && (!link.expiresAt || link.expiresAt > new Date()) && (link.usesLeft === null || link.usesLeft > 0)) {
+                authorized = true;
+              }
+            }
+          }
+          if (!authorized) {
+            return NextResponse.json({ error: "Unauthorized access to folders" }, { status: 401 });
+          }
+        }
+      }
+    }
+
     const filesWithPaths = filesToZip
       .map((file) => {
-        // Try to find the requested quality first
-        let variant = file.variants.find((v) => v.name === quality);
+        let variant = file.variants.find((v) => v.name === quality) || 
+                      file.variants.find((v) => v.name === "original") || 
+                      file.variants[0];
 
-        // Fallback to original if requested quality not found
-        if (!variant) {
-          variant = file.variants.find((v) => v.name === "original");
-        }
+        if (!variant) return null;
 
-        // Fallback to any available variant
-        if (!variant && file.variants.length > 0) {
-          variant = file.variants[0];
-        }
-
-        if (!variant) {
-          console.warn(`No suitable variant found for file ID: ${file.id}`);
+        // Path traversal protection
+        if (variant.path.includes("..") || path.isAbsolute(variant.path)) {
+          console.error(`Blocked suspicious path: ${variant.path}`);
           return null;
         }
 
-        // Construct the full path to the image file.
         const filePath = path.join(process.cwd(), "image_repo", variant.path);
-        const fileSize = Number(variant.size) || 0;
         return {
           fileName: file.fileName,
           filePath: filePath,
-          size: fileSize,
+          size: Number(variant.size) || 0,
         };
       })
-      .filter(
-        (
-          file,
-        ): file is { fileName: string; filePath: string; size: number } =>
-          Boolean(file),
-      );
+      .filter((f): f is NonNullable<typeof f> => !!f);
 
     if (filesWithPaths.length === 0) {
-      return NextResponse.json(
-        { error: "No image files available for download." },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "No files available." }, { status: 400 });
     }
 
     const totalSize = filesWithPaths.reduce((acc, f) => acc + f.size, 0);
-    console.log(
-      `[Download] Creating ZIP for ${filesWithPaths.length} files (${(totalSize / 1024 / 1024).toFixed(1)}MB total)`,
-    );
-
-    // Create a PassThrough stream to pipe archiver output directly to the response
     const passthrough = new PassThrough();
-    const archive = archiver("zip", {
-      zlib: { level: 5 }, // Moderate compression for speed
-    });
-
-    let bytesStreamed = 0;
-    let fileCount = 0;
+    const archive = archiver("zip", { zlib: { level: 5 } });
     const finalDownloadId = providedDownloadId || `dl-${Date.now()}`;
 
-    // Handle archive warnings and errors
-    archive.on("warning", (err) => {
-      if (err.code === "ENOENT") {
-        console.warn(`[Download] Archive warning - file not found: ${err.message}`);
-      } else {
-        console.error(`[Download] Archive warning:`, err);
-      }
-    });
-
-    archive.on("error", (err) => {
-      console.error("[Download] Archive critical error:", err);
-      passthrough.destroy(err);
-    });
-
-    passthrough.on("error", (err) => {
-      console.error("[Download] PassThrough stream error:", err);
-    });
-
-    // Pipe archive data to the passthrough stream with backpressure handling
+    archive.on("error", (err) => passthrough.destroy(err));
     archive.pipe(passthrough);
 
-    const abortDownload = (reason?: string) => {
-      console.error("[Download] Aborting download", reason || "");
-      archive.abort();
-      passthrough.destroy(new Error(reason || "Client aborted download"));
-    };
-
-    req.signal.addEventListener("abort", () => {
-      abortDownload("Request aborted by client");
-    });
-
-    // Add files to archive with progress logging
+    // Add files to archive
     for (const file of filesWithPaths) {
-      let exists = false;
       try {
         await access(file.filePath);
-        exists = true;
-      } catch {}
-      if (exists) {
-        fileCount++;
-        console.log(
-          `[Download] Adding file ${fileCount}/${filesWithPaths.length}: ${file.fileName} (${(file.size / 1024 / 1024).toFixed(1)}MB)`,
-        );
         archive.file(file.filePath, { name: file.fileName });
-      } else {
-        console.warn(
-          `[Download] File not found at path: ${file.filePath} for file name: ${file.fileName}`,
-        );
+      } catch {
+        console.warn(`File missing: ${file.filePath}`);
       }
     }
-
     archive.finalize();
-    console.log(`[Download] Archive finalized with ${fileCount} files`);
 
-    // Convert Node.js PassThrough stream to Web ReadableStream with timeout protection
     const webStream = new ReadableStream({
       start(controller) {
         let timeoutId: NodeJS.Timeout;
-        let streamClosed = false;
+        let lastPercent = -1;
 
         const resetTimeout = () => {
           clearTimeout(timeoutId);
           timeoutId = setTimeout(() => {
-            console.error("[Download] Stream timeout exceeded (15 min)");
-            streamClosed = true;
-            const error = new Error(
-              "Download stream timeout. Connection was idle too long.",
-            );
-            passthrough.destroy(error);
-            try {
-              controller.error(error);
-            } catch (e) {
-              console.error("[Download] Error closing controller:", e);
-            }
+            passthrough.destroy(new Error("Download timeout"));
+            controller.error("Timeout");
           }, DOWNLOAD_TIMEOUT);
         };
 
         resetTimeout();
 
         passthrough.on("data", (chunk) => {
-          if (streamClosed) return;
-          try {
-            controller.enqueue(chunk);
-            bytesStreamed += chunk.length;
-            
-            // Send WebSocket progress update every 100KB to avoid spam
-            if (bytesStreamed % (100 * 1024) < chunk.length) {
-              const progress = Math.round((bytesStreamed / totalSize) * 100);
-              broadcastDownloadProgress(finalDownloadId, bytesStreamed, totalSize, progress);
-            }
-            
-            resetTimeout(); // Reset timeout on each chunk received
-          } catch (err) {
-            console.error("[Download] Error enqueuing chunk:", err);
-            streamClosed = true;
-            clearTimeout(timeoutId);
+          resetTimeout();
+          const canEnqueue = controller.enqueue(chunk);
+          
+          // Backpressure handling: pause source if buffer is full
+          if (!canEnqueue) {
+            passthrough.pause();
+          }
+
+          // Throttled progress broadcast (per 1%)
+          const bytesStreamed = (archive as any).pointer?.() || 0;
+          const currentPercent = Math.floor((bytesStreamed / totalSize) * 100);
+          if (currentPercent > lastPercent) {
+            lastPercent = currentPercent;
+            broadcastDownloadProgress(finalDownloadId, bytesStreamed, totalSize, currentPercent);
           }
         });
 
         passthrough.on("end", () => {
           clearTimeout(timeoutId);
-          streamClosed = true;
-          console.log(
-            `[Download] Stream completed. Total: ${(bytesStreamed / 1024 / 1024).toFixed(1)}MB`,
-          );
-          
-          // Broadcast completion
-          const completionPayload = JSON.stringify({
-            type: "download-complete",
-            payload: { downloadId: finalDownloadId }
-          });
-          const appPort = parseInt(process.env.PORT || "3000", 10);
-          const req = http.request({
-            hostname: "localhost",
-            port: appPort,
-            path: "/api/events",
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "X-Internal-Secret": process.env.INTERNAL_SECRET || "ingest-123",
-            },
-          });
-          req.on("error", () => {});
-          req.write(completionPayload);
-          req.end();
-
-          try {
-            controller.close();
-          } catch (err) {
-            console.error("[Download] Error closing stream:", err);
-          }
+          broadcastDownloadComplete(finalDownloadId);
+          controller.close();
         });
 
         passthrough.on("error", (err) => {
           clearTimeout(timeoutId);
-          streamClosed = true;
-          console.error("[Download] PassThrough error:", err);
-          try {
-            controller.error(err);
-          } catch (e) {
-            console.error("[Download] Error passing error to controller:", e);
-          }
+          controller.error(err);
         });
       },
+      pull(controller) {
+        // Resume passthrough when controller is ready for more data
+        passthrough.resume();
+      },
+      cancel() {
+        passthrough.destroy();
+        archive.abort();
+      }
     });
 
-    // Set headers for file download
     const headers = new Headers();
     headers.set("Content-Type", "application/zip");
-    headers.set(
-      "Content-Disposition",
-      `attachment; filename="selected_images.zip"`,
-    );
-    // Prevent proxy/cache from timing out or compressing the stream
+    headers.set("Content-Disposition", `attachment; filename="selected_images.zip"`);
     headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
-    headers.set("Pragma", "no-cache");
-    headers.set("Expires", "0");
-    headers.set("Connection", "keep-alive");
-    headers.set("Transfer-Encoding", "chunked");
+    // Removed Connection: keep-alive as it conflicts with chunked on iOS Safari
+    // Transfer-Encoding: chunked is automatically set by Next.js for ReadableStream
 
-    console.log("[Download] Starting ZIP stream response");
-    
-    // Send initial progress event
-    broadcastDownloadProgress(finalDownloadId, 0, totalSize, 0);
-    
-    return new NextResponse(webStream, {
-      headers: Object.assign(headers, {
-        "X-Download-ID": finalDownloadId,
-      }),
-      status: 200,
-    });
+    return new NextResponse(webStream, { headers, status: 200 });
   } catch (error) {
-    const errorMsg =
-      error instanceof Error ? error.message : "Unknown error";
-    console.error("[Download] Critical error:", errorMsg, error);
-    return NextResponse.json(
-      { error: `Failed to generate zip file: ${errorMsg}` },
-      { status: 500 },
-    );
+    console.error("[Download] Critical error:", error);
+    return NextResponse.json({ error: "Failed to generate zip file" }, { status: 500 });
   }
 }

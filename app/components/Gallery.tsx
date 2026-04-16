@@ -634,7 +634,9 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
           return (
         <Lightbox
           image={lightboxImg}
+          passphrase={folderPassphrases[activeFolder]}
           onClose={() => {
+
             pendingAdvanceRef.current = false;
             setLightboxImg(null);
           }}
@@ -768,6 +770,7 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
               imageIds: JSON.stringify(Array.from(selectedIds)),
               quality: quality,
               downloadId: downloadId,
+              passphrase: folderPassphrases[activeFolder] || "",
             };
 
             for (const [key, value] of Object.entries(fields)) {
