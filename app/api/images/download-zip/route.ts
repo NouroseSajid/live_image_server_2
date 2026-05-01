@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
         if (!variant) return null;
 
         // Path traversal protection
-        if (variant.path.includes("..") || path.isAbsolute(variant.path)) {
+        if (variant.path.includes("..")) {
           console.error(`Blocked suspicious path: ${variant.path}`);
           return null;
         }
