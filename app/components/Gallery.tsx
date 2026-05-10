@@ -220,17 +220,6 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
     const passphraseParam = params.get("p");
     const tokenParam = params.get("t") || params.get("token");
 
-    try {
-      const sessionStored = sessionStorage.getItem("folderPassphrases");
-      if (sessionStored) {
-        const sessionPassphrases = JSON.parse(sessionStored);
-        setFolderPassphrases((prev) => ({ ...prev, ...sessionPassphrases }));
-        sessionStorage.removeItem("folderPassphrases");
-      }
-    } catch (err) {
-      console.error("[Gallery] Failed to restore session passphrases", err);
-    }
-
     const applyFolder = (id: string) => {
       setActiveFolder(id);
       window.history.replaceState({}, "", `?f=${id}`);
@@ -273,17 +262,6 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
         }));
         window.history.replaceState({}, "", `?f=${folderParam}`);
       }
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem("folderPassphrases");
-      if (cached) {
-        setFolderPassphrases((prev) => ({ ...prev, ...JSON.parse(cached) }));
-      }
-    } catch (err) {
-      console.error("[Gallery] Failed to load cached passphrases", err);
     }
   }, []);
 

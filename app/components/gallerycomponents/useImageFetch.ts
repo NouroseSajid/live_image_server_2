@@ -136,14 +136,14 @@ export function useImageFetch({
     };
 
     fetchImages();
-  }, [offset, activeFolder, passphraseModal, batchSize, hasMore, folderPassphrases]);
+  }, [offset, activeFolder, passphraseModal, batchSize, hasMore, folderPassphrases, folders]);
 
-  // Reset when changing folder
+  // Reset when changing folder or when the active folder's passphrase changes
   useEffect(() => {
     setImages([]);
     setHasMore(true);
     lastRequestKeyRef.current = null;
-  }, [activeFolder]);
+  }, [activeFolder, folderPassphrases[activeFolder]]);
 
   return { images, setImages, isLoading, hasMore };
 }
