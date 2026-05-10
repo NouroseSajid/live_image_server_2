@@ -73,29 +73,31 @@ export function useImageFetch({
   }, [folders, folderPassphrases, onError, onPassphraseRequired]);
 
   useEffect(() => {
+    // Don't fetch if passphrase modal is open - prevents infinite loop
+    if (passphraseModal) {
+      return;
+    }
+
     // Don't fetch if no more results to load
     if (!hasMore && offset > 0) {
       return;
     }
 
-    const requestKey = `${activeFolder}:${offset}`;
+    const currentPass = activeFolder !== "all" ? folderPassphrases[activeFolder] || "" : "";
+    const requestKey = `${activeFolder}:${offset}:${currentPass}`;
+    
     if (lastRequestKeyRef.current === requestKey) {
       return;
     }
 
     const fetchImages = async () => {
-      // Don't fetch if passphrase modal is open - prevents infinite loop
-      if (passphraseModal) {
-        return;
-      }
-
       lastRequestKeyRef.current = requestKey;
       setIsLoading(true);
       try {
         const currentFolder = foldersRef.current.find((f) => f.id === activeFolder);
         const pass =
           activeFolder !== "all" && currentFolder?.isPrivate
-            ? passphraseRef.current[activeFolder]
+            ? currentPass
             : undefined;
         const passQuery = pass ? `&passphrase=${encodeURIComponent(pass)}` : "";
         const folderQuery =
@@ -115,15 +117,18 @@ export function useImageFetch({
           // Only set hasMore to true if we got a full batch, false if we got less
           setHasMore(data.length === batchSize);
         } else if (res.status === 401 || res.status === 403) {
+          lastRequestKeyRef.current = null; // Allow retry with new passphrase
           onErrorRef.current("Passphrase required or invalid for this folder.");
           const folder = foldersRef.current.find((f) => f.id === activeFolder);
           if (folder && !passphraseModal) {
             onPassphraseRequiredRef.current(folder.id, folder.name);
           }
         } else {
+          lastRequestKeyRef.current = null; // Allow retry on other errors
           onErrorRef.current("Failed to load images. Please try again.");
         }
       } catch (_err) {
+        lastRequestKeyRef.current = null; // Allow retry on network error
         onErrorRef.current("Network error loading images. Please check your connection.");
       } finally {
         setIsLoading(false);
@@ -131,7 +136,7 @@ export function useImageFetch({
     };
 
     fetchImages();
-  }, [offset, activeFolder, passphraseModal, batchSize, hasMore]);
+  }, [offset, activeFolder, passphraseModal, batchSize, hasMore, folderPassphrases]);
 
   // Reset when changing folder
   useEffect(() => {
