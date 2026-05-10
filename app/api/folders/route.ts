@@ -47,12 +47,46 @@ export async function GET(request: NextRequest) {
     if (slug) {
       const folder = await prisma.folder.findUnique({
         where: { uniqueUrl: slug },
-        select: { id: true, name: true, isPrivate: true, archived: true },
+        select: {
+          id: true,
+          name: true,
+          isPrivate: true,
+          archived: true,
+          visible: true,
+          inGridView: true,
+          groupId: true,
+          group: {
+            select: {
+              id: true,
+              name: true,
+              position: true,
+            },
+          },
+          thumbnail: {
+            select: {
+              id: true,
+              variants: {
+                where: { name: "thumbnail" },
+                select: {
+                  path: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              files: true,
+            },
+          },
+        },
       });
       if (!folder || folder.archived) {
         return NextResponse.json({ error: "Folder not found" }, { status: 404 });
       }
-      return NextResponse.json({ id: folder.id, name: folder.name, isPrivate: folder.isPrivate });
+      return NextResponse.json({
+        ...folder,
+        folderThumb: folder.thumbnail?.variants?.[0]?.path || null,
+      });
     }
 
     // Public scope should always hide non-visible folders, even for admins.

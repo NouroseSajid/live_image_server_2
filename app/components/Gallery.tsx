@@ -77,6 +77,12 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
   const [folders, setFolders] = useState<Folder[]>(initialFolder ? [initialFolder] : []);
   const [activeFolder, setActiveFolder] = useState<string>(initialFolderId || "all");
 
+  useEffect(() => {
+    if (initialFolderId && initialFolderId !== activeFolder) {
+      setActiveFolder(initialFolderId);
+    }
+  }, [initialFolderId]);
+
   const [offset, setOffset] = useState(0);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [lightboxImg, setLightboxImg] = useState<Image | null>(null);
@@ -91,7 +97,18 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
     Record<string, number | null>
   >({});
   const [error, setError] = useState<string | null>(null);
-  const [folderPassphrases, setFolderPassphrases] = useState<Record<string, string>>({});
+  const [folderPassphrases, setFolderPassphrases] = useState<Record<string, string>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const sessionStored = sessionStorage.getItem("folderPassphrases");
+      const localStored = localStorage.getItem("folderPassphrases");
+      const session = sessionStored ? JSON.parse(sessionStored) : {};
+      const local = localStored ? JSON.parse(localStored) : {};
+      return { ...local, ...session };
+    } catch {
+      return {};
+    }
+  });
   const [passphraseModal, setPassphraseModal] = useState<{
     folderId: string;
     name: string;
@@ -163,11 +180,23 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
 
   useEffect(() => {
     if (foldersData) {
-      setFolders((_prev) => {
+      setFolders((prev) => {
+        // Keep any folders that are already in state but not in foldersData
+        // (e.g. folders added via initialFolder or tokens)
         const combined = [...foldersData];
+        
+        // Add initialFolder if missing
         if (initialFolder && !combined.some((f) => f.id === initialFolder.id)) {
           combined.push(initialFolder);
         }
+        
+        // Add any other "legacy" folders that were in prev but are not in combined
+        prev.forEach(oldFolder => {
+          if (!combined.some(f => f.id === oldFolder.id)) {
+            combined.push(oldFolder);
+          }
+        });
+
         return combined;
       });
     }
