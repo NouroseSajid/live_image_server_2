@@ -13,6 +13,7 @@ export default function FolderPage() {
   const tokenParam = searchParams.get("t") || searchParams.get("token");
 
   const [folderId, setFolderId] = useState<string | null>(null);
+  const [folderInfo, setFolderInfo] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -29,6 +30,7 @@ export default function FolderPage() {
         const folder = await res.json();
 
         setFolderId(folder.id);
+        setFolderInfo(folder);
 
         // If passphrase in URL, set it in sessionStorage for Gallery to pick up
         if (passphrase) {
@@ -87,7 +89,7 @@ export default function FolderPage() {
   // Gallery will auto-select this folder and use stored passphrase if present
   return (
     <div>
-      <Gallery initialFolderId={folderId} />
+      <Gallery initialFolderId={folderId} initialFolder={folderInfo} />
     </div>
   );
 }

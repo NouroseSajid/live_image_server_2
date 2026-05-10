@@ -70,11 +70,13 @@ interface GalleryOrderItem {
 
 interface GalleryProps {
   initialFolderId?: string;
+  initialFolder?: Folder;
 }
 
-export default function Gallery({ initialFolderId }: GalleryProps = {}) {
-  const [folders, setFolders] = useState<Folder[]>([]);
+export default function Gallery({ initialFolderId, initialFolder }: GalleryProps = {}) {
+  const [folders, setFolders] = useState<Folder[]>(initialFolder ? [initialFolder] : []);
   const [activeFolder, setActiveFolder] = useState<string>(initialFolderId || "all");
+
   const [offset, setOffset] = useState(0);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
   const [lightboxImg, setLightboxImg] = useState<Image | null>(null);
@@ -161,12 +163,18 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
 
   useEffect(() => {
     if (foldersData) {
-      setFolders(foldersData);
+      setFolders((_prev) => {
+        const combined = [...foldersData];
+        if (initialFolder && !combined.some((f) => f.id === initialFolder.id)) {
+          combined.push(initialFolder);
+        }
+        return combined;
+      });
     }
     if (foldersError) {
       setError("Failed to load folders. Retrying automatically...");
     }
-  }, [foldersData, foldersError]);
+  }, [foldersData, foldersError, initialFolder]);
 
   useEffect(() => {
     if (galleryConfigData) {
@@ -205,6 +213,12 @@ export default function Gallery({ initialFolderId }: GalleryProps = {}) {
         const res = await fetch(`/api/access-links/${tokenParam}`);
         if (res.ok) {
           const data = await res.json();
+          if (data.folder) {
+            setFolders((prev) => {
+              if (prev.some((f) => f.id === data.folder.id)) return prev;
+              return [...prev, data.folder];
+            });
+          }
           applyFolder(data.folderId);
         } else {
           setError("Access link is invalid or expired.");

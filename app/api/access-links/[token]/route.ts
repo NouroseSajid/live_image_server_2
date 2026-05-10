@@ -8,7 +8,18 @@ export async function GET(
   const { token } = await params;
 
   try {
-    const link = await prisma.accessLink.findUnique({ where: { token } });
+    const link = await prisma.accessLink.findUnique({
+      where: { token },
+      include: {
+        folder: {
+          select: {
+            id: true,
+            name: true,
+            isPrivate: true,
+          },
+        },
+      },
+    });
     if (!link) {
       return new NextResponse("Invalid access link", { status: 404 });
     }
@@ -34,7 +45,10 @@ export async function GET(
     const cookieName = `access_folder_${link.folderId}`;
     const expires = link.expiresAt || new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
 
-    const res = NextResponse.json({ folderId: link.folderId });
+    const res = NextResponse.json({
+      folderId: link.folderId,
+      folder: link.folder,
+    });
     res.cookies.set(cookieName, token, {
       httpOnly: true,
       sameSite: "lax",
