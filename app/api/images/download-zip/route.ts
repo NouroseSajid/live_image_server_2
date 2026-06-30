@@ -204,10 +204,10 @@ export async function POST(req: NextRequest) {
 
         passthrough.on("data", (chunk) => {
           resetTimeout();
-          const canEnqueue = controller.enqueue(chunk);
+          controller.enqueue(chunk);
           
           // Backpressure handling: pause source if buffer is full
-          if (!canEnqueue) {
+          if (controller.desiredSize !== null && controller.desiredSize <= 0) {
             passthrough.pause();
           }
 

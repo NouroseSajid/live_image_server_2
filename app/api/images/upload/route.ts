@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { mkdir, stat, writeFile } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { mkdir, stat, writeFile, unlink } from "node:fs/promises";
 import path, { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
@@ -27,35 +28,136 @@ export async function POST(request: NextRequest) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
+  let originalPath = "";
+
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
-    const folderId = formData.get("folderId") as string;
+    const contentType = request.headers.get("content-type") || "";
+    let fileName = "";
+    let folderId = "";
+    let mimeType = "";
+    let fileSize = BigInt(0);
+    let hash = "";
 
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
+      const file = formData.get("file") as File;
+      const fId = formData.get("folderId") as string;
 
-    if (!folderId) {
-      return NextResponse.json(
-        { error: "No folder ID provided" },
-        { status: 400 },
+      if (!file) {
+        return NextResponse.json({ error: "No file provided" }, { status: 400 });
+      }
+
+      if (!fId) {
+        return NextResponse.json(
+          { error: "No folder ID provided" },
+          { status: 400 },
+        );
+      }
+
+      fileName = file.name;
+      folderId = fId;
+      mimeType = file.type;
+
+      const fileBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(fileBuffer);
+      fileSize = BigInt(buffer.length);
+      hash = crypto.createHash("sha256").update(buffer).digest("hex");
+
+      const permanentFolderBase = join(
+        process.cwd(),
+        "image_repo",
+        "images",
+        folderId,
       );
+      const originalFolder = join(permanentFolderBase, "original");
+      await mkdir(originalFolder, { recursive: true });
+      originalPath = join(originalFolder, fileName);
+      await writeFile(originalPath, buffer);
+    } else {
+      // Raw stream upload (extremely memory efficient for large files)
+      const rawFileName = request.headers.get("x-file-name");
+      const rawFolderId = request.headers.get("x-folder-id");
+      if (!rawFileName || !rawFolderId) {
+        return NextResponse.json(
+          { error: "Missing x-file-name or x-folder-id headers for raw upload" },
+          { status: 400 },
+        );
+      }
+
+      fileName = decodeURIComponent(rawFileName);
+      folderId = rawFolderId;
+      mimeType = contentType;
+
+      // Verify folder exists before writing file
+      const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+      if (!folder) {
+        return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+      }
+
+      const permanentFolderBase = join(
+        process.cwd(),
+        "image_repo",
+        "images",
+        folderId,
+      );
+      const originalFolder = join(permanentFolderBase, "original");
+      await mkdir(originalFolder, { recursive: true });
+      originalPath = join(originalFolder, fileName);
+
+      if (!request.body) {
+        return NextResponse.json({ error: "Request body is empty" }, { status: 400 });
+      }
+
+      const writeStream = createWriteStream(originalPath);
+      const hashStream = crypto.createHash("sha256");
+      let bytesRead = 0;
+
+      const reader = request.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        writeStream.write(value);
+        hashStream.update(value);
+        bytesRead += value.length;
+      }
+      writeStream.end();
+
+      await new Promise<void>((resolve, reject) => {
+        writeStream.on("finish", () => resolve());
+        writeStream.on("error", (err) => reject(err));
+      });
+
+      fileSize = BigInt(bytesRead);
+      hash = hashStream.digest("hex");
     }
 
-    // Verify folder exists
+    // Verify folder exists (if it was multipart, we check it here; if raw, we already checked it)
     const folder = await prisma.folder.findUnique({ where: { id: folderId } });
     if (!folder) {
+      if (originalPath) {
+        try { await unlink(originalPath); } catch {}
+      }
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
 
-    // Get file extension and validate
-    const fileName = file.name;
-    const fileBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(fileBuffer);
+    // Check if file already exists (by hash)
+    const existingFile = await prisma.file.findFirst({ where: { hash } });
+    if (existingFile) {
+      if (originalPath) {
+        try {
+          await unlink(originalPath);
+        } catch {}
+      }
+      return NextResponse.json(
+        {
+          error: "This file already exists in another folder",
+          id: existingFile.id,
+        },
+        { status: 409 },
+      );
+    }
 
     // Determine file type based on MIME type
-    const mimeType = file.type;
     const raw = isRawFile(fileName);
     let fileType: "image" | "video";
 
@@ -64,24 +166,12 @@ export async function POST(request: NextRequest) {
     } else if (mimeType.startsWith("video/")) {
       fileType = "video";
     } else {
+      if (originalPath) {
+        try { await unlink(originalPath); } catch {}
+      }
       return NextResponse.json(
         { error: "Invalid file type. Only images, videos, and RAW files allowed." },
         { status: 400 },
-      );
-    }
-
-    // Calculate file hash
-    const hash = crypto.createHash("sha256").update(buffer).digest("hex");
-
-    // Check if file already exists (by hash)
-    const existingFile = await prisma.file.findFirst({ where: { hash } });
-    if (existingFile) {
-      return NextResponse.json(
-        {
-          error: "This file already exists in another folder",
-          id: existingFile.id,
-        },
-        { status: 409 },
       );
     }
 
@@ -94,11 +184,6 @@ export async function POST(request: NextRequest) {
 
     if (fileType === "image" && raw) {
       // RAW file handling — save original, skip sharp processing
-      const originalFolder = join(permanentFolderBase, "original");
-      await mkdir(originalFolder, { recursive: true });
-
-      const originalPath = join(originalFolder, fileName);
-      await writeFile(originalPath, buffer);
       const originalStats = await stat(originalPath);
 
       const placeholderAbsolute = join(process.cwd(), "public", RAW_THUMB_PLACEHOLDER);
@@ -117,7 +202,7 @@ export async function POST(request: NextRequest) {
           mimeType: mimeType || "application/octet-stream",
           width: null,
           height: null,
-          fileSize: BigInt(originalStats.size),
+          fileSize: originalStats.size,
           fileType,
           folderId,
           variants: {
@@ -125,7 +210,7 @@ export async function POST(request: NextRequest) {
               {
                 name: "original",
                 path: `/images/${folderId}/original/${fileName.replace(/\\/g, "/")}`,
-                size: BigInt(originalStats.size),
+                size: originalStats.size,
               },
               {
                 name: "thumbnail",
@@ -154,20 +239,15 @@ export async function POST(request: NextRequest) {
     } else if (fileType === "image") {
       const fileExtension = path.extname(fileName);
       const fileBaseName = path.basename(fileName, fileExtension);
-      const originalFolder = join(permanentFolderBase, "original");
       const webpFolder = join(permanentFolderBase, "webp");
       const thumbFolder = join(permanentFolderBase, "thumbs");
 
       await Promise.all([
-        mkdir(originalFolder, { recursive: true }),
         mkdir(webpFolder, { recursive: true }),
         mkdir(thumbFolder, { recursive: true }),
       ]);
 
-      const originalPath = join(originalFolder, fileName);
-      await writeFile(originalPath, buffer);
-
-      const rotatedSharp = sharp(buffer, { failOnError: false }).rotate();
+      const rotatedSharp = sharp(originalPath, { failOnError: false }).rotate();
       const rotatedMetadata = await rotatedSharp.metadata();
 
       const imageWidth = rotatedMetadata.width || null;
@@ -209,7 +289,7 @@ export async function POST(request: NextRequest) {
           mimeType,
           width: imageWidth,
           height: imageHeight,
-          fileSize: BigInt(buffer.length),
+          fileSize: fileSize,
           fileType,
           folderId,
           variants: {
@@ -217,17 +297,17 @@ export async function POST(request: NextRequest) {
               {
                 name: "original",
                 path: `/images/${folderId}/original/${fileName.replace(/\\/g, "/")}`,
-                size: BigInt(originalStats.size),
+                size: originalStats.size,
               },
               {
                 name: "webp",
                 path: `/images/${folderId}/webp/${`${fileBaseName}.webp`.replace(/\\/g, "/")}`,
-                size: BigInt(webpStats.size),
+                size: webpStats.size,
               },
               {
                 name: "thumbnail",
                 path: `/images/${folderId}/thumbs/${`${fileBaseName}_thumb.webp`.replace(/\\/g, "/")}`,
-                size: BigInt(thumbStats.size),
+                size: thumbStats.size,
               },
             ],
           },
@@ -250,10 +330,6 @@ export async function POST(request: NextRequest) {
       );
     } else {
       // Video
-      const originalFolder = join(permanentFolderBase, "original");
-      await mkdir(originalFolder, { recursive: true });
-      const originalPath = join(originalFolder, fileName);
-      await writeFile(originalPath, buffer);
       const originalStats = await stat(originalPath);
 
       const placeholderAbsolute = join(process.cwd(), "public", VIDEO_THUMB_PLACEHOLDER);
@@ -275,7 +351,7 @@ export async function POST(request: NextRequest) {
           mimeType,
           width: VIDEO_FALLBACK_WIDTH,
           height: VIDEO_FALLBACK_HEIGHT,
-          fileSize: BigInt(originalStats.size),
+          fileSize: fileSize,
           fileType,
           folderId,
           variants: {
@@ -283,7 +359,7 @@ export async function POST(request: NextRequest) {
               {
                 name: "original",
                 path: `/images/${folderId}/original/${fileName.replace(/\\/g, "/")}`,
-                size: BigInt(originalStats.size),
+                size: originalStats.size,
               },
               {
                 name: "thumbnail",
@@ -312,9 +388,15 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("Error uploading image:", error);
+    if (originalPath) {
+      try {
+        await unlink(originalPath);
+      } catch {}
+    }
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },
     );
   }
 }
+

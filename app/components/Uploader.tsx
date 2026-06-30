@@ -14,10 +14,12 @@ const Uploader = () => {
     update(upload.id, { status: "uploading" });
 
     try {
-      const formData = new FormData();
-      formData.append("file", upload.file);
-      formData.append("folderId", upload.folderId); // Add folderId to formData
-      const res = await axios.post("/api/images/upload", formData, {
+      const res = await axios.post("/api/images/upload", upload.file, {
+        headers: {
+          "Content-Type": upload.file.type || "application/octet-stream",
+          "X-File-Name": encodeURIComponent(upload.file.name),
+          "X-Folder-Id": upload.folderId,
+        },
         onUploadProgress: (progressEvent) => {
           if (progressEvent.total) {
             const progress = (progressEvent.loaded / progressEvent.total) * 100;

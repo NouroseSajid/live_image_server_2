@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import { type NextRequest, NextResponse } from "next/server";
 
 /**
@@ -83,9 +84,10 @@ export async function GET(
         const end = match[2] ? Number(match[2]) : stats.size - 1;
         const chunkSize = end - start + 1;
         const stream = createReadStream(filePath, { start, end });
+        const webStream = Readable.toWeb(stream);
         headers.set("Content-Range", `bytes ${start}-${end}/${stats.size}`);
         headers.set("Content-Length", chunkSize.toString());
-        return new NextResponse(stream as unknown as BodyInit, {
+        return new NextResponse(webStream as unknown as BodyInit, {
           status: 206,
           headers,
         });
@@ -93,8 +95,9 @@ export async function GET(
     }
 
     const stream = createReadStream(filePath);
+    const webStream = Readable.toWeb(stream);
     headers.set("Content-Length", stats.size.toString());
-    return new NextResponse(stream as unknown as BodyInit, { headers });
+    return new NextResponse(webStream as unknown as BodyInit, { headers });
   } catch (_error) {
     return new NextResponse("File not found", { status: 404 });
   }

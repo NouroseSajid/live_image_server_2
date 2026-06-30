@@ -1,6 +1,17 @@
 const { WebSocketServer } = require("ws");
 const http = require("node:http");
-require("dotenv").config({ path: ".env.local" });
+const fsSync = require("node:fs");
+const path = require("node:path");
+
+// Load environment variables dynamically
+const dotEnvPath = path.join(__dirname, "..", ".env");
+if (fsSync.existsSync(dotEnvPath)) {
+  require("dotenv").config({ path: dotEnvPath });
+}
+const dotEnvLocalPath = path.join(__dirname, "..", ".env.local");
+if (fsSync.existsSync(dotEnvLocalPath)) {
+  require("dotenv").config({ path: dotEnvLocalPath, override: true });
+}
 
 // Get configuration from environment variables
 const WS_HOST = process.env.WS_SERVER_HOST || "localhost";
