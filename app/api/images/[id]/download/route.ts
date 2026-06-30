@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "../../../../../prisma/client";
@@ -91,6 +92,7 @@ export async function GET(
     try {
       const stats = await stat(filePath);
       const stream = createReadStream(filePath);
+      const webStream = Readable.toWeb(stream);
 
       const headers = new Headers();
       headers.set(
@@ -100,7 +102,7 @@ export async function GET(
       headers.set("Content-Type", "application/octet-stream");
       headers.set("Content-Length", stats.size.toString());
 
-      return new NextResponse(stream as unknown as BodyInit, { headers });
+      return new NextResponse(webStream as unknown as BodyInit, { headers });
     } catch (_error) {
       return new NextResponse("File not found on disk", { status: 404 });
     }

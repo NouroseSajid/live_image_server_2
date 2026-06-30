@@ -1,12 +1,22 @@
 const chokidar = require("chokidar");
 const fs = require("node:fs/promises");
+const fsSync = require("node:fs");
 const path = require("node:path");
 const sharp = require("sharp");
 const { PrismaClient } = require("@prisma/client");
 const { fileTypeFromBuffer } = require("file-type");
 const crypto = require("node:crypto");
 const WebSocket = require("ws");
-require("dotenv").config({ path: ".env.local" });
+
+// Load environment variables dynamically
+const dotEnvPath = path.join(__dirname, "..", ".env");
+if (fsSync.existsSync(dotEnvPath)) {
+  require("dotenv").config({ path: dotEnvPath });
+}
+const dotEnvLocalPath = path.join(__dirname, "..", ".env.local");
+if (fsSync.existsSync(dotEnvLocalPath)) {
+  require("dotenv").config({ path: dotEnvLocalPath, override: true });
+}
 
 const prisma = new PrismaClient();
 const ingestFolder = path.join(__dirname, "..", "image_repo", "ingest");
@@ -224,8 +234,19 @@ async function processFile(filePath) {
     }
 
     await fs.access(filePath);
-    const fileBuffer = await fs.readFile(filePath);
-    const fileTypeResult = await fileTypeFromBuffer(fileBuffer);
+    
+    // Read only the first 4KB to detect type
+    let fileTypeResult = null;
+    try {
+      const fd = await fs.open(filePath, "r");
+      const headerBuffer = Buffer.alloc(4096);
+      const { bytesRead } = await fd.read(headerBuffer, 0, 4096, 0);
+      await fd.close();
+      fileTypeResult = await fileTypeFromBuffer(headerBuffer.subarray(0, bytesRead));
+    } catch (err) {
+      log(`Error reading file header for type detection: ${err.message}`);
+    }
+
     const isRaw = isRawFile(filePath);
 
     if (!fileTypeResult && !isRaw) {
@@ -243,7 +264,7 @@ async function processFile(filePath) {
     } else if (isVideo) {
       await processVideo(filePath, fileTypeResult);
     } else if (isImage) {
-      await processImage(filePath, fileBuffer);
+      await processImage(filePath);
     } else {
       log(`Skipping unsupported file: ${filePath}`);
       await fs.unlink(filePath);
@@ -277,8 +298,14 @@ async function processVideo(filePath, fileTypeResult) {
   await fs.mkdir(originalFolder, { recursive: true });
   const originalPath = path.join(originalFolder, fileName);
 
-  const videoBuffer = await fs.readFile(filePath);
-  const hash = crypto.createHash("md5").update(videoBuffer).digest("hex");
+  // Compute MD5 hash via stream
+  const hash = await new Promise((resolve, reject) => {
+    const hashStream = crypto.createHash("md5");
+    const stream = fsSync.createReadStream(filePath);
+    stream.on("data", (chunk) => hashStream.update(chunk));
+    stream.on("end", () => resolve(hashStream.digest("hex")));
+    stream.on("error", reject);
+  });
 
   const existing = await prisma.file.findFirst({ where: { hash } });
   if (existing) {
@@ -312,7 +339,7 @@ async function processVideo(filePath, fileTypeResult) {
   }
 }
 
-async function processImage(filePath, fileBuffer) {
+async function processImage(filePath) {
   const fileName = path.basename(filePath);
   const fileExtension = path.extname(filePath);
   const fileBaseName = path.basename(fileName, fileExtension);
@@ -329,7 +356,15 @@ async function processImage(filePath, fileBuffer) {
     fs.mkdir(thumbFolder, { recursive: true }),
   ]);
 
-  const hash = crypto.createHash("md5").update(fileBuffer).digest("hex");
+  // Compute MD5 hash via stream
+  const hash = await new Promise((resolve, reject) => {
+    const hashStream = crypto.createHash("md5");
+    const stream = fsSync.createReadStream(filePath);
+    stream.on("data", (chunk) => hashStream.update(chunk));
+    stream.on("end", () => resolve(hashStream.digest("hex")));
+    stream.on("error", reject);
+  });
+
   const existing = await prisma.file.findFirst({ where: { hash } });
   if (existing) {
     log(`Duplicate detected! Deleting ${fileName}.`);
@@ -341,7 +376,7 @@ async function processImage(filePath, fileBuffer) {
   const webpPath = path.join(webpFolder, `${fileBaseName}.webp`);
   const thumbPath = path.join(thumbFolder, `${fileBaseName}_thumb.webp`);
 
-  const rotatedSharp = sharp(fileBuffer, { failOnError: false }).rotate();
+  const rotatedSharp = sharp(filePath, { failOnError: false }).rotate();
   const meta = await rotatedSharp.metadata();
 
   await rotatedSharp.clone().webp({ quality: 75, effort: 6 }).toFile(webpPath);
