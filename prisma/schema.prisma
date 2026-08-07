@@ -142,6 +142,20 @@ model AccessLink {
   @@index([folderId], map: "AccessLink_folderId_fkey")
 }
 
+model DownloadSession {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  imageIds   String   // JSON-serialized array of image IDs
+  quality    String   @default("webp")
+  passphrase String?
+  downloadId String?
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([token])
+  @@index([expiresAt])
+}
+
 model DownloadJob {
   id         String            @id @default(cuid())
   status     JobStatus         @default(PENDING)

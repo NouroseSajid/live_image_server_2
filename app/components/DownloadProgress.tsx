@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MdClose, MdDownload } from "react-icons/md";
 
 interface DownloadProgressProps {
@@ -18,40 +18,91 @@ export default function DownloadProgress({
   const [currentBytes, setCurrentBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState(0);
   const [status, setStatus] = useState<"preparing" | "downloading" | "complete">("preparing");
+  const sseConnectedRef = useRef(false);
+  const lastMessageRef = useRef(Date.now());
+  const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Use a ref to avoid stale closures in the polling interval
+  const statusRef = useRef(status);
+  statusRef.current = status;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Use SSE instead of WebSocket because the server broadcasts to /api/events
-    const eventSource = new EventSource("/api/events");
+    let eventSource: EventSource | null = null;
+    let mounted = true;
 
-    eventSource.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "download-progress" && msg.payload.downloadId === downloadId) {
-          const { current, total, percent } = msg.payload;
-          setCurrentBytes(current);
-          setTotalBytes(total);
-          setProgress(percent);
-          setStatus("downloading");
+    const connectSSE = () => {
+      if (eventSource) return;
+
+      eventSource = new EventSource("/api/events");
+
+      eventSource.onopen = () => {
+        sseConnectedRef.current = true;
+        console.log("[DownloadProgress] SSE connected");
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          lastMessageRef.current = Date.now();
+
+          if (msg.type === "download-progress" && msg.payload.downloadId === downloadId) {
+            const { current, total, percent } = msg.payload;
+            setCurrentBytes(current);
+            setTotalBytes(total);
+            setProgress(percent);
+            setStatus("downloading");
+          }
+
+          if (msg.type === "download-complete" && msg.payload.downloadId === downloadId) {
+            setStatus("complete");
+            closeConnection();
+          }
+        } catch (err) {
+          console.error("[DownloadProgress] Error parsing SSE message:", err);
         }
-        
-        // Handle completion if sent from server
-        if (msg.type === "download-complete" && msg.payload.downloadId === downloadId) {
-          setStatus("complete");
-        }
-      } catch (err) {
-        console.error("[DownloadProgress] Error parsing SSE message:", err);
+      };
+
+      eventSource.onerror = () => {
+        console.warn("[DownloadProgress] SSE error — will reconnect or fall back to polling");
+        sseConnectedRef.current = false;
+        // EventSource auto-reconnects, so we don't close it
+      };
+    };
+
+    const closeConnection = () => {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error("[DownloadProgress] SSE error:", error);
-      // Don't close immediately, EventSource will automatically try to reconnect
-    };
+    connectSSE();
+
+    // Polling fallback — uses statusRef to avoid stale closure
+    pollTimerRef.current = setInterval(() => {
+      if (!mounted) return;
+      const timeSinceLastMessage = Date.now() - lastMessageRef.current;
+      const currentStatus = statusRef.current;
+
+      // Haven't heard from SSE in 15+ seconds and were downloading → reconnect
+      if (timeSinceLastMessage > 15000 && currentStatus === "downloading") {
+        if (!sseConnectedRef.current && eventSource) {
+          eventSource.close();
+          eventSource = null;
+          connectSSE();
+        }
+      }
+    }, 5000);
 
     return () => {
-      eventSource.close();
+      mounted = false;
+      closeConnection();
     };
   }, [downloadId]);
 

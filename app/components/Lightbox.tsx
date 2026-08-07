@@ -440,7 +440,17 @@ export default function Lightbox({
     if (passphrase) {
       url += `&passphrase=${encodeURIComponent(passphrase)}`;
     }
-    window.open(url, "_blank");
+
+    // Use <a> tag click instead of window.open — avoids iOS popup blocking
+    // and is the most reliable cross-platform download trigger.
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "";
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
     setShowDL(false);
     setTimeout(() => setLocalDownloading(false), 1500);
   };
