@@ -1,11 +1,42 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
-import { join } from "node:path";
+import { extname, join } from "node:path";
 import { Readable } from "node:stream";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "../../../../../prisma/client";
 import { authOptions } from "../../../auth/[...nextauth]/route";
+
+/**
+ * Maps file extensions to proper MIME types.
+ * Using the correct Content-Type helps iOS Safari handle Content-Disposition properly.
+ */
+function getMimeFromExtension(filename: string): string {
+  const ext = extname(filename).toLowerCase();
+  const mimeMap: Record<string, string> = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".avif": "image/avif",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+    ".svg": "image/svg+xml",
+    ".bmp": "image/bmp",
+    ".tiff": "image/tiff",
+    ".tif": "image/tiff",
+    ".mp4": "video/mp4",
+    ".webm": "video/webm",
+    ".mov": "video/quicktime",
+    ".m4v": "video/x-m4v",
+    ".ogg": "video/ogg",
+    ".ogv": "video/ogg",
+    ".avi": "video/x-msvideo",
+    ".mkv": "video/x-matroska",
+  };
+  return mimeMap[ext] || "application/octet-stream";
+}
 
 export async function GET(
   request: NextRequest,
@@ -94,12 +125,18 @@ export async function GET(
       const stream = createReadStream(filePath);
       const webStream = Readable.toWeb(stream);
 
+      // Use actual file extension to determine MIME type
+      const mimeType = getMimeFromExtension(file.fileName);
+
+      // UTF-8 encoded filename for international support (iOS requirement)
+      const encodedFilename = encodeURIComponent(file.fileName);
+
       const headers = new Headers();
       headers.set(
         "Content-Disposition",
-        `attachment; filename="${file.fileName}"`,
+        `attachment; filename="${file.fileName}"; filename*=UTF-8''${encodedFilename}`,
       );
-      headers.set("Content-Type", "application/octet-stream");
+      headers.set("Content-Type", mimeType);
       headers.set("Content-Length", stats.size.toString());
 
       return new NextResponse(webStream as unknown as BodyInit, { headers });
