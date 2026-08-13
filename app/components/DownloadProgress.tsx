@@ -51,7 +51,10 @@ export default function DownloadProgress({
             const { current, total, percent } = msg.payload;
             setCurrentBytes(current);
             setTotalBytes(total);
-            setProgress(percent);
+            const safePercent = Number.isFinite(percent)
+              ? Math.min(100, Math.max(0, percent))
+              : 0;
+            setProgress(safePercent);
             setStatus("downloading");
           }
 

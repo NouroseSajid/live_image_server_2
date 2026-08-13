@@ -204,6 +204,15 @@ export default function Lightbox({
   const isAnimatingRef = useRef(false);
   const shouldTransitionRef = useRef(true);
 
+  // History/back-button coordination: while the lightbox is open we push a
+  // history entry so the browser back button closes the lightbox instead of
+  // navigating the page away. These refs guard against double-close,
+  // StrictMode double-mounting, and the popstate that our own
+  // history.back() (UI close path) triggers.
+  const onCloseRef = useRef(onClose);
+  const historyPoppedRef = useRef(false);
+  const pushedRef = useRef(false);
+
   /* ---------- LIFECYCLE ---------- */
   useEffect(() => setMounted(true), []);
 
@@ -284,7 +293,40 @@ export default function Lightbox({
   const cbRef = useRef({ onClose, onNext, onPrev });
   useEffect(() => {
     cbRef.current = { onClose, onNext, onPrev };
+    onCloseRef.current = onClose;
   });
+
+  /* ---------- HISTORY / BACK BUTTON ---------- */
+  // UI-initiated close (X / Escape): pop our history entry so the browser
+  // back button works normally afterwards, then close the lightbox.
+  const closeLightbox = useCallback(() => {
+    if (window.history.state?.lightboxOpen) {
+      historyPoppedRef.current = true; // ignore the popstate we're about to trigger
+      window.history.back();
+    }
+    onCloseRef.current();
+  }, []);
+
+  // While open, the lightbox owns the top history entry: pressing the
+  // browser back button pops it (popstate) and closes the lightbox instead
+  // of navigating the whole page away.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!pushedRef.current) {
+      window.history.pushState({ lightboxOpen: true }, "");
+      pushedRef.current = true;
+    }
+
+    const onPopState = () => {
+      if (historyPoppedRef.current) {
+        historyPoppedRef.current = false;
+        return;
+      }
+      onCloseRef.current();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   /* ---------- NAVIGATION ---------- */
   const handleNext = useCallback(() => {
@@ -410,7 +452,7 @@ export default function Lightbox({
       return;
     switch (e.key) {
       case "Escape":
-        cbRef.current.onClose();
+        closeLightbox();
         break;
       case "ArrowLeft":
         handlePrev();
@@ -419,7 +461,7 @@ export default function Lightbox({
         handleNext();
         break;
     }
-  }, [handlePrev, handleNext]);
+  }, [handlePrev, handleNext, closeLightbox]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -477,7 +519,7 @@ export default function Lightbox({
       <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex items-center gap-2 sm:gap-4 z-20 w-full sm:w-auto pr-20 sm:pr-0">
         <button
           aria-label="Close lightbox"
-          onClick={onClose}
+          onClick={closeLightbox}
           className="p-2 sm:p-3 bg-white/10 hover:bg-white/20 rounded-lg sm:rounded-full text-white transition-colors flex-shrink-0"
         >
           <CloseIcon />

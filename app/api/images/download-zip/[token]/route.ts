@@ -167,9 +167,13 @@ export async function GET(
 
           // Throttled progress broadcast
           const bytesStreamed = (archive as any).pointer?.() || 0;
-          const currentPercent = Math.floor(
-            (bytesStreamed / totalSize) * 100,
-          );
+          // Guard against a zero/unknown total size (missing variant sizes in
+          // the DB) and clamp to 100: archiver's pointer is compressed bytes,
+          // which can slightly exceed the uncompressed sum for tiny files.
+          const currentPercent =
+            totalSize > 0
+              ? Math.min(100, Math.floor((bytesStreamed / totalSize) * 100))
+              : 0;
           if (currentPercent > lastPercent) {
             lastPercent = currentPercent;
             broadcastDownloadProgress(
@@ -192,6 +196,9 @@ export async function GET(
         passthrough.on("error", (err) => {
           clearTimeout(timeoutId);
           controller.error(err);
+          // Release the session so the client's polling fallback (which
+          // treats a 404 as terminal) can resolve instead of hanging.
+          deleteSession(token).catch(() => {});
         });
       },
       pull() {

@@ -709,45 +709,47 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
         })()
       )}
 
-      <ActionBar
-        selectedCount={selectedIds.size}
-        mediumQualitySize={Array.from(selectedIds).reduce((acc, id) => {
-          const fullImage = images.find((i) => i.id === id);
-          const variant = fullImage?.variants?.find((v) => v.name === "webp");
-          const sizeVal = variant?.size;
-          const numeric =
-            typeof sizeVal === "bigint"
-              ? Number(sizeVal)
-              : typeof sizeVal === "string"
+      {!downloadProgress && (
+        <ActionBar
+          selectedCount={selectedIds.size}
+          mediumQualitySize={Array.from(selectedIds).reduce((acc, id) => {
+            const fullImage = images.find((i) => i.id === id);
+            const variant = fullImage?.variants?.find((v) => v.name === "webp");
+            const sizeVal = variant?.size;
+            const numeric =
+              typeof sizeVal === "bigint"
                 ? Number(sizeVal)
-                : sizeVal || 0;
-          return acc + (Number.isFinite(numeric) ? numeric : 0);
-        }, 0)}
-        highQualitySize={Array.from(selectedIds).reduce((acc, id) => {
-          const fullImage = images.find((i) => i.id === id);
-          const variant = fullImage?.variants?.find(
-            (v) => v.name === "original",
-          );
-          const sizeVal = variant?.size;
-          const numeric =
-            typeof sizeVal === "bigint"
-              ? Number(sizeVal)
-              : typeof sizeVal === "string"
+                : typeof sizeVal === "string"
+                  ? Number(sizeVal)
+                  : sizeVal || 0;
+            return acc + (Number.isFinite(numeric) ? numeric : 0);
+          }, 0)}
+          highQualitySize={Array.from(selectedIds).reduce((acc, id) => {
+            const fullImage = images.find((i) => i.id === id);
+            const variant = fullImage?.variants?.find(
+              (v) => v.name === "original",
+            );
+            const sizeVal = variant?.size;
+            const numeric =
+              typeof sizeVal === "bigint"
                 ? Number(sizeVal)
-                : sizeVal || 0;
-          return acc + (Number.isFinite(numeric) ? numeric : 0);
-        }, 0)}
-        onClear={() => setSelectedIds(new Set())}
-        onDownloadAll={async () => {
-          if (selectedIds.size === 0) {
-            alert("Please select images to download.");
-            return;
-          }
+                : typeof sizeVal === "string"
+                  ? Number(sizeVal)
+                  : sizeVal || 0;
+            return acc + (Number.isFinite(numeric) ? numeric : 0);
+          }, 0)}
+          onClear={() => setSelectedIds(new Set())}
+          onDownloadAll={async () => {
+            if (selectedIds.size === 0) {
+              alert("Please select images to download.");
+              return;
+            }
 
-          setShowQualityModal(true);
-        }}
-        isDownloading={isDownloading}
-      />
+            setShowQualityModal(true);
+          }}
+          isDownloading={isDownloading}
+        />
+      )}
 
       <QualityModal
         isOpen={showQualityModal}
@@ -768,27 +770,24 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
               totalFiles: selectedIds.size,
             });
 
-            // Set up SSE listener for completion to clear selection
+            // Shared completion resolver — clears selection, unlocks the UI,
+            // and hides the progress toast after a short delay. Used by the
+            // SSE listener, the polling fallback, and the unmount cleanup so
+            // every resolution path behaves identically. The SSE connection
+            // is created only AFTER the session POST succeeds so a failed
+            // POST cannot leak an open EventSource.
             let sseResolved = false;
-            const eventSource = new EventSource("/api/events");
-            eventSource.onmessage = (event) => {
-              try {
-                const msg = JSON.parse(event.data);
-                if (msg.type === "download-complete" && msg.payload.downloadId === downloadId) {
-                  console.log("[Download] Received completion event from server");
-                  sseResolved = true;
-                  setSelectedIds(new Set());
-                  setError(null);
-                  setIsDownloading(false);
-                  setTimeout(() => setDownloadProgress(null), 3000);
-                  eventSource.close();
-                }
-              } catch (err) {
-                console.error("[Download] SSE parse error:", err);
-              }
-            };
-            eventSource.onerror = () => {
-              console.warn("[Download] SSE connection failed — will rely on polling fallback");
+            let pollInterval: NodeJS.Timeout | null = null;
+            let eventSource: EventSource | null = null;
+            const resolveDownload = () => {
+              if (sseResolved) return;
+              sseResolved = true;
+              if (pollInterval) clearInterval(pollInterval);
+              if (eventSource) eventSource.close();
+              setSelectedIds(new Set());
+              setError(null);
+              setIsDownloading(false);
+              setTimeout(() => setDownloadProgress(null), 3000);
             };
 
             // Step 1: Create a download session via POST
@@ -811,6 +810,30 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
             const { sessionToken } = await res.json();
             console.log(`[Download] Session created: ${sessionToken}`);
 
+            // Set up SSE listener for completion — the completion event can
+            // only arrive once the download stream ends, so connecting here
+            // (after the POST, before link.click) loses nothing.
+            eventSource = new EventSource("/api/events");
+            eventSource.onmessage = (event) => {
+              try {
+                const msg = JSON.parse(event.data);
+                if (
+                  msg.type === "download-complete" &&
+                  msg.payload.downloadId === downloadId
+                ) {
+                  console.log("[Download] Received completion event from server");
+                  resolveDownload();
+                }
+              } catch (err) {
+                console.error("[Download] SSE parse error:", err);
+              }
+            };
+            eventSource.onerror = () => {
+              console.warn(
+                "[Download] SSE connection failed — will rely on polling fallback",
+              );
+            };
+
             // Step 2: Trigger the actual download via <a> tag click.
             // This is the most iOS-friendly approach:
             //   - No popup blocker (it's a direct DOM click, not window.open)
@@ -826,65 +849,45 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
 
             // Step 3: Polling fallback — if SSE fails to deliver the
             // completion event (common on iOS when tabs are backgrounded),
-            // poll every 3 seconds up to 10 minutes.
+            // poll every 3 seconds. A 404 means the session was deleted:
+            // download finished, browser download canceled, or the server
+            // stream errored/timed out. We poll longer than the server's
+            // 15-minute download timeout so every terminal state resolves.
             let pollAttempts = 0;
-            const maxPollAttempts = 200; // ~10 minutes
-            const pollInterval = setInterval(() => {
+            const maxPollAttempts = 340; // ~17 minutes
+            pollInterval = setInterval(() => {
               pollAttempts++;
-              if (sseResolved || pollAttempts >= maxPollAttempts) {
-                clearInterval(pollInterval);
+              if (sseResolved) return;
+              if (pollAttempts >= maxPollAttempts) {
+                // Never confirmed — release the UI rather than hanging forever.
+                console.warn(
+                  "[Download] Polling exhausted without confirmation — releasing UI",
+                );
+                resolveDownload();
                 return;
               }
-              // If SSE already showed complete, the progress would be gone.
-              if (!sseResolved && downloadProgress?.id === downloadId) {
-                // Poll the lightweight status endpoint.
-                // 404 = session expired/download finished → resolve.
-                fetch(`/api/images/download-zip/status/${sessionToken}`)
-                  .then((r) => {
-                    if (!r.ok) {
-                      // 404: session gone, download completed
-                      sseResolved = true;
-                      setSelectedIds(new Set());
-                      setError(null);
-                      setIsDownloading(false);
-                      setTimeout(() => setDownloadProgress(null), 3000);
-                      clearInterval(pollInterval);
-                    }
-                  })
-                  .catch(() => {
-                    // Network error — don't assume completion, just wait
-                  });
-              }
+              fetch(`/api/images/download-zip/status/${sessionToken}`)
+                .then((r) => {
+                  if (!r.ok && !sseResolved) {
+                    // 404: session gone — download completed or was canceled
+                    console.log("[Download] Status 404 — session finished");
+                    resolveDownload();
+                  }
+                })
+                .catch(() => {
+                  // Network error — don't assume completion, just wait
+                });
             }, 3000);
 
-            // Listen for SSE completion to clear poll interval and selection
-            eventSource.onmessage = (event) => {
-              try {
-                const msg = JSON.parse(event.data);
-                if (msg.type === "download-complete" && msg.payload.downloadId === downloadId) {
-                  sseResolved = true;
-                  clearInterval(pollInterval);
-                  setSelectedIds(new Set());
-                  setError(null);
-                  setIsDownloading(false);
-                  setTimeout(() => setDownloadProgress(null), 3000);
-                  eventSource.close();
-                }
-              } catch (err) {
-                console.error("[Download] SSE parse error:", err);
-              }
-            };
+            // If SSE completed while the interval was being set up, stop it now.
+            if (sseResolved && pollInterval) {
+              clearInterval(pollInterval);
+            }
 
             // Store cleanup so it runs on unmount (memory leak prevention)
             downloadCleanupRef.current = () => {
-              if (!sseResolved) {
-                sseResolved = true;
-                clearInterval(pollInterval);
-                eventSource.close();
-              }
+              resolveDownload();
             };
-
-            setShowQualityModal(false);
           } catch (error) {
             const errorMsg =
               error instanceof Error ? error.message : "Unknown error";

@@ -7,9 +7,9 @@ import { mainNavLinks } from "../data/siteLinks";
 const Navbar = () => {
   return (
     <nav className="flex justify-between items-center px-4 py-2 bg-[var(--background)] border-b border-[var(--border)] fixed top-0 left-0 w-full z-[1000] shadow-sm">
-      {/* Logo - Links to Nourose Home */}
+      {/* Logo - Links to the gallery home page */}
       <div className="flex items-center">
-        <Link href="https://nourose.com" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <div className="p-1 dark:bg-white dark:rounded-md">
             <Image src="/icons/Logo.svg" alt="Logo" width={40} height={40} />
           </div>
