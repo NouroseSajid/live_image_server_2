@@ -1,14 +1,5 @@
+import { resolveAssetPath } from "../../lib/assets";
 import type { FileEntry } from "./types";
-
-const normalizeAssetPath = (path?: string | null) => {
-  if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  if (path.startsWith("/images/")) {
-    return path.replace(/^\/images\//, "/api/serve/");
-  }
-  if (path.startsWith("/")) return path;
-  return `/${path}`;
-};
 
 export const formatFileSize = (bytes: string) => {
   const size = Number(bytes);
@@ -23,5 +14,5 @@ export const getPreviewPath = (file: FileEntry) => {
   const thumb = file.variants.find((variant) => variant.name === "thumbnail")?.path;
   const webp = file.variants.find((variant) => variant.name === "webp")?.path;
   const original = file.variants.find((variant) => variant.name === "original")?.path;
-  return normalizeAssetPath(thumb || webp || original || "");
+  return resolveAssetPath(thumb || webp || original) ?? "";
 };

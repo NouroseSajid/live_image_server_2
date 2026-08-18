@@ -3,6 +3,7 @@
 import { MdLock } from "react-icons/md";
 import { FiChevronDown, FiFolder, FiX } from "react-icons/fi";
 import { useEffect, useMemo, useState } from "react";
+import { resolveAssetPath } from "../lib/assets";
 
 interface Category {
   id: string;
@@ -47,15 +48,13 @@ export default function CategoryNavigation({
 }: CategoryNavigationProps) {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
 
-  const resolveThumbnailPath = (path: string | null | undefined) => {
-    if (!path) return null;
-    if (path.startsWith("http://") || path.startsWith("https://")) return path;
-    if (path.startsWith("/images/")) {
-      return path.replace(/^\/images\//, "/api/serve/");
-    }
-    if (path.startsWith("/")) return path;
-    return `/${path}`;
-  };
+  // The API exposes the thumbnail variant path as `folderThumb`;
+  // `thumbnail.variants` is a fallback for locally-constructed categories
+  // (e.g. the "All" card) that don't carry a `folderThumb`.
+  const getThumbnailPath = (cat: Category) =>
+    cat.folderThumb ||
+    cat.thumbnail?.variants?.find((variant) => variant.path)?.path ||
+    null;
 
   // 1. Logic to organize categories and groups
   const { allCategory, orderedItems } = useMemo(() => {
@@ -156,10 +155,8 @@ export default function CategoryNavigation({
   }, [selectedGroup]);
 
   const renderCard = (cat: Category, isSubItem = false) => {
-    const thumbnailVariant = cat.thumbnail?.variants?.find((variant) => variant.path);
-    const thumbnailPath = cat.folderThumb || thumbnailVariant?.path;
     const isActive = activeFolder === cat.id;
-    const absoluteThumbnailPath = resolveThumbnailPath(thumbnailPath);
+    const absoluteThumbnailPath = resolveAssetPath(getThumbnailPath(cat));
 
     return (
       <button
@@ -225,10 +222,7 @@ export default function CategoryNavigation({
 
   const renderGroupCard = (group: Group) => {
     const thumbPaths = group.items
-      .map((cat) => {
-        const thumbPath = cat.folderThumb || cat.thumbnail?.variants?.find((item) => item.path)?.path;
-        return resolveThumbnailPath(thumbPath);
-      })
+      .map((cat) => resolveAssetPath(getThumbnailPath(cat)))
       .filter((path): path is string => path !== null)
       .slice(0, 4);
 

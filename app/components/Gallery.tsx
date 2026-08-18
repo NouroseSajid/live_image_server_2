@@ -480,11 +480,19 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
   };
 
   const categories = useMemo(() => {
-    const fallbackAllThumbnail =
-      allFolderThumbnailUrl ||
-      folders.find((folder) => folder.folderThumb || folder.thumbnail?.variants?.[0]?.path)?.folderThumb ||
-      folders.find((folder) => folder.thumbnail?.variants?.[0]?.path)?.thumbnail?.variants?.[0]?.path ||
-      null;
+    // The "All" card falls back to the first folder that has a thumbnail
+    // when no gallery-wide thumbnail has been configured.
+    let fallbackAllThumbnail = allFolderThumbnailUrl;
+    if (!fallbackAllThumbnail) {
+      for (const folder of folders) {
+        const thumb =
+          folder.folderThumb || folder.thumbnail?.variants?.[0]?.path || null;
+        if (thumb) {
+          fallbackAllThumbnail = thumb;
+          break;
+        }
+      }
+    }
     const allCategory = {
       id: "all",
       name: "All",

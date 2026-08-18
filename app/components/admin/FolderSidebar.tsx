@@ -1,4 +1,5 @@
 import { FiFolder, FiPlus } from "react-icons/fi";
+import { resolveAssetPath } from "../../lib/assets";
 import FolderList from "./FolderList";
 import type { Folder, FolderListItem } from "./types";
 
@@ -75,17 +76,7 @@ export default function FolderSidebar({
   onEditFolder,
   onDeleteFolder,
 }: FolderSidebarProps) {
-  const normalizeAssetPath = (path: string | null | undefined) => {
-    if (!path) return null;
-    if (path.startsWith("http://") || path.startsWith("https://")) return path;
-    if (path.startsWith("/images/")) {
-      return path.replace(/^\/images\//, "/api/serve/");
-    }
-    if (path.startsWith("/")) return path;
-    return `/${path}`;
-  };
-
-  const allThumbnailSrc = allThumbnailPreview || normalizeAssetPath(allThumbnailUrl);
+  const allThumbnailSrc = allThumbnailPreview || resolveAssetPath(allThumbnailUrl);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">

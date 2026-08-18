@@ -1,8 +1,44 @@
+import { mkdir, rename, rm, stat } from "node:fs/promises";
+import { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import slugify from "slugify";
 import prisma from "../../../../prisma/client";
 import { authOptions } from "../../auth/[...nextauth]/route";
+
+const repoImagesDir = (folderId: string) =>
+  join(process.cwd(), "image_repo", "images", folderId);
+
+/** Best-effort path existence check. */
+const pathExists = async (p: string) => {
+  try {
+    await stat(p);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Moves a folder's original files into `image_repo/trash/{folderId}/original`.
+ * Only originals are kept — webp/thumbs are derived and regenerable, so they
+ * are removed once the folder is deleted. Returns the trash path, or null if
+ * the folder had no originals on disk.
+ */
+async function trashFolderOriginals(folderId: string): Promise<string | null> {
+  const sourceDir = join(repoImagesDir(folderId), "original");
+  if (!(await pathExists(sourceDir))) return null;
+
+  let targetDir = join(process.cwd(), "image_repo", "trash", folderId);
+  if (await pathExists(targetDir)) {
+    targetDir = `${targetDir}_${Date.now()}`;
+  }
+  await mkdir(targetDir, { recursive: true });
+
+  const trashPath = join(targetDir, "original");
+  await rename(sourceDir, trashPath);
+  return trashPath;
+}
 
 export async function GET(
   _request: NextRequest,
@@ -134,9 +170,48 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    await prisma.folder.delete({
-      where: { id },
-    });
+
+    // 1. Move originals to trash before touching the DB so a failed delete
+    //    can be rolled back cleanly.
+    let trashPath: string | null = null;
+    try {
+      trashPath = await trashFolderOriginals(id);
+      if (trashPath) {
+        console.log(
+          `[FolderDelete] Trashed originals of ${id} -> ${trashPath}`,
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[FolderDelete] Failed to trash originals of ${id}:`,
+        error,
+      );
+    }
+
+    // 2. Delete the DB folder row (cascades to files/variants).
+    try {
+      await prisma.folder.delete({ where: { id } });
+    } catch (error) {
+      // 3. DB delete failed — restore the originals so the folder keeps working.
+      if (trashPath) {
+        try {
+          await mkdir(repoImagesDir(id), { recursive: true });
+          await rename(trashPath, join(repoImagesDir(id), "original"));
+          console.log(
+            `[FolderDelete] Restored originals of ${id} after DB failure`,
+          );
+        } catch (restoreError) {
+          console.error(
+            `[FolderDelete] Failed to restore originals of ${id}:`,
+            restoreError,
+          );
+        }
+      }
+      throw error;
+    }
+
+    // 4. Remove the derived variants (webp/thumbs) left behind on disk.
+    await rm(repoImagesDir(id), { recursive: true, force: true });
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {

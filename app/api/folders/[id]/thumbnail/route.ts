@@ -1,12 +1,21 @@
 import crypto from "node:crypto";
 import { mkdir, stat, writeFile } from "node:fs/promises";
-import path, { join } from "node:path";
+import { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import sharp from "sharp";
 import prisma from "../../../../../prisma/client";
+import {
+  processImageUpload,
+  VIDEO_PLACEHOLDER_PATH,
+} from "../../../../lib/imageProcessing";
 import { authOptions } from "../../../auth/[...nextauth]/route";
 
+/**
+ * Uploads a new file (image or video) and sets it as the folder thumbnail.
+ *
+ * The uploaded file is stored inside the folder's image repo (as a regular
+ * File with variants) and linked via `Folder.folderThumbnailId`.
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -32,33 +41,22 @@ export async function POST(
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
 
-    // Get file extension and validate
     const fileName = file.name;
-    const fileBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(fileBuffer);
-
-    // Determine file type based on MIME type
+    const buffer = Buffer.from(await file.arrayBuffer());
     const mimeType = file.type;
-    let fileType: "image" | "video";
 
-    if (mimeType.startsWith("image/")) {
-      fileType = "image";
-    } else if (mimeType.startsWith("video/")) {
-      fileType = "video";
-    } else {
+    if (!mimeType.startsWith("image/") && !mimeType.startsWith("video/")) {
       return NextResponse.json(
         { error: "Invalid file type. Only images and videos allowed." },
         { status: 400 },
       );
     }
 
-    // Calculate file hash
+    // Deduplicate by content hash
     const hash = crypto.createHash("sha256").update(buffer).digest("hex");
-
-    // Check if file already exists (by hash)
     const existingFile = await prisma.file.findFirst({ where: { hash } });
     if (existingFile) {
-      // If it's already being used as a thumbnail, update the folder to use it
+      // Same file already lives in this folder → just link it as the thumbnail.
       if (existingFile.folderId === id) {
         await prisma.folder.update({
           where: { id },
@@ -72,7 +70,6 @@ export async function POST(
           { status: 200 },
         );
       }
-
       return NextResponse.json(
         {
           error: "This file already exists in another folder",
@@ -82,120 +79,15 @@ export async function POST(
       );
     }
 
-    const permanentFolderBase = join(
-      process.cwd(),
-      "image_repo",
-      "images",
-      id,
-    );
+    const baseDir = join(process.cwd(), "image_repo", "images", id);
+    const fileType = mimeType.startsWith("video/") ? "video" : "image";
 
-    if (fileType === "image") {
-      const fileExtension = path.extname(fileName);
-      const fileBaseName = path.basename(fileName, fileExtension);
-      const originalFolder = join(permanentFolderBase, "original");
-      const webpFolder = join(permanentFolderBase, "webp");
-      const thumbFolder = join(permanentFolderBase, "thumbs");
-
-      await Promise.all([
-        mkdir(originalFolder, { recursive: true }),
-        mkdir(webpFolder, { recursive: true }),
-        mkdir(thumbFolder, { recursive: true }),
-      ]);
-
-      const originalPath = join(originalFolder, fileName);
-      await writeFile(originalPath, buffer);
-
-      const rotatedSharp = sharp(buffer, { failOnError: false }).rotate();
-      const rotatedMetadata = await rotatedSharp.metadata();
-
-      const imageWidth = rotatedMetadata.width || null;
-      const imageHeight = rotatedMetadata.height || null;
-      const imageRotation = 1;
-
-      const sharpForVariants = rotatedSharp.withMetadata({
-        orientation: imageRotation,
-      });
-
-      const webpPath = path.join(webpFolder, `${fileBaseName}.webp`);
-      const thumbPath = path.join(thumbFolder, `${fileBaseName}_thumb.webp`);
-
-      await sharpForVariants
-        .clone()
-        .webp({ quality: 85, effort: 6 })
-        .toFile(webpPath);
-
-      await sharpForVariants
-        .clone()
-        .resize(300, 300, {
-          fit: "cover",
-          position: "center",
-          withoutEnlargement: false,
-        })
-        .webp({ quality: 80, effort: 6 })
-        .toFile(thumbPath);
-
-      const [originalStats, webpStats, thumbStats] = await Promise.all([
-        stat(originalPath),
-        stat(webpPath),
-        stat(thumbPath),
-      ]);
-
-      const newFile = await prisma.file.create({
-        data: {
-          fileName,
-          hash,
-          width: imageWidth,
-          height: imageHeight,
-          fileSize: BigInt(buffer.length),
-          fileType,
-          folderId: id,
-          variants: {
-            create: [
-              {
-                name: "original",
-                path: `/images/${id}/original/${fileName.replace(/\\/g, "/")}`,
-                size: BigInt(originalStats.size),
-              },
-              {
-                name: "webp",
-                path: `/images/${id}/webp/${`${fileBaseName}.webp`.replace(/\\/g, "/")}`,
-                size: BigInt(webpStats.size),
-              },
-              {
-                name: "thumbnail",
-                path: `/images/${id}/thumbs/${`${fileBaseName}_thumb.webp`.replace(/\\/g, "/")}`,
-                size: BigInt(thumbStats.size),
-              },
-            ],
-          },
-        },
-        include: { variants: true },
-      });
-
-      // Update the folder to use this file as its thumbnail
-      await prisma.folder.update({
-        where: { id },
-        data: { folderThumbnailId: newFile.id },
-      });
-
-      const serializedVariants = newFile.variants.map((variant) => ({
-        ...variant,
-        size: variant.size.toString(),
-      }));
-
-      return NextResponse.json(
-        {
-          ...newFile,
-          fileSize: newFile.fileSize.toString(),
-          variants: serializedVariants,
-        },
-        { status: 201 },
-      );
-    } else {
-      // Video
-      const originalFolder = join(permanentFolderBase, "original");
-      await mkdir(originalFolder, { recursive: true });
-      const originalPath = join(originalFolder, fileName);
+    if (fileType === "video") {
+      // Videos keep the original file plus a placeholder thumbnail (same
+      // convention as the ingest pipeline — no frame extraction here).
+      const originalDir = join(baseDir, "original");
+      await mkdir(originalDir, { recursive: true });
+      const originalPath = join(originalDir, fileName);
       await writeFile(originalPath, buffer);
       const originalStats = await stat(originalPath);
 
@@ -210,8 +102,13 @@ export async function POST(
             create: [
               {
                 name: "original",
-                path: `/images/${id}/original/${fileName.replace(/\\/g, "/")}`,
+                path: `/images/${id}/original/${fileName}`,
                 size: BigInt(originalStats.size),
+              },
+              {
+                name: "thumbnail",
+                path: VIDEO_PLACEHOLDER_PATH,
+                size: BigInt(0),
               },
             ],
           },
@@ -219,26 +116,61 @@ export async function POST(
         include: { variants: true },
       });
 
-      // Update the folder to use this file as its thumbnail
       await prisma.folder.update({
         where: { id },
         data: { folderThumbnailId: newFile.id },
       });
 
-      const serializedVariants = newFile.variants.map((variant) => ({
-        ...variant,
-        size: variant.size.toString(),
-      }));
-
-      return NextResponse.json(
-        {
-          ...newFile,
-          fileSize: newFile.fileSize.toString(),
-          variants: serializedVariants,
-        },
-        { status: 201 },
-      );
+      return NextResponse.json(serializeFile(newFile), { status: 201 });
     }
+
+    // Image: generate original + webp + thumbnail variants via the shared pipeline.
+    const processed = await processImageUpload({
+      buffer,
+      originalFileName: fileName,
+      baseDir,
+      dbFolder: id,
+      embedOrientationMeta: true,
+    });
+
+    const newFile = await prisma.file.create({
+      data: {
+        fileName,
+        hash,
+        width: processed.width,
+        height: processed.height,
+        fileSize: BigInt(buffer.length),
+        fileType: "image",
+        folderId: id,
+        variants: {
+          create: [
+            {
+              name: "original",
+              path: processed.original.dbPath,
+              size: BigInt(processed.original.size),
+            },
+            {
+              name: "webp",
+              path: processed.webp.dbPath,
+              size: BigInt(processed.webp.size),
+            },
+            {
+              name: "thumbnail",
+              path: processed.thumbnail.dbPath,
+              size: BigInt(processed.thumbnail.size),
+            },
+          ],
+        },
+      },
+      include: { variants: true },
+    });
+
+    await prisma.folder.update({
+      where: { id },
+      data: { folderThumbnailId: newFile.id },
+    });
+
+    return NextResponse.json(serializeFile(newFile), { status: 201 });
   } catch (error) {
     console.error("Error uploading folder thumbnail:", error);
     return NextResponse.json(
@@ -246,4 +178,45 @@ export async function POST(
       { status: 500 },
     );
   }
+}
+
+type FileWithVariants = {
+  id: string;
+  fileName: string;
+  hash: string;
+  mimeType: string | null;
+  width: number | null;
+  height: number | null;
+  duration: number | null;
+  fileSize: bigint;
+  fileType: "image" | "video";
+  isLive: boolean;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+  folderId: string;
+  variants: {
+    id: string;
+    name: string;
+    width: number | null;
+    height: number | null;
+    size: bigint;
+    path: string;
+    codec: string | null;
+    createdAt: Date;
+    fileId: string;
+  }[];
+};
+
+/** BigInt fields are not JSON-serializable — convert them to strings. */
+function serializeFile(file: FileWithVariants) {
+  return {
+    ...file,
+    fileSize: file.fileSize.toString(),
+    variants: file.variants.map((variant) => ({
+      ...variant,
+      size: variant.size.toString(),
+    })),
+  };
 }

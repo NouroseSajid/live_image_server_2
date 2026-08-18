@@ -47,7 +47,12 @@ export async function POST(
       data: { folderThumbnailId: fileId },
     });
 
-    return NextResponse.json(updated);
+    // Return only what the client needs — avoids echoing folder config
+    // (including the passphrase hash) back to the browser.
+    return NextResponse.json({
+      id: updated.id,
+      folderThumbnailId: updated.folderThumbnailId,
+    });
   } catch (error) {
     console.error("Error setting folder thumbnail:", error);
     return new NextResponse("Internal Server Error", { status: 500 });

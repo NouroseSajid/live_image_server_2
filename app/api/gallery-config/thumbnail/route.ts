@@ -1,10 +1,10 @@
-import { mkdir, readFile, stat, writeFile, writeFile as writeTextFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readFile, writeFile as writeTextFile } from "node:fs/promises";
 import path, { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import sharp from "sharp";
 import { authOptions } from "../../auth/[...nextauth]/route";
-import { existsSync } from "node:fs";
+import { processImageUpload } from "../../../lib/imageProcessing";
 
 const configPath = join(process.cwd(), "gallery-config.json");
 
@@ -30,6 +30,11 @@ const writeConfig = async (allFolderThumbnailUrl: string | null) => {
   await writeTextFile(configPath, JSON.stringify(config, null, 2));
 };
 
+/**
+ * Uploads the "All folders" thumbnail used on the main gallery.
+ * Stored under the `_all` image-repo folder; the resulting URL is persisted
+ * in gallery-config.json.
+ */
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
 
@@ -52,68 +57,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const fileBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(fileBuffer);
+    const buffer = Buffer.from(await file.arrayBuffer());
 
-    const baseDir = join(process.cwd(), "image_repo", "images", "_all");
-    const originalFolder = join(baseDir, "original");
-    const webpFolder = join(baseDir, "webp");
-    const thumbFolder = join(baseDir, "thumbs");
-
-    await Promise.all([
-      mkdir(originalFolder, { recursive: true }),
-      mkdir(webpFolder, { recursive: true }),
-      mkdir(thumbFolder, { recursive: true }),
-    ]);
-
+    // Unique base name so re-uploads never collide with existing files.
     const originalExtension = path.extname(file.name) || ".jpg";
-    const fileBaseName = path
+    const safeBaseName = path
       .basename(file.name, originalExtension)
       .replace(/[^a-zA-Z0-9-_]/g, "_");
-    const uniqueBaseName = `${fileBaseName}_${Date.now()}`;
-
+    const uniqueBaseName = `${safeBaseName}_${Date.now()}`;
     const originalFileName = `${uniqueBaseName}${originalExtension}`;
-    const webpFileName = `${uniqueBaseName}.webp`;
-    const thumbFileName = `${uniqueBaseName}_thumb.webp`;
 
-    const originalPath = join(originalFolder, originalFileName);
-    const webpPath = join(webpFolder, webpFileName);
-    const thumbPath = join(thumbFolder, thumbFileName);
+    const processed = await processImageUpload({
+      buffer,
+      originalFileName,
+      baseDir: join(process.cwd(), "image_repo", "images", "_all"),
+      dbFolder: "_all",
+      baseName: uniqueBaseName,
+    });
 
-    await writeFile(originalPath, buffer);
-
-    const rotatedSharp = sharp(buffer, { failOnError: false }).rotate();
-
-    await rotatedSharp.clone().webp({ quality: 85, effort: 6 }).toFile(webpPath);
-
-    await rotatedSharp
-      .clone()
-      .resize(300, 300, {
-        fit: "cover",
-        position: "center",
-        withoutEnlargement: false,
-      })
-      .webp({ quality: 80, effort: 6 })
-      .toFile(thumbPath);
-
-    const [originalStats, webpStats, thumbStats] = await Promise.all([
-      stat(originalPath),
-      stat(webpPath),
-      stat(thumbPath),
-    ]);
-
-    if (!originalStats.size || !webpStats.size || !thumbStats.size) {
+    if (
+      !processed.original.size ||
+      !processed.webp.size ||
+      !processed.thumbnail.size
+    ) {
       return NextResponse.json(
         { error: "Failed to write thumbnail files" },
         { status: 500 },
       );
     }
 
-    const allFolderThumbnailUrl = `/images/_all/thumbs/${thumbFileName}`;
+    await writeConfig(processed.thumbnail.dbPath);
 
-    await writeConfig(allFolderThumbnailUrl);
-
-    return NextResponse.json({ allFolderThumbnailUrl });
+    return NextResponse.json({ allFolderThumbnailUrl: processed.thumbnail.dbPath });
   } catch (error) {
     console.error("Error uploading all folder thumbnail:", error);
     return NextResponse.json(

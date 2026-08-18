@@ -15,17 +15,29 @@ export interface DownloadSession {
 }
 
 const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
-// Periodic cleanup of expired sessions every 5 minutes
-setInterval(async () => {
-  try {
-    await prisma.downloadSession.deleteMany({
-      where: { expiresAt: { lte: new Date() } },
-    });
-  } catch (err) {
-    console.error("[SessionStore] Cleanup error:", err);
-  }
-}, 5 * 60 * 1000);
+declare global {
+  // Registered once per process — guards against duplicate timers when dev
+  // hot-reload re-evaluates this module.
+  var __downloadSessionCleanup: NodeJS.Timeout | undefined;
+}
+
+// Periodic cleanup of expired sessions. Expired sessions are also deleted
+// lazily on read in getSession(), so this is only housekeeping. unref()
+// ensures the timer never keeps the process alive on its own.
+if (!globalThis.__downloadSessionCleanup) {
+  globalThis.__downloadSessionCleanup = setInterval(async () => {
+    try {
+      await prisma.downloadSession.deleteMany({
+        where: { expiresAt: { lte: new Date() } },
+      });
+    } catch (err) {
+      console.error("[SessionStore] Cleanup error:", err);
+    }
+  }, CLEANUP_INTERVAL_MS);
+  globalThis.__downloadSessionCleanup.unref?.();
+}
 
 export async function createSession(
   data: Omit<DownloadSession, "createdAt">,
