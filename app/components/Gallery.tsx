@@ -850,6 +850,7 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
             const downloadUrl = `/api/images/download-zip/${sessionToken}`;
             const link = document.createElement("a");
             link.href = downloadUrl;
+            link.download = "";
             link.style.display = "none";
             document.body.appendChild(link);
             link.click();

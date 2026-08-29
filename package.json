@@ -10,6 +10,7 @@
     "format": "biome format --write",
     "ingest": "node scripts/ingest-watcher.js",
     "ws-server": "node scripts/ws-server.js",
+    "test:downloads": "node scripts/test-downloads.js",
     "dev:full": "concurrently \"npm run dev\" \"npm run ws-server\" \"npm run ingest\""
   },
   "dependencies": {

@@ -122,7 +122,30 @@ export async function GET(
       return NextResponse.json({ error: "No files available." }, { status: 400 });
     }
 
-    const totalSize = filesWithPaths.reduce((acc, f) => acc + f.size, 0);
+    // Only archive files that actually exist on disk. A variant row can exist
+    // in the DB while its bytes are gone; those are skipped with a warning.
+    // If nothing remains we fail explicitly (400) instead of silently
+    // streaming an empty zip — an empty "successful" download is worse than
+    // a clear error the client can surface.
+    const availableFiles: typeof filesWithPaths = [];
+    for (const file of filesWithPaths) {
+      try {
+        await access(file.filePath);
+        availableFiles.push(file);
+      } catch {
+        console.warn(`File missing: ${file.filePath}`);
+      }
+    }
+
+    if (availableFiles.length === 0) {
+      await deleteSession(token).catch(() => {});
+      return NextResponse.json(
+        { error: "No files available on disk." },
+        { status: 400 },
+      );
+    }
+
+    const totalSize = availableFiles.reduce((acc, f) => acc + f.size, 0);
     const passthrough = new PassThrough();
     const archive = archiver("zip", { zlib: { level: 5 } });
     const finalDownloadId = downloadId || `dl-${Date.now()}`;
@@ -131,13 +154,8 @@ export async function GET(
     archive.pipe(passthrough);
 
     // Add files to archive
-    for (const file of filesWithPaths) {
-      try {
-        await access(file.filePath);
-        archive.file(file.filePath, { name: file.fileName });
-      } catch {
-        console.warn(`File missing: ${file.filePath}`);
-      }
+    for (const file of availableFiles) {
+      archive.file(file.filePath, { name: file.fileName });
     }
     archive.finalize();
 
