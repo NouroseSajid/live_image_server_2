@@ -32,6 +32,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# local build/audit scratch logs
+readme_buildlogs.txt
+
 # env files (keep .env.example as template, ignore all actual env files)
 .env
 .env.local
