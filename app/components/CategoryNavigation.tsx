@@ -2,7 +2,7 @@
 
 import { MdLock } from "react-icons/md";
 import { FiChevronDown, FiFolder, FiX } from "react-icons/fi";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveAssetPath } from "../lib/assets";
 
 interface Category {
@@ -284,6 +284,66 @@ export default function CategoryNavigation({
     );
   };
 
+  // --- Horizontal scroll affordances -------------------------------------
+  // Fluid widths guarantee a partial card is always "peeking" past the right
+  // edge, and the fades below reinforce that there is more content off-screen.
+  const cardWidthClass =
+    "flex-shrink-0 basis-[calc((100%_-_2rem)/2.4)] min-w-[132px] md:basis-[calc((100%_-_4rem)/4.4)] snap-start";
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < maxScroll - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    updateScrollState();
+
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    const resizeObserver = new ResizeObserver(updateScrollState);
+    resizeObserver.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", updateScrollState);
+      resizeObserver.disconnect();
+    };
+  }, [updateScrollState, orderedItems, allCategory]);
+
+  // Map vertical wheel input to horizontal scrolling on desktop so the row is
+  // discoverable without Shift+scroll. It is released at either edge so the
+  // page scrolls normally once the row is exhausted.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      if (event.shiftKey || event.ctrlKey) return;
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      if (maxScroll <= 0) return;
+
+      const atStart = el.scrollLeft <= 0;
+      const atEnd = el.scrollLeft >= maxScroll - 1;
+      if ((event.deltaY < 0 && atStart) || (event.deltaY > 0 && atEnd)) return;
+
+      event.preventDefault();
+      el.scrollLeft += event.deltaY;
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, []);
+
   return (
     <div className="space-y-4 mb-12">
       <div className="flex items-center justify-between px-1">
@@ -291,10 +351,29 @@ export default function CategoryNavigation({
       </div>
 
       <div className="group/nav relative rounded-3xl border border-[var(--foreground)]/10 bg-[var(--background)] p-4 md:p-6 shadow-2xl">
-        <div className="flex overflow-x-auto pb-4 gap-4 snap-x snap-mandatory folder-scrollbar transition-colors duration-300">
+        {/* Left edge fade — appears only once the row has scrolled */}
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute left-0 top-0 bottom-7 md:bottom-9 z-20 w-10 md:w-14 rounded-l-3xl bg-gradient-to-r from-[var(--background)] to-transparent transition-opacity duration-300 ${
+            canScrollLeft ? "opacity-100" : "opacity-0"
+          }`}
+        />
+
+        {/* Right edge fade — hints at more folders off-screen */}
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none absolute right-0 top-0 bottom-7 md:bottom-9 z-20 w-10 md:w-14 rounded-r-3xl bg-gradient-to-l from-[var(--background)] to-transparent transition-opacity duration-300 ${
+            canScrollRight ? "opacity-100" : "opacity-0"
+          }`}
+        />
+
+        <div
+          ref={scrollRef}
+          className="flex overflow-x-auto pb-4 gap-4 snap-x snap-proximity folder-scrollbar transition-colors duration-300"
+        >
           {/* 1. All Category */}
           {allCategory && (
-            <div className="flex-shrink-0 w-[160px] md:w-[200px] snap-start">
+            <div className={cardWidthClass}>
               {renderCard(allCategory)}
             </div>
           )}
@@ -303,14 +382,14 @@ export default function CategoryNavigation({
           {orderedItems.map((item, _index) => {
             if (item.type === "group") {
               return (
-                <div key={`group-wrapper-${item.group.id}`} className="flex-shrink-0 w-[160px] md:w-[200px] snap-start">
+                <div key={`group-wrapper-${item.group.id}`} className={cardWidthClass}>
                   {renderGroupCard(item.group)}
                 </div>
               );
             }
 
             return (
-              <div key={item.folder.id} className="flex-shrink-0 w-[160px] md:w-[200px] snap-start">
+              <div key={item.folder.id} className={cardWidthClass}>
                 {renderCard(item.folder)}
               </div>
             );
