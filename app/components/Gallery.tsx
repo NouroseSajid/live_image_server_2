@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MdInfo } from "react-icons/md";
 import { buildRows, type Image } from "../lib/imageData";
 import { useFetch } from "../lib/useFetch";
@@ -138,6 +138,79 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
     }
   };
 
+  const lightboxEntryRef = useRef(false);
+  const ignoreLightboxPopRef = useRef(false);
+
+  // Open the lightbox from the tap handler, not from an effect: mobile Safari
+  // ignores history entries added without user activation when swiping back.
+  // The #img= fragment gives the entry a distinct URL as well.
+  const openLightbox = useCallback((img: Image) => {
+    if (typeof window !== "undefined" && !lightboxEntryRef.current) {
+      window.history.pushState(
+        { lightboxOpen: true, imageId: img.id },
+        "",
+        `${window.location.pathname}${window.location.search}#img=${encodeURIComponent(img.id)}`,
+      );
+      lightboxEntryRef.current = true;
+    }
+    setLightboxImg(img);
+  }, []);
+
+  const showLightboxImage = useCallback((img: Image) => {
+    if (typeof window !== "undefined" && lightboxEntryRef.current) {
+      window.history.replaceState(
+        { lightboxOpen: true, imageId: img.id },
+        "",
+        `${window.location.pathname}${window.location.search}#img=${encodeURIComponent(img.id)}`,
+      );
+    }
+    setLightboxImg(img);
+  }, []);
+
+  const closeLightbox = useCallback(() => {
+    pendingAdvanceRef.current = false;
+    if (typeof window !== "undefined" && lightboxEntryRef.current) {
+      lightboxEntryRef.current = false;
+      ignoreLightboxPopRef.current = true;
+      window.history.back();
+    }
+    setLightboxImg(null);
+  }, []);
+
+  // Browser back closes the lightbox instead of leaving the page.
+  useEffect(() => {
+    const handlePopState = () => {
+      if (ignoreLightboxPopRef.current) {
+        ignoreLightboxPopRef.current = false;
+        return;
+      }
+      lightboxEntryRef.current = false;
+      pendingAdvanceRef.current = false;
+      if (window.location.hash.startsWith("#img=")) {
+        window.history.replaceState(
+          {},
+          "",
+          `${window.location.pathname}${window.location.search}`,
+        );
+      }
+      setLightboxImg(null);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Drop a stale #img= fragment left behind by a refresh while the lightbox was open.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash.startsWith("#img=")) {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
+  }, []);
+
   const { images, setImages, isLoading, hasMore } = useImageFetch({
     activeFolder,
     offset,
@@ -157,7 +230,7 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
         return;
       }
       setPassphraseModal({ folderId, name: folderName });
-      setPassphraseError("Passphrase required");
+      setPassphraseError("");
     },
     onError: setError,
   });
@@ -463,13 +536,13 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
     });
   };
 
-  const scrollToImage = (id: string) => {
+  const scrollToImage = useCallback((id: string) => {
     if (typeof window === "undefined") return;
     const el = document.getElementById(`image-${id}`);
     if (el) {
       el.scrollIntoView({ block: "center", behavior: "auto" });
     }
-  };
+  }, []);
 
   const handleSelectAll = () => {
     if (selectedIds.size === processedImages.length) {
@@ -553,14 +626,21 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
     const next = processedImages[idx + 1];
     if (next) {
       pendingAdvanceRef.current = false;
-      setLightboxImg(next);
+      showLightboxImage(next);
       scrollToImage(next.id);
       return;
     }
     if (!hasMore) {
       pendingAdvanceRef.current = false;
     }
-  }, [processedImages, lightboxImg, hasMore, isLoading]);
+  }, [
+    processedImages,
+    lightboxImg,
+    hasMore,
+    isLoading,
+    showLightboxImage,
+    scrollToImage,
+  ]);
 
   useEffect(() => {
     if (!lightboxImg || isLoading || !hasMore) return;
@@ -618,7 +698,7 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
           rows={rows}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelect}
-          onOpenImage={setLightboxImg}
+          onOpenImage={openLightbox}
         />
 
         <div ref={sentinelRef} className="h-4" />
@@ -675,18 +755,14 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
         <Lightbox
           image={lightboxImg}
           passphrase={folderPassphrases[activeFolder]}
-          onClose={() => {
-
-            pendingAdvanceRef.current = false;
-            setLightboxImg(null);
-          }}
+          onClose={closeLightbox}
           onNext={() => {
             const idx = processedImages.findIndex(
               (i) => i.id === lightboxImg.id,
             );
             const next = idx + 1;
             if (next < processedImages.length) {
-              setLightboxImg(processedImages[next]);
+              showLightboxImage(processedImages[next]);
               scrollToImage(processedImages[next].id);
               return;
             }
@@ -701,7 +777,7 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
             );
             const prev = idx - 1;
             if (prev >= 0) {
-              setLightboxImg(processedImages[prev]);
+              showLightboxImage(processedImages[prev]);
               scrollToImage(processedImages[prev].id);
             }
           }}

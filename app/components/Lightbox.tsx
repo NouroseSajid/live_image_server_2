@@ -40,6 +40,13 @@ interface LightboxProps {
 const ANIM_MS = 280;
 const SWIPE_THRESHOLD = 0.15;
 const RUBBERBAND = 50;
+const MAX_ZOOM = 4;
+const DOUBLE_TAP_ZOOM = 2.5;
+const DOUBLE_TAP_MS = 300;
+const DOUBLE_TAP_SLOP = 30;
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
 
 /* ---------- HELPERS ---------- */
 const isVideo = (item?: ImageData | null) => {
@@ -194,30 +201,47 @@ export default function Lightbox({
   const [isMuted, setIsMuted] = useState(true);
   const [dragOffset, setDragOffset] = useState(0);
   const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 0);
+  const [height, setHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [zoomAnimating, setZoomAnimating] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [localDownloading, setLocalDownloading] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const slideRef = useRef<HTMLDivElement | null>(null);
   const isDraggingRef = useRef(false);
   const touchStartXRef = useRef(0);
   const isAnimatingRef = useRef(false);
   const shouldTransitionRef = useRef(true);
 
-  // History/back-button coordination: while the lightbox is open we push a
-  // history entry so the browser back button closes the lightbox instead of
-  // navigating the page away. These refs guard against double-close,
-  // StrictMode double-mounting, and the popstate that our own
-  // history.back() (UI close path) triggers.
+  // Gesture state for pinch-zoom and panning.
+  const pinchRef = useRef<{
+    startDist: number;
+    startZoom: number;
+    startPan: { x: number; y: number };
+    startMid: { x: number; y: number };
+  } | null>(null);
+  const panGestureRef = useRef<{
+    startX: number;
+    startY: number;
+    startPan: { x: number; y: number };
+  } | null>(null);
+  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+  const tapMovedRef = useRef(false);
+  const zoomAnimTimerRef = useRef<number | null>(null);
+
   const onCloseRef = useRef(onClose);
-  const historyPoppedRef = useRef(false);
-  const pushedRef = useRef(false);
 
   /* ---------- LIFECYCLE ---------- */
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    const update = () => setWidth(window.innerWidth);
+    const update = () => {
+      setWidth(window.innerWidth);
+      setHeight(window.innerHeight);
+    };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
@@ -227,6 +251,24 @@ export default function Lightbox({
   useEffect(() => {
     setIsMuted(true);
   }, []);
+
+  // Reset zoom/pan whenever the visible image changes.
+  useEffect(() => {
+    const imageId = image?.id;
+    if (!imageId) return;
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setZoomAnimating(false);
+    pinchRef.current = null;
+    panGestureRef.current = null;
+    lastTapRef.current = null;
+    return () => {
+      if (zoomAnimTimerRef.current !== null) {
+        window.clearTimeout(zoomAnimTimerRef.current);
+        zoomAnimTimerRef.current = null;
+      }
+    };
+  }, [image?.id]);
 
   useEffect(() => {
     if (!image || !isVideo(image)) return;
@@ -296,37 +338,52 @@ export default function Lightbox({
     onCloseRef.current = onClose;
   });
 
-  /* ---------- HISTORY / BACK BUTTON ---------- */
-  // UI-initiated close (X / Escape): pop our history entry so the browser
-  // back button works normally afterwards, then close the lightbox.
+  /* ---------- CLOSE / ZOOM HELPERS ---------- */
+  // History is owned by Gallery, which pushes and clears the entry from the
+  // tap handler (mobile browsers only trust user-initiated history entries).
   const closeLightbox = useCallback(() => {
-    if (window.history.state?.lightboxOpen) {
-      historyPoppedRef.current = true; // ignore the popstate we're about to trigger
-      window.history.back();
-    }
     onCloseRef.current();
   }, []);
 
-  // While open, the lightbox owns the top history entry: pressing the
-  // browser back button pops it (popstate) and closes the lightbox instead
-  // of navigating the whole page away.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!pushedRef.current) {
-      window.history.pushState({ lightboxOpen: true }, "");
-      pushedRef.current = true;
-    }
+  const clampPan = useCallback(
+    (x: number, y: number, scale: number) => {
+      // Use the slide's own rendered height: landscape images are shorter than
+      // the viewport, and clamping to the viewport would let them pan off-screen.
+      const slideHeight = slideRef.current?.offsetHeight || height;
+      const maxX = (width * (scale - 1)) / 2;
+      const maxY = (slideHeight * (scale - 1)) / 2;
+      return { x: clamp(x, -maxX, maxX), y: clamp(y, -maxY, maxY) };
+    },
+    [width, height],
+  );
 
-    const onPopState = () => {
-      if (historyPoppedRef.current) {
-        historyPoppedRef.current = false;
-        return;
+  const toggleZoom = useCallback(
+    (clientX: number, clientY: number) => {
+      if (zoom > 1) {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+      } else {
+        const nextZoom = DOUBLE_TAP_ZOOM;
+        setZoom(nextZoom);
+        setPan(
+          clampPan(
+            (1 - nextZoom) * (clientX - width / 2),
+            (1 - nextZoom) * (clientY - height / 2),
+            nextZoom,
+          ),
+        );
       }
-      onCloseRef.current();
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
+      setZoomAnimating(true);
+      if (zoomAnimTimerRef.current !== null) {
+        window.clearTimeout(zoomAnimTimerRef.current);
+      }
+      zoomAnimTimerRef.current = window.setTimeout(() => {
+        setZoomAnimating(false);
+        zoomAnimTimerRef.current = null;
+      }, 220);
+    },
+    [zoom, width, height, clampPan],
+  );
 
   /* ---------- NAVIGATION ---------- */
   const handleNext = useCallback(() => {
@@ -377,71 +434,203 @@ export default function Lightbox({
   }, [prevImage, width]);
 
   /* ---------- TOUCH HANDLERS ---------- */
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (isAnimatingRef.current) return;
-    if (e.touches.length === 1) {
-      touchStartXRef.current = e.touches[0].clientX;
-      isDraggingRef.current = true;
-    }
-  }, []);
+  const registerTap = useCallback(
+    (clientX: number, clientY: number) => {
+      const now = Date.now();
+      const last = lastTapRef.current;
+      if (
+        last &&
+        now - last.time < DOUBLE_TAP_MS &&
+        Math.hypot(clientX - last.x, clientY - last.y) < DOUBLE_TAP_SLOP
+      ) {
+        lastTapRef.current = null;
+        toggleZoom(clientX, clientY);
+        return;
+      }
+      lastTapRef.current = { time: now, x: clientX, y: clientY };
+    },
+    [toggleZoom],
+  );
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDraggingRef.current || isAnimatingRef.current) return;
-    const dx = e.touches[0].clientX - touchStartXRef.current;
-    
-    // Prevent default if horizontal swipe is detected
-    if (Math.abs(dx) > 10) {
-      e.preventDefault();
-    }
-    
-    const max = width * 0.5;
-    let clamped = dx;
-    if (dx > 0 && !prevImage) clamped = Math.min(dx, RUBBERBAND);
-    else if (dx < 0 && !nextImage) clamped = Math.max(dx, -RUBBERBAND);
-    else clamped = Math.max(-max, Math.min(max, dx));
-    setDragOffset(clamped);
-  }, [width, prevImage, nextImage]);
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (isAnimatingRef.current) return;
 
-  const handleTouchEnd = useCallback(() => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-
-    const threshold = width * SWIPE_THRESHOLD;
-
-    if (dragOffset > threshold && prevImage) {
-      isAnimatingRef.current = true;
-      shouldTransitionRef.current = true;
-      setDragOffset(width);
-      
-      setTimeout(() => {
-        cbRef.current.onPrev();
-        shouldTransitionRef.current = false;
+      if (e.touches.length === 2) {
+        const a = e.touches[0];
+        const b = e.touches[1];
+        pinchRef.current = {
+          startDist: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+          startZoom: zoom,
+          startPan: pan,
+          startMid: {
+            x: (a.clientX + b.clientX) / 2,
+            y: (a.clientY + b.clientY) / 2,
+          },
+        };
+        panGestureRef.current = null;
+        isDraggingRef.current = false;
+        tapMovedRef.current = true;
         setDragOffset(0);
+        return;
+      }
+
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        tapMovedRef.current = false;
+        if (zoom > 1) {
+          panGestureRef.current = {
+            startX: touch.clientX,
+            startY: touch.clientY,
+            startPan: pan,
+          };
+          isDraggingRef.current = false;
+        } else {
+          touchStartXRef.current = touch.clientX;
+          isDraggingRef.current = true;
+        }
+      }
+    },
+    [zoom, pan],
+  );
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (isAnimatingRef.current) return;
+
+      if (e.touches.length === 2 && pinchRef.current) {
+        const a = e.touches[0];
+        const b = e.touches[1];
+        const gesture = pinchRef.current;
+        const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        const midX = (a.clientX + b.clientX) / 2;
+        const midY = (a.clientY + b.clientY) / 2;
+        const nextZoom = clamp(
+          gesture.startZoom * (dist / Math.max(gesture.startDist, 1)),
+          1,
+          MAX_ZOOM,
+        );
+        const ratio = nextZoom / gesture.startZoom;
+        setZoom(nextZoom);
+        setPan(
+          clampPan(
+            midX -
+              width / 2 -
+              ratio * (gesture.startMid.x - width / 2 - gesture.startPan.x),
+            midY -
+              height / 2 -
+              ratio * (gesture.startMid.y - height / 2 - gesture.startPan.y),
+            nextZoom,
+          ),
+        );
+        return;
+      }
+
+      if (panGestureRef.current && e.touches.length === 1) {
+        const touch = e.touches[0];
+        const gesture = panGestureRef.current;
+        if (
+          Math.abs(touch.clientX - gesture.startX) > 10 ||
+          Math.abs(touch.clientY - gesture.startY) > 10
+        ) {
+          tapMovedRef.current = true;
+        }
+        setPan(
+          clampPan(
+            gesture.startPan.x + (touch.clientX - gesture.startX),
+            gesture.startPan.y + (touch.clientY - gesture.startY),
+            zoom,
+          ),
+        );
+        return;
+      }
+
+      if (!isDraggingRef.current) return;
+      const dx = e.touches[0].clientX - touchStartXRef.current;
+
+      if (Math.abs(dx) > 10) {
+        tapMovedRef.current = true;
+      }
+
+      const max = width * 0.5;
+      let clamped = dx;
+      if (dx > 0 && !prevImage) clamped = Math.min(dx, RUBBERBAND);
+      else if (dx < 0 && !nextImage) clamped = Math.max(dx, -RUBBERBAND);
+      else clamped = Math.max(-max, Math.min(max, dx));
+      setDragOffset(clamped);
+    },
+    [width, height, zoom, prevImage, nextImage, clampPan],
+  );
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      if (pinchRef.current) {
+        if (e.touches.length < 2) {
+          pinchRef.current = null;
+          if (zoom <= 1.02) {
+            setZoom(1);
+            setPan({ x: 0, y: 0 });
+          }
+        }
+        return;
+      }
+
+      if (panGestureRef.current) {
+        if (e.touches.length === 0) {
+          panGestureRef.current = null;
+          const touch = e.changedTouches[0];
+          if (touch && !tapMovedRef.current) {
+            registerTap(touch.clientX, touch.clientY);
+          }
+        }
+        return;
+      }
+
+      if (!isDraggingRef.current) return;
+      isDraggingRef.current = false;
+
+      const threshold = width * SWIPE_THRESHOLD;
+
+      if (dragOffset > threshold && prevImage) {
+        isAnimatingRef.current = true;
+        shouldTransitionRef.current = true;
+        setDragOffset(width);
+
         setTimeout(() => {
-          shouldTransitionRef.current = true;
-          isAnimatingRef.current = false;
-        }, 50);
-      }, ANIM_MS);
-    } else if (dragOffset < -threshold && nextImage) {
-      isAnimatingRef.current = true;
-      shouldTransitionRef.current = true;
-      setDragOffset(-width);
-      
-      setTimeout(() => {
-        cbRef.current.onNext();
-        shouldTransitionRef.current = false;
+          cbRef.current.onPrev();
+          shouldTransitionRef.current = false;
+          setDragOffset(0);
+          setTimeout(() => {
+            shouldTransitionRef.current = true;
+            isAnimatingRef.current = false;
+          }, 50);
+        }, ANIM_MS);
+      } else if (dragOffset < -threshold && nextImage) {
+        isAnimatingRef.current = true;
+        shouldTransitionRef.current = true;
+        setDragOffset(-width);
+
+        setTimeout(() => {
+          cbRef.current.onNext();
+          shouldTransitionRef.current = false;
+          setDragOffset(0);
+          setTimeout(() => {
+            shouldTransitionRef.current = true;
+            isAnimatingRef.current = false;
+          }, 50);
+        }, ANIM_MS);
+      } else {
+        // Snap back
+        shouldTransitionRef.current = true;
         setDragOffset(0);
-        setTimeout(() => {
-          shouldTransitionRef.current = true;
-          isAnimatingRef.current = false;
-        }, 50);
-      }, ANIM_MS);
-    } else {
-      // Snap back
-      shouldTransitionRef.current = true;
-      setDragOffset(0);
-    }
-  }, [width, dragOffset, prevImage, nextImage]);
+        const touch = e.changedTouches[0];
+        if (touch && !tapMovedRef.current) {
+          registerTap(touch.clientX, touch.clientY);
+        }
+      }
+    },
+    [width, dragOffset, prevImage, nextImage, zoom, registerTap],
+  );
 
   /* ---------- KEYBOARD ---------- */
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -607,7 +796,9 @@ export default function Lightbox({
 
       {/* ------ CAROUSEL ------ */}
       <div
-        className="relative w-full h-full flex items-center justify-center overflow-hidden touch-pan-y"
+        className={`relative w-full h-full flex items-center justify-center overflow-hidden ${
+          zoom > 1 ? "touch-none" : "touch-pan-y"
+        }`}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -630,13 +821,16 @@ export default function Lightbox({
 
         {/* Current */}
         <div
+          ref={slideRef}
           className="absolute flex items-center justify-center px-4 sm:px-16 will-change-transform"
           style={{
             width,
-            transform: `translateX(${activeTranslate}px)`,
-            transition: isDraggingRef.current || !shouldTransitionRef.current
-              ? "none"
-              : `transform ${ANIM_MS}ms cubic-bezier(0.25,0.1,0.25,1)`,
+            transform: `translateX(${activeTranslate}px) translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transition: zoomAnimating
+              ? "transform 220ms cubic-bezier(0.25,0.1,0.25,1)"
+              : isDraggingRef.current || !shouldTransitionRef.current || zoom !== 1
+                ? "none"
+                : `transform ${ANIM_MS}ms cubic-bezier(0.25,0.1,0.25,1)`,
           }}
         >
           <MediaItem
@@ -678,7 +872,7 @@ export default function Lightbox({
         {image.title} ({image.id})
       </div>
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-xs sm:hidden">
-        Swipe to navigate
+        Swipe to navigate · Pinch or double-tap to zoom
       </div>
     </div>
   );

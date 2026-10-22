@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { FiLock, FiX } from "react-icons/fi";
+import { useEffect, useRef, useState } from "react";
+import { FiEye, FiEyeOff, FiLock, FiX } from "react-icons/fi";
 
 interface PassphraseModalProps {
   folderName: string;
@@ -17,6 +17,20 @@ export default function PassphraseModal({
   onCancel,
 }: PassphraseModalProps) {
   const [input, setInput] = useState("");
+  const [revealed, setRevealed] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,67 +40,95 @@ export default function PassphraseModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
-        <div className="flex items-center justify-between mb-6">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <button
+        type="button"
+        aria-label="Close passphrase prompt"
+        onClick={onCancel}
+        className="absolute inset-0 cursor-default bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="passphrase-title"
+        className="relative w-full max-w-sm rounded-2xl border border-[var(--foreground)]/10 bg-[var(--background)] p-6 shadow-2xl animate-in zoom-in-95 duration-200"
+      >
+        <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-500/10 p-2 rounded-lg">
-              <FiLock className="text-blue-500" size={20} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--foreground)]/[0.06]">
+              <FiLock size={17} className="text-[var(--foreground)]/70" />
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                Private Folder
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {folderName}
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--foreground)]/40">
+                Protected folder
               </p>
+              <h2
+                id="passphrase-title"
+                className="truncate text-base font-semibold leading-tight text-[var(--foreground)]"
+              >
+                {folderName}
+              </h2>
             </div>
           </div>
           <button
+            type="button"
             onClick={onCancel}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             aria-label="Close"
+            className="-mr-2 -mt-1 rounded-full p-2 text-[var(--foreground)]/40 transition-colors hover:bg-[var(--foreground)]/5 hover:text-[var(--foreground)]"
           >
-            <FiX size={24} />
+            <FiX size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300">
-              {error}
-            </div>
-          )}
+        <p className="mt-5 text-[13px] leading-relaxed text-[var(--foreground)]/55">
+          Enter the passphrase to view the contents of this folder.
+        </p>
 
-          <div>
-            <label
-              htmlFor="passphrase"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-            >
-              Enter Passphrase
-            </label>
+        <form onSubmit={handleSubmit} className="mt-4">
+          <label htmlFor="passphrase" className="sr-only">
+            Passphrase
+          </label>
+          <div className="relative">
             <input
+              ref={inputRef}
               id="passphrase"
-              type="password"
+              type={revealed ? "text" : "password"}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white"
-              placeholder="••••••••"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Passphrase"
+              aria-invalid={Boolean(error)}
+              className="w-full rounded-xl border border-[var(--foreground)]/15 bg-[var(--foreground)]/[0.03] py-3 pl-4 pr-11 text-sm text-[var(--foreground)] placeholder:text-[var(--foreground)]/35 transition-colors focus:border-[var(--foreground)]/30 focus:outline-none focus:ring-2 focus:ring-[var(--foreground)]/10"
             />
+            <button
+              type="button"
+              onClick={() => setRevealed((prev) => !prev)}
+              aria-label={revealed ? "Hide passphrase" : "Show passphrase"}
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-2 text-[var(--foreground)]/40 transition-colors hover:text-[var(--foreground)]"
+            >
+              {revealed ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+            </button>
           </div>
 
-          <div className="flex gap-3">
+          {error && (
+            <p className="mt-2.5 text-xs text-red-500 dark:text-red-400">
+              {error}
+            </p>
+          )}
+
+          <div className="mt-6 flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="rounded-xl px-4 py-2.5 text-sm font-medium text-[var(--foreground)]/60 transition-colors hover:bg-[var(--foreground)]/5 hover:text-[var(--foreground)]"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!input.trim()}
-              className="flex-1 px-4 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="rounded-xl bg-[var(--foreground)] px-5 py-2.5 text-sm font-semibold text-[var(--background)] transition-all hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
               Unlock
             </button>
