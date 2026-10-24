@@ -3,14 +3,18 @@ import { readFile, writeFile as writeTextFile } from "node:fs/promises";
 import path, { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../auth/[...nextauth]/route";
 import { processImageUpload } from "../../../lib/imageProcessing";
+import { authOptions } from "../../auth/[...nextauth]/route";
 
 const configPath = join(process.cwd(), "gallery-config.json");
 
 const readConfig = async () => {
   if (!existsSync(configPath)) {
-    return { allFolderThumbnailUrl: null, folderMaxAgeMinutes: {}, folderOrder: [] };
+    return {
+      allFolderThumbnailUrl: null,
+      folderMaxAgeMinutes: {},
+      folderOrder: [],
+    };
   }
   const data = await readFile(configPath, "utf-8");
   const parsed = JSON.parse(data);
@@ -88,7 +92,9 @@ export async function POST(request: NextRequest) {
 
     await writeConfig(processed.thumbnail.dbPath);
 
-    return NextResponse.json({ allFolderThumbnailUrl: processed.thumbnail.dbPath });
+    return NextResponse.json({
+      allFolderThumbnailUrl: processed.thumbnail.dbPath,
+    });
   } catch (error) {
     console.error("Error uploading all folder thumbnail:", error);
     return NextResponse.json(

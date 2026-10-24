@@ -12,12 +12,14 @@ const ThemeToggle = () => {
   return (
     <div className="flex justify-center py-4">
       <button
+        type="button"
         onClick={toggleTheme}
         className="w-[80%] relative flex items-center justify-center rounded-full bg-[var(--card)] p-2 transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[var(--card)] focus:ring-[var(--primary)]"
         aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
       >
         {/* Sun Icon */}
         <svg
+          aria-hidden="true"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="currentColor"
@@ -32,6 +34,7 @@ const ThemeToggle = () => {
 
         {/* Moon Icon */}
         <svg
+          aria-hidden="true"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
           fill="currentColor"

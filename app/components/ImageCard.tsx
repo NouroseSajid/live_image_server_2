@@ -1,5 +1,6 @@
 "use client";
 
+import NextImage from "next/image";
 import { useRef, useState } from "react";
 import { MdCheckCircle } from "react-icons/md";
 
@@ -89,19 +90,25 @@ export default function ImageCard({
           : "hover:scale-[1.03] hover:shadow-2xl"
       }`}
       style={{ width, height, backgroundColor: "#18181b" }}
-      onClick={(e) => {
-        if (e.metaKey || e.ctrlKey) {
-          onToggle();
-        } else {
-          onOpen(img);
-        }
-      }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onTouchMove={handleTouchMove}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
     >
+      <button
+        type="button"
+        aria-label={`${selected ? "Deselect" : "Select"} ${img.title}`}
+        aria-pressed={selected}
+        onClick={(e) => {
+          if (e.metaKey || e.ctrlKey) {
+            onToggle();
+          } else {
+            onOpen(img);
+          }
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchMove={handleTouchMove}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className="absolute inset-0 z-10 h-full w-full border-0 bg-transparent p-0"
+      />
       <div
         className={`absolute inset-0 bg-zinc-800 transition-opacity duration-700 ${
           isLoaded ? "opacity-0" : "opacity-100"
@@ -125,11 +132,13 @@ export default function ImageCard({
           preload="metadata"
         />
       ) : (
-        <img
+        <NextImage
           src={img.url}
           alt={img.category}
+          fill
+          unoptimized
           onLoad={() => setIsLoaded(true)}
-          className={`w-full h-full object-cover transition-all duration-1000 group-hover:scale-110 ${
+          className={`object-cover transition-all duration-1000 group-hover:scale-110 ${
             isLoaded ? "opacity-100" : "opacity-0"
           }`}
           loading="lazy"
@@ -144,6 +153,7 @@ export default function ImageCard({
 
       {(hasSelection || selected || isHovered) && (
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             onToggle();

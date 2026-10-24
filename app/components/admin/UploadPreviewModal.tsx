@@ -1,6 +1,7 @@
 "use client";
 
 import { UploadCloud, X } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useMemo, useRef } from "react";
 
 interface UploadPreviewModalProps {
@@ -46,10 +47,12 @@ export default function UploadPreviewModal({
     const result = new Map<string, string>();
     for (const file of files) {
       const k = fileKey(file);
-      if (!blobUrls.current.has(k)) {
-        blobUrls.current.set(k, URL.createObjectURL(file));
+      let url = blobUrls.current.get(k);
+      if (!url) {
+        url = URL.createObjectURL(file);
+        blobUrls.current.set(k, url);
       }
-      result.set(k, blobUrls.current.get(k)!);
+      result.set(k, url);
     }
     return result;
   }, [files]);
@@ -75,6 +78,7 @@ export default function UploadPreviewModal({
             Upload {files.length} file{files.length !== 1 ? "s" : ""}?
           </h3>
           <button
+            type="button"
             onClick={onCancel}
             className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500"
           >
@@ -87,14 +91,17 @@ export default function UploadPreviewModal({
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
             {files.map((file, i) => {
               const k = fileKey(file);
+              const previewUrl = urls.get(k);
               return (
                 <div key={k} className="relative group">
-                  <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
-                    {file.type.startsWith("image/") ? (
-                      <img
-                        src={urls.get(k)}
+                  <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700">
+                    {file.type.startsWith("image/") && previewUrl ? (
+                      <Image
+                        src={previewUrl}
                         alt={file.name}
-                        className="w-full h-full object-cover"
+                        fill
+                        unoptimized
+                        className="object-cover"
                       />
                     ) : (
                       <div className="flex flex-col items-center justify-center h-full text-gray-400">
@@ -107,6 +114,7 @@ export default function UploadPreviewModal({
                   </div>
                   {/* Remove button */}
                   <button
+                    type="button"
                     onClick={() => onRemove(i)}
                     className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shadow"
                   >
@@ -124,12 +132,14 @@ export default function UploadPreviewModal({
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 p-4 border-t border-gray-200 dark:border-gray-700">
           <button
+            type="button"
             onClick={onCancel}
             className="px-4 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={onConfirm}
             className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
           >

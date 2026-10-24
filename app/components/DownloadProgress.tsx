@@ -17,7 +17,9 @@ export default function DownloadProgress({
   const [progress, setProgress] = useState(0);
   const [currentBytes, setCurrentBytes] = useState(0);
   const [totalBytes, setTotalBytes] = useState(0);
-  const [status, setStatus] = useState<"preparing" | "downloading" | "complete">("preparing");
+  const [status, setStatus] = useState<
+    "preparing" | "downloading" | "complete"
+  >("preparing");
   const sseConnectedRef = useRef(false);
   const lastMessageRef = useRef(Date.now());
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -47,7 +49,10 @@ export default function DownloadProgress({
           const msg = JSON.parse(event.data);
           lastMessageRef.current = Date.now();
 
-          if (msg.type === "download-progress" && msg.payload.downloadId === downloadId) {
+          if (
+            msg.type === "download-progress" &&
+            msg.payload.downloadId === downloadId
+          ) {
             const { current, total, percent } = msg.payload;
             setCurrentBytes(current);
             setTotalBytes(total);
@@ -58,7 +63,10 @@ export default function DownloadProgress({
             setStatus("downloading");
           }
 
-          if (msg.type === "download-complete" && msg.payload.downloadId === downloadId) {
+          if (
+            msg.type === "download-complete" &&
+            msg.payload.downloadId === downloadId
+          ) {
             setStatus("complete");
             closeConnection();
           }
@@ -68,7 +76,9 @@ export default function DownloadProgress({
       };
 
       eventSource.onerror = () => {
-        console.warn("[DownloadProgress] SSE error — will reconnect or fall back to polling");
+        console.warn(
+          "[DownloadProgress] SSE error — will reconnect or fall back to polling",
+        );
         sseConnectedRef.current = false;
         // EventSource auto-reconnects, so we don't close it
       };

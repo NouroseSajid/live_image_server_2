@@ -57,7 +57,7 @@ export function useImageFetch({
   const [hasMore, setHasMore] = useState(true);
   const lastLoadedFolderRef = useRef<string | null>(null);
   const lastRequestKeyRef = useRef<string | null>(null);
-  
+
   // Use refs to access folders and passphrases without triggering re-fetches
   const foldersRef = useRef(folders);
   const passphraseRef = useRef(folderPassphrases);
@@ -83,9 +83,10 @@ export function useImageFetch({
       return;
     }
 
-    const currentPass = activeFolder !== "all" ? folderPassphrases[activeFolder] || "" : "";
+    const currentPass =
+      activeFolder !== "all" ? folderPassphrases[activeFolder] || "" : "";
     const requestKey = `${activeFolder}:${offset}:${currentPass}`;
-    
+
     if (lastRequestKeyRef.current === requestKey) {
       return;
     }
@@ -94,7 +95,9 @@ export function useImageFetch({
       lastRequestKeyRef.current = requestKey;
       setIsLoading(true);
       try {
-        const currentFolder = foldersRef.current.find((f) => f.id === activeFolder);
+        const currentFolder = foldersRef.current.find(
+          (f) => f.id === activeFolder,
+        );
         const pass =
           activeFolder !== "all" && currentFolder?.isPrivate
             ? currentPass
@@ -105,7 +108,7 @@ export function useImageFetch({
         const res = await fetch(
           `/api/images/repo?limit=${batchSize}&offset=${offset}${folderQuery}${passQuery}`,
         );
-        
+
         if (res.ok) {
           const data: FetchedImage[] = await res.json();
           if (offset === 0) {
@@ -129,21 +132,34 @@ export function useImageFetch({
         }
       } catch (_err) {
         lastRequestKeyRef.current = null; // Allow retry on network error
-        onErrorRef.current("Network error loading images. Please check your connection.");
+        onErrorRef.current(
+          "Network error loading images. Please check your connection.",
+        );
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchImages();
-  }, [offset, activeFolder, passphraseModal, batchSize, hasMore, folderPassphrases, folders]);
+  }, [
+    offset,
+    activeFolder,
+    passphraseModal,
+    batchSize,
+    hasMore,
+    folderPassphrases,
+  ]);
 
   // Reset when changing folder or when the active folder's passphrase changes
+  const resetKey = `${activeFolder}:${folderPassphrases[activeFolder] ?? ""}`;
+  const lastResetKeyRef = useRef(resetKey);
   useEffect(() => {
+    if (lastResetKeyRef.current === resetKey) return;
+    lastResetKeyRef.current = resetKey;
     setImages([]);
     setHasMore(true);
     lastRequestKeyRef.current = null;
-  }, [activeFolder, folderPassphrases[activeFolder]]);
+  }, [resetKey]);
 
   return { images, setImages, isLoading, hasMore };
 }

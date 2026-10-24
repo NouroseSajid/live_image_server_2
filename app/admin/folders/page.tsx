@@ -101,7 +101,8 @@ export default function AdminFolders() {
     } catch (err) {
       setStatusMessage({
         type: "error",
-        text: err instanceof Error ? err.message : "Failed to create access link",
+        text:
+          err instanceof Error ? err.message : "Failed to create access link",
       });
     } finally {
       setGeneratingLinkId(null);
@@ -171,9 +172,7 @@ export default function AdminFolders() {
   const handleDeleteGroup = async (id: string) => {
     setStatusMessage(null);
     setDeletingGroupId(id);
-    const res = await fetch(`/api/folder-groups/${id}`,
-      { method: "DELETE" },
-    );
+    const res = await fetch(`/api/folder-groups/${id}`, { method: "DELETE" });
     if (res.ok) {
       setGroups((prev) => prev.filter((g) => g.id !== id));
       setStatusMessage({ type: "success", text: "Group deleted" });
@@ -547,7 +546,9 @@ export default function AdminFolders() {
       <section className="mb-8">
         <h2 className="text-xl font-medium mb-3">Existing Folders</h2>
         {savingOrder && (
-          <div className="text-sm text-muted-foreground mb-2">Saving order…</div>
+          <div className="text-sm text-muted-foreground mb-2">
+            Saving order…
+          </div>
         )}
         <ul className="space-y-2 max-w-3xl">
           {folders.map((folder) => (

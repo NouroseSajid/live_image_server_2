@@ -85,7 +85,9 @@ export default function useGalleryConfig({
       setAllThumbnailPreview(null);
       setSuccess("All folder thumbnail updated");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload thumbnail");
+      setError(
+        err instanceof Error ? err.message : "Failed to upload thumbnail",
+      );
     } finally {
       setAllThumbnailUploading(false);
     }
@@ -117,7 +119,9 @@ export default function useGalleryConfig({
       setFolderMaxAgeMinutes(nextMap);
       setSuccess("Gallery time filter updated");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save time filter");
+      setError(
+        err instanceof Error ? err.message : "Failed to save time filter",
+      );
     } finally {
       setFilterSaving(false);
     }

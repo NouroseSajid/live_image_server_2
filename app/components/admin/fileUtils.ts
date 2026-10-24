@@ -10,9 +10,16 @@ export const formatFileSize = (bytes: string) => {
   return `${Math.round((size / k ** i) * 100) / 100} ${sizes[i]}`;
 };
 
-export const getPreviewPath = (file: FileEntry) => {
-  const thumb = file.variants.find((variant) => variant.name === "thumbnail")?.path;
-  const webp = file.variants.find((variant) => variant.name === "webp")?.path;
-  const original = file.variants.find((variant) => variant.name === "original")?.path;
+type PreviewVariant = { name: string; path: string };
+
+export const getPreviewFromVariants = (variants: PreviewVariant[]) => {
+  const thumb = variants.find((variant) => variant.name === "thumbnail")?.path;
+  const webp = variants.find((variant) => variant.name === "webp")?.path;
+  const original = variants.find(
+    (variant) => variant.name === "original",
+  )?.path;
   return resolveAssetPath(thumb || webp || original) ?? "";
 };
+
+export const getPreviewPath = (file: FileEntry) =>
+  getPreviewFromVariants(file.variants);

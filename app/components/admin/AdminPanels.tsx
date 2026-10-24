@@ -1,6 +1,6 @@
-import type { ConflictInfo, FileEntry, Folder, FolderListItem } from "./types";
 import FilesPanel from "./FilesPanel";
 import FolderSidebar from "./FolderSidebar";
+import type { ConflictInfo, FileEntry, Folder, FolderListItem } from "./types";
 
 interface AdminPanelsProps {
   folders: Folder[];
@@ -48,7 +48,7 @@ interface AdminPanelsProps {
   selectedIds: Set<string>;
   actionTargetFolderId: string | null;
   onActionTargetFolderIdChange: (value: string | null) => void;
-  onSelectAll: () => void;
+  onSelectAll: (ids?: string[]) => void;
   onClearSelection: () => void;
   onApplyBulkAction: (
     action: "move" | "copy" | "delete",

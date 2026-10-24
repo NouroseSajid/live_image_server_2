@@ -6,15 +6,27 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import archiver from "archiver";
 import { type NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
 import prisma from "../../../../../prisma/client";
-import { getSession, deleteSession } from "../sessionStore";
+import { authOptions } from "../../../auth/[...nextauth]/route";
+import { deleteSession, getSession } from "../sessionStore";
 
 const DOWNLOAD_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+
+interface InternalDownloadEvent {
+  type: "download-progress" | "download-complete";
+  payload: {
+    downloadId: string;
+    current?: number;
+    total?: number;
+    percent?: number;
+  };
+}
 
 /**
  * Sends a progress event to the SSE endpoint.
  */
-function sendInternalEvent(payload: any) {
+function sendInternalEvent(payload: InternalDownloadEvent) {
   const body = JSON.stringify(payload);
   const appPort = parseInt(process.env.PORT || "3000", 10);
 
@@ -65,6 +77,7 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
+  const authSession = await getServerSession(authOptions);
 
   // Look up session
   const session = await getSession(token);
@@ -96,7 +109,7 @@ export async function GET(
     // Resolve file paths
     const filesWithPaths = filesToZip
       .map((file) => {
-        let variant =
+        const variant =
           file.variants.find((v) => v.name === quality) ||
           file.variants.find((v) => v.name === "original") ||
           file.variants[0];
@@ -111,6 +124,7 @@ export async function GET(
 
         const filePath = path.join(process.cwd(), "image_repo", variant.path);
         return {
+          fileId: file.id,
           fileName: file.fileName,
           filePath: filePath,
           size: Number(variant.size) || 0,
@@ -119,7 +133,10 @@ export async function GET(
       .filter((f): f is NonNullable<typeof f> => !!f);
 
     if (filesWithPaths.length === 0) {
-      return NextResponse.json({ error: "No files available." }, { status: 400 });
+      return NextResponse.json(
+        { error: "No files available." },
+        { status: 400 },
+      );
     }
 
     // Only archive files that actually exist on disk. A variant row can exist
@@ -184,7 +201,7 @@ export async function GET(
           }
 
           // Throttled progress broadcast
-          const bytesStreamed = (archive as any).pointer?.() || 0;
+          const bytesStreamed = archive.pointer() || 0;
           // Guard against a zero/unknown total size (missing variant sizes in
           // the DB) and clamp to 100: archiver's pointer is compressed bytes,
           // which can slightly exceed the uncompressed sum for tiny files.
@@ -206,6 +223,23 @@ export async function GET(
         passthrough.on("end", () => {
           clearTimeout(timeoutId);
           broadcastDownloadComplete(finalDownloadId);
+
+          // Count the archive only once it has streamed to completion, and
+          // only for visitors. Abandoned or cancelled sessions never get here.
+          if (!authSession?.user) {
+            void prisma.file
+              .updateMany({
+                where: { id: { in: availableFiles.map((f) => f.fileId) } },
+                data: {
+                  downloadCount: { increment: 1 },
+                  lastDownloadedAt: new Date(),
+                },
+              })
+              .catch((err) =>
+                console.error("Failed to record zip downloads:", err),
+              );
+          }
+
           controller.close();
           // Clean up session after download completes
           deleteSession(token).catch(() => {});

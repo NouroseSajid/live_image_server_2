@@ -37,11 +37,11 @@ const failures = [];
 function check(name, condition, extra = "") {
   if (condition) {
     passed++;
-    console.log("  [PASS] " + name);
+    console.log(`  [PASS] ${name}`);
   } else {
     failed++;
-    failures.push(name + (extra ? " -- " + extra : ""));
-    console.log("  [FAIL] " + name + (extra ? " -- " + extra : ""));
+    failures.push(name + (extra ? ` -- ${extra}` : ""));
+    console.log(`  [FAIL] ${name}${extra ? ` -- ${extra}` : ""}`);
   }
 }
 
@@ -64,13 +64,13 @@ const fileExists = async (p) => {
 };
 
 async function main() {
-  console.log("Download flow tests against " + BASE_URL);
+  console.log(`Download flow tests against ${BASE_URL}`);
   console.log("");
 
   // --- Preflight: is the server up? ---
   try {
     const { status } = await request("/api/config");
-    check("server is reachable", status === 200, "got " + status);
+    check("server is reachable", status === 200, `got ${status}`);
   } catch (err) {
     check("server is reachable", false, err.message);
     console.error("");
@@ -108,7 +108,7 @@ async function main() {
   const originalPath = dbPathToAbsolute(originalVariant.path);
   const originalOnDisk = await fileExists(originalPath);
   console.log("");
-  console.log("Image: " + file.fileName + " (" + file.id + ")");
+  console.log(`Image: ${file.fileName} (${file.id})`);
   console.log(
     "Variant on disk: " +
       (originalOnDisk ? "present" : "MISSING") +
@@ -121,10 +121,10 @@ async function main() {
   console.log("[1] Single-image download (/api/images/:id/download)");
   {
     const { status, body, res } = await request(
-      "/api/images/" + file.id + "/download?quality=original",
+      `/api/images/${file.id}/download?quality=original`,
     );
     if (originalOnDisk) {
-      check("single download returns 200", status === 200, "got " + status);
+      check("single download returns 200", status === 200, `got ${status}`);
       check(
         "single download sets Content-Disposition: attachment",
         (res.headers.get("content-disposition") || "").includes("attachment"),
@@ -136,7 +136,7 @@ async function main() {
       check(
         "single download returns 404 when file is missing on disk",
         status === 404,
-        "got " + status,
+        `got ${status}`,
       );
     }
   }
@@ -150,21 +150,21 @@ async function main() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ imageIds: [], quality: "webp" }),
     });
-    check("empty selection returns 400", status === 400, "got " + status);
+    check("empty selection returns 400", status === 400, `got ${status}`);
 
     const { status: s2 } = await request("/api/images/download-zip", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ imageIds: ["does-not-exist"], quality: "webp" }),
     });
-    check("unknown image id returns 404", s2 === 404, "got " + s2);
+    check("unknown image id returns 404", s2 === 404, `got ${s2}`);
   }
 
   // --- 3. Multi-select ZIP session lifecycle ---
   console.log("");
   console.log("[3] Multi-select ZIP download (/api/images/download-zip)");
   const sessionToken = await (async () => {
-    const downloadId = "test-dl-" + Date.now();
+    const downloadId = `test-dl-${Date.now()}`;
     const { status, body } = await request("/api/images/download-zip", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -180,7 +180,7 @@ async function main() {
       check(
         "create session returns 200",
         false,
-        "got " + status + ": " + body.toString(),
+        `got ${status}: ${body.toString()}`,
       );
       return null;
     }
@@ -194,12 +194,12 @@ async function main() {
     check(
       "create session echoes downloadId",
       data.downloadId === downloadId,
-      "got " + data.downloadId,
+      `got ${data.downloadId}`,
     );
     check(
       "create session reports totalFiles",
       data.totalFiles === 1,
-      "got " + data.totalFiles,
+      `got ${data.totalFiles}`,
     );
     return data.sessionToken;
   })();
@@ -209,12 +209,12 @@ async function main() {
     console.log("[4] Session polling (/api/images/download-zip/status/:token)");
     {
       const { status, body } = await request(
-        "/api/images/download-zip/status/" + sessionToken,
+        `/api/images/download-zip/status/${sessionToken}`,
       );
       check(
         "status returns 200 while session is active",
         status === 200,
-        "got " + status,
+        `got ${status}`,
       );
       if (status === 200) {
         const data = JSON.parse(body.toString());
@@ -224,17 +224,17 @@ async function main() {
       const { status: s2 } = await request(
         "/api/images/download-zip/status/does-not-exist",
       );
-      check("status returns 404 for unknown token", s2 === 404, "got " + s2);
+      check("status returns 404 for unknown token", s2 === 404, `got ${s2}`);
     }
 
     console.log("");
     console.log("[5] ZIP stream (/api/images/download-zip/:token)");
     {
       const { status, body, res } = await request(
-        "/api/images/download-zip/" + sessionToken,
+        `/api/images/download-zip/${sessionToken}`,
       );
       if (originalOnDisk) {
-        check("zip stream returns 200", status === 200, "got " + status);
+        check("zip stream returns 200", status === 200, `got ${status}`);
         if (status === 200) {
           check(
             "zip content-type is application/zip",
@@ -244,7 +244,7 @@ async function main() {
             "zip is a valid archive (PK magic)",
             body.length > 4 && body.subarray(0, 2).toString() === "PK",
           );
-          check("zip is non-empty", body.length > 22, body.length + " bytes");
+          check("zip is non-empty", body.length > 22, `${body.length} bytes`);
           check(
             "zip contains the selected file",
             body.includes(Buffer.from(file.fileName)),
@@ -256,7 +256,7 @@ async function main() {
         check(
           "zip stream returns 400 when no files are on disk",
           status === 400,
-          "got " + status + " (" + body.toString().slice(0, 120) + ")",
+          `got ${status} (${body.toString().slice(0, 120)})`,
         );
       }
 
@@ -266,7 +266,7 @@ async function main() {
       check(
         "zip stream returns 404 for unknown token",
         s2 === 404,
-        "got " + s2,
+        `got ${s2}`,
       );
     }
   }
@@ -277,10 +277,10 @@ async function main() {
       where: { downloadId: { startsWith: "test-dl-" } },
     });
     console.log("");
-    console.log("Cleaned up " + del.count + " test download session(s).");
+    console.log(`Cleaned up ${del.count} test download session(s).`);
   } catch (err) {
     console.warn("");
-    console.warn("Warning: could not clean up test sessions: " + err.message);
+    console.warn(`Warning: could not clean up test sessions: ${err.message}`);
   }
 }
 
@@ -292,11 +292,11 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
     console.log("");
-    console.log(passed + " passed, " + failed + " failed");
+    console.log(`${passed} passed, ${failed} failed`);
     if (failed > 0) {
       console.log("");
       console.log("Failures:");
-      for (const f of failures) console.log("  - " + f);
+      for (const f of failures) console.log(`  - ${f}`);
       process.exit(1);
     }
     process.exit(0);

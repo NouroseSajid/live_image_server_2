@@ -15,7 +15,10 @@ export async function POST(request: Request) {
     const { folderId, expiresAt, usesLeft } = body;
 
     if (!folderId) {
-      return NextResponse.json({ error: "folderId is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "folderId is required" },
+        { status: 400 },
+      );
     }
 
     const folder = await prisma.folder.findUnique({ where: { id: folderId } });
@@ -34,6 +37,9 @@ export async function POST(request: Request) {
     return NextResponse.json(link, { status: 201 });
   } catch (error) {
     console.error("Error creating access link:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
   }
 }

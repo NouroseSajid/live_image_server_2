@@ -41,7 +41,9 @@ function forwardToSSE(payload) {
 
 const wss = new WebSocketServer({ host: WS_HOST, port: WS_PORT });
 
-console.log(`[WS Server] WebSocket server started on ws://${WS_HOST}:${WS_PORT}`);
+console.log(
+  `[WS Server] WebSocket server started on ws://${WS_HOST}:${WS_PORT}`,
+);
 
 wss.on("connection", (ws) => {
   console.log("Client connected");

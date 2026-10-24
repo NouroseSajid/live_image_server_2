@@ -68,10 +68,14 @@ export default function IngestFolderSelector({ folders }: IngestFolderProps) {
     <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 rounded-lg p-4">
       <div className="flex items-center gap-3">
         <div className="flex-1 min-w-0">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label
+            htmlFor="ingest-target-folder"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+          >
             Ingest Target
           </label>
           <select
+            id="ingest-target-folder"
             value={selectedFolderId || ""}
             onChange={(e) => setSelectedFolderId(e.target.value || null)}
             disabled={loading}
@@ -87,6 +91,7 @@ export default function IngestFolderSelector({ folders }: IngestFolderProps) {
         </div>
 
         <button
+          type="button"
           onClick={handleSave}
           disabled={loading || !selectedFolderId}
           className="px-3 py-2 mt-6 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded transition-colors"
@@ -109,7 +114,8 @@ export default function IngestFolderSelector({ folders }: IngestFolderProps) {
 
       {selectedFolderName && isConfigured && (
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-          Ingesting to: <span className="font-medium">{selectedFolderName}</span>
+          Ingesting to:{" "}
+          <span className="font-medium">{selectedFolderName}</span>
         </p>
       )}
     </div>

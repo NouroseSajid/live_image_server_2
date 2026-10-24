@@ -22,7 +22,10 @@ export async function GET(
     const { id } = await params;
     const files = await prisma.file.findMany({
       where: { folderId: id },
-      include: { variants: true },
+      include: {
+        variants: true,
+        requests: { where: { status: "PENDING" }, select: { id: true } },
+      },
     });
 
     files.sort((a, b) => {
@@ -31,10 +34,11 @@ export async function GET(
       return b.createdAt.getTime() - a.createdAt.getTime();
     });
 
-    // Serialize BigInt to string for JSON
-    const serialized = files.map((file) => ({
+    // Serialize BigInt to string for JSON and expose only the pending count.
+    const serialized = files.map(({ requests, ...file }) => ({
       ...file,
       fileSize: file.fileSize.toString(),
+      pendingRequests: requests.length,
       variants: file.variants.map((variant) => ({
         ...variant,
         size: variant.size.toString(),

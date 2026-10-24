@@ -1,8 +1,8 @@
-import { Prisma } from "@prisma/client";
-import { type NextRequest, NextResponse } from "next/server";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { Prisma } from "@prisma/client";
+import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import slugify from "slugify";
 import prisma from "../../../prisma/client";
@@ -81,7 +81,10 @@ export async function GET(request: NextRequest) {
         },
       });
       if (!folder || folder.archived) {
-        return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Folder not found" },
+          { status: 404 },
+        );
       }
       return NextResponse.json({
         ...folder,
@@ -150,12 +153,16 @@ export async function GET(request: NextRequest) {
       const orderMap = new Map<string, number>(
         order.map((id, index) => [id, index]),
       );
-      const fallbackIndex = new Map(transformedFolders.map((f, idx) => [f.id, idx]));
+      const fallbackIndex = new Map(
+        transformedFolders.map((f, idx) => [f.id, idx]),
+      );
       const sorted = [...transformedFolders].sort((a, b) => {
         const aIndex = orderMap.get(a.id);
         const bIndex = orderMap.get(b.id);
         if (aIndex === undefined && bIndex === undefined) {
-          return (fallbackIndex.get(a.id) ?? 0) - (fallbackIndex.get(b.id) ?? 0);
+          return (
+            (fallbackIndex.get(a.id) ?? 0) - (fallbackIndex.get(b.id) ?? 0)
+          );
         }
         if (aIndex === undefined) return 1;
         if (bIndex === undefined) return -1;

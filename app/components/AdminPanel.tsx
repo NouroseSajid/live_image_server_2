@@ -2,19 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useUploads } from "@/app/lib/useUploads";
-import IngestFolderSelector from "./IngestFolderSelector";
 import AdminAlerts from "./admin/AdminAlerts";
 import AdminModals from "./admin/AdminModals";
 import AdminPanels from "./admin/AdminPanels";
-import UploadPreviewModal from "./admin/UploadPreviewModal";
 import useAdminFiles from "./admin/hooks/useAdminFiles";
 import useFolderOrdering from "./admin/hooks/useFolderOrdering";
 import useGalleryConfig from "./admin/hooks/useGalleryConfig";
+import type { Folder, FolderGroup } from "./admin/types";
+import UploadPreviewModal from "./admin/UploadPreviewModal";
 import type { FolderUpdate } from "./FolderEditorModal";
-import type {
-  Folder,
-  FolderGroup,
-} from "./admin/types";
+import IngestFolderSelector from "./IngestFolderSelector";
 
 export default function AdminPanel() {
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -116,7 +113,6 @@ export default function AdminPanel() {
     setGroupDrafts(next);
   }, [showGroupModal, groups]);
 
-
   const fetchFolders = useCallback(async () => {
     try {
       setLoading(true);
@@ -149,7 +145,6 @@ export default function AdminPanel() {
     };
     fetchGroups();
   }, []);
-
 
   const createFolder = async () => {
     if (!newFolderName.trim()) {
@@ -280,8 +275,6 @@ export default function AdminPanel() {
     }
   };
 
-
-
   const setAsFolderThumbnail = async (fileId: string) => {
     if (!activeFolder) return;
     try {
@@ -300,7 +293,9 @@ export default function AdminPanel() {
       setSuccess("Folder thumbnail updated");
       fetchFolders();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to set folder thumbnail");
+      setError(
+        err instanceof Error ? err.message : "Failed to set folder thumbnail",
+      );
     }
   };
 
@@ -380,8 +375,6 @@ export default function AdminPanel() {
     if (!activeFolder) return;
     moveFolderByDelta(activeFolder, 1);
   };
-
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-8">

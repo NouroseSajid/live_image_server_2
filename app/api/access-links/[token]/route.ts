@@ -43,7 +43,8 @@ export async function GET(
     }
 
     const cookieName = `access_folder_${link.folderId}`;
-    const expires = link.expiresAt || new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+    const expires =
+      link.expiresAt || new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
 
     const res = NextResponse.json({
       folderId: link.folderId,

@@ -11,7 +11,7 @@ export type Upload = {
   status: "pending" | "uploading" | "success" | "error";
   progress: number;
   error?: string;
-  result?: any;
+  result?: unknown;
 };
 
 type State = { uploads: Upload[] };

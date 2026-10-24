@@ -1,11 +1,10 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import NextImage from "next/image";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { FiMail } from "react-icons/fi";
+import { recordImageView } from "../lib/viewTracking";
+import RawRequestModal from "./gallerycomponents/RawRequestModal";
 
 /* ---------- TYPES ---------- */
 interface ImageData {
@@ -61,37 +60,85 @@ const isVideo = (item?: ImageData | null) => {
 
 /* ---------- ICONS ---------- */
 const CloseIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg
+    aria-hidden="true"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
     <path d="M18 6L6 18M6 6l12 12" />
   </svg>
 );
 
 const DownloadIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg
+    aria-hidden="true"
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
     <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
   </svg>
 );
 
 const ChevronLeftIcon = () => (
-  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg
+    aria-hidden="true"
+    width="32"
+    height="32"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
     <path d="M15 18l-6-6 6-6" />
   </svg>
 );
 
 const ChevronRightIcon = () => (
-  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg
+    aria-hidden="true"
+    width="32"
+    height="32"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
     <path d="M9 18l6-6-6-6" />
   </svg>
 );
 
 const VolumeOffIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg
+    aria-hidden="true"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
     <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
   </svg>
 );
 
 const VolumeUpIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg
+    aria-hidden="true"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
     <path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07" />
   </svg>
 );
@@ -111,12 +158,14 @@ const DownloadModal = ({
     <p className="text-white text-sm mb-2">Choose download quality:</p>
     <div className="flex flex-col gap-2">
       <button
+        type="button"
         onClick={() => onDownload("original")}
         className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
       >
         Highest Quality
       </button>
       <button
+        type="button"
         onClick={() => onDownload("webp")}
         className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600"
       >
@@ -135,6 +184,7 @@ const DownloadModal = ({
       </label>
     </div>
     <button
+      type="button"
       onClick={onCancel}
       className="mt-4 text-white text-xs hover:underline"
     >
@@ -171,10 +221,13 @@ const MediaItem = ({
     );
   }
   return (
-    <img
+    <NextImage
       src={src}
       alt={item.title || "Preview"}
-      className="max-w-full max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-120px)] object-contain rounded-lg shadow-2xl"
+      width={item.width}
+      height={item.height}
+      unoptimized
+      className="max-w-full max-h-[calc(100vh-100px)] sm:max-h-[calc(100vh-120px)] w-auto h-auto object-contain rounded-lg shadow-2xl"
       loading={isActive ? "eager" : "lazy"}
     />
   );
@@ -197,11 +250,16 @@ export default function Lightbox({
 }: LightboxProps) {
   /* ---------- STATE ---------- */
   const [showDL, setShowDL] = useState(false);
+  const [showRequest, setShowRequest] = useState(false);
   const [savePref, setSavePref] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [dragOffset, setDragOffset] = useState(0);
-  const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 0);
-  const [height, setHeight] = useState(typeof window !== 'undefined' ? window.innerHeight : 0);
+  const [width, setWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 0,
+  );
+  const [height, setHeight] = useState(
+    typeof window !== "undefined" ? window.innerHeight : 0,
+  );
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoomAnimating, setZoomAnimating] = useState(false);
@@ -228,7 +286,9 @@ export default function Lightbox({
     startY: number;
     startPan: { x: number; y: number };
   } | null>(null);
-  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+  const lastTapRef = useRef<{ time: number; x: number; y: number } | null>(
+    null,
+  );
   const tapMovedRef = useRef(false);
   const zoomAnimTimerRef = useRef<number | null>(null);
 
@@ -252,10 +312,13 @@ export default function Lightbox({
     setIsMuted(true);
   }, []);
 
-  // Reset zoom/pan whenever the visible image changes.
+  // Reset zoom/pan and close the request dialog whenever the visible image
+  // changes. This is also the single place where a lightbox view is counted.
   useEffect(() => {
     const imageId = image?.id;
     if (!imageId) return;
+    setShowRequest(false);
+    recordImageView(imageId);
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setZoomAnimating(false);
@@ -294,7 +357,7 @@ export default function Lightbox({
       images.push(img);
     });
     return () => {
-      images.forEach(img => {
+      images.forEach((img) => {
         img.src = ""; // Cancel loading
       });
     };
@@ -308,8 +371,8 @@ export default function Lightbox({
     document.body.style.overflow = "hidden";
     const focusable = Array.from(
       root.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      )
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      ),
     );
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
@@ -394,11 +457,11 @@ export default function Lightbox({
       return;
     }
     isAnimatingRef.current = true;
-    
+
     // Slide out
     shouldTransitionRef.current = true;
     setDragOffset(-width);
-    
+
     // After slide completes, update image and reset position instantly
     setTimeout(() => {
       cbRef.current.onNext();
@@ -415,11 +478,11 @@ export default function Lightbox({
   const handlePrev = useCallback(() => {
     if (isAnimatingRef.current || !prevImage) return;
     isAnimatingRef.current = true;
-    
+
     // Slide out
     shouldTransitionRef.current = true;
     setDragOffset(width);
-    
+
     // After slide completes, update image and reset position instantly
     setTimeout(() => {
       cbRef.current.onPrev();
@@ -633,24 +696,29 @@ export default function Lightbox({
   );
 
   /* ---------- KEYBOARD ---------- */
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (
-      e.target instanceof HTMLInputElement ||
-      e.target instanceof HTMLTextAreaElement
-    )
-      return;
-    switch (e.key) {
-      case "Escape":
-        closeLightbox();
-        break;
-      case "ArrowLeft":
-        handlePrev();
-        break;
-      case "ArrowRight":
-        handleNext();
-        break;
-    }
-  }, [handlePrev, handleNext, closeLightbox]);
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return;
+      // The request dialog owns the keyboard while it is open.
+      if (showRequest) return;
+      switch (e.key) {
+        case "Escape":
+          closeLightbox();
+          break;
+        case "ArrowLeft":
+          handlePrev();
+          break;
+        case "ArrowRight":
+          handleNext();
+          break;
+      }
+    },
+    [handlePrev, handleNext, closeLightbox, showRequest],
+  );
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -707,6 +775,7 @@ export default function Lightbox({
       {/* ------ HEADER ------ */}
       <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex items-center gap-2 sm:gap-4 z-20 w-full sm:w-auto pr-20 sm:pr-0">
         <button
+          type="button"
           aria-label="Close lightbox"
           onClick={closeLightbox}
           className="p-2 sm:p-3 bg-white/10 hover:bg-white/20 rounded-lg sm:rounded-full text-white transition-colors flex-shrink-0"
@@ -721,6 +790,7 @@ export default function Lightbox({
         </div>
         {onToggleSelect && (
           <button
+            type="button"
             onClick={() => onToggleSelect(image.id)}
             className={`flex-shrink-0 p-2 sm:p-3 rounded-lg sm:rounded-full transition-all ${
               isSelected
@@ -730,6 +800,7 @@ export default function Lightbox({
             title={isSelected ? "Deselect" : "Select"}
           >
             <svg
+              aria-hidden="true"
               width="20"
               height="20"
               viewBox="0 0 24 24"
@@ -750,12 +821,24 @@ export default function Lightbox({
       {/* ------ DOWNLOAD ------ */}
       <div className="absolute top-3 right-3 sm:top-6 sm:right-6 z-20 flex flex-col items-end gap-1">
         <button
+          type="button"
           aria-label="Download image"
           onClick={handleDownloadClick}
           className="p-2 sm:p-3 bg-white/10 hover:bg-white/20 rounded-lg sm:rounded-xl text-white flex items-center gap-2 transition-colors"
         >
           <DownloadIcon />
           <span className="text-sm font-medium hidden sm:inline">Download</span>
+        </button>
+        <button
+          type="button"
+          aria-label="Request RAW file"
+          onClick={() => setShowRequest(true)}
+          className="p-2 sm:p-3 bg-white/10 hover:bg-white/20 rounded-lg sm:rounded-xl text-white flex items-center gap-2 transition-colors"
+        >
+          <FiMail size={18} />
+          <span className="text-sm font-medium hidden sm:inline">
+            Request RAW
+          </span>
         </button>
         {(isDownloading || localDownloading) && (
           <span className="text-xs text-blue-300 font-semibold bg-white/10 px-2 py-1 rounded-full">
@@ -773,6 +856,7 @@ export default function Lightbox({
 
       {/* ------ NAV BUTTONS ------ */}
       <button
+        type="button"
         aria-label="Previous image"
         onClick={handlePrev}
         disabled={!prevImage}
@@ -781,6 +865,7 @@ export default function Lightbox({
         <ChevronLeftIcon />
       </button>
       <button
+        type="button"
         aria-label="Next image"
         onClick={handleNext}
         disabled={!canNext}
@@ -810,9 +895,10 @@ export default function Lightbox({
             style={{
               width,
               transform: `translateX(${prevTranslate}px)`,
-              transition: isDraggingRef.current || !shouldTransitionRef.current
-                ? "none"
-                : `transform ${ANIM_MS}ms cubic-bezier(0.25,0.1,0.25,1)`,
+              transition:
+                isDraggingRef.current || !shouldTransitionRef.current
+                  ? "none"
+                  : `transform ${ANIM_MS}ms cubic-bezier(0.25,0.1,0.25,1)`,
             }}
           >
             <MediaItem item={prevImage} isMuted={true} isActive={false} />
@@ -828,7 +914,9 @@ export default function Lightbox({
             transform: `translateX(${activeTranslate}px) translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transition: zoomAnimating
               ? "transform 220ms cubic-bezier(0.25,0.1,0.25,1)"
-              : isDraggingRef.current || !shouldTransitionRef.current || zoom !== 1
+              : isDraggingRef.current ||
+                  !shouldTransitionRef.current ||
+                  zoom !== 1
                 ? "none"
                 : `transform ${ANIM_MS}ms cubic-bezier(0.25,0.1,0.25,1)`,
           }}
@@ -841,6 +929,7 @@ export default function Lightbox({
           />
           {isVideo(image) && (
             <button
+              type="button"
               aria-label={isMuted ? "Unmute video" : "Mute video"}
               onClick={toggleMute}
               className="absolute bottom-20 right-8 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors z-30"
@@ -857,9 +946,10 @@ export default function Lightbox({
             style={{
               width,
               transform: `translateX(${nextTranslate}px)`,
-              transition: isDraggingRef.current || !shouldTransitionRef.current
-                ? "none"
-                : `transform ${ANIM_MS}ms cubic-bezier(0.25,0.1,0.25,1)`,
+              transition:
+                isDraggingRef.current || !shouldTransitionRef.current
+                  ? "none"
+                  : `transform ${ANIM_MS}ms cubic-bezier(0.25,0.1,0.25,1)`,
             }}
           >
             <MediaItem item={nextImage} isMuted={true} isActive={false} />
@@ -874,6 +964,15 @@ export default function Lightbox({
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/60 text-xs sm:hidden">
         Swipe to navigate · Pinch or double-tap to zoom
       </div>
+
+      <RawRequestModal
+        isOpen={showRequest}
+        fileId={image.id}
+        fileName={image.title}
+        folderName={image.category}
+        passphrase={passphrase}
+        onClose={() => setShowRequest(false)}
+      />
     </div>
   );
 }

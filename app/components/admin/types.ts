@@ -34,12 +34,33 @@ export interface FileEntry {
   folderId: string;
   createdAt: string;
   order?: number;
+  viewCount: number;
+  downloadCount: number;
+  lastViewedAt?: string | null;
+  lastDownloadedAt?: string | null;
+  pendingRequests: number;
   variants: Array<{
     id: string;
     name: string;
     path: string;
     size: string;
   }>;
+}
+
+export interface ImageRequestEntry {
+  id: string;
+  email: string | null;
+  name: string | null;
+  note: string | null;
+  status: "PENDING" | "FULFILLED" | "DISMISSED";
+  createdAt: string;
+  file: {
+    id: string;
+    fileName: string;
+    fileType: "image" | "video";
+    folder: { id: string; name: string };
+    variants: Array<{ name: string; path: string }>;
+  };
 }
 
 export interface ConflictInfo {

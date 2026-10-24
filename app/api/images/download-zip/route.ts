@@ -8,11 +8,18 @@ import { createSession } from "./sessionStore";
 
 const MAX_BATCH_SIZE = 500;
 
+interface DownloadZipBody {
+  imageIds: string[];
+  quality?: string;
+  downloadId?: string | null;
+  passphrase?: string | null;
+}
+
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
 
   try {
-    let body: any;
+    let body: DownloadZipBody;
     const contentType = req.headers.get("content-type") || "";
 
     if (contentType.includes("application/json")) {
@@ -45,7 +52,10 @@ export async function POST(req: NextRequest) {
     } = body;
 
     if (!imageIds || !Array.isArray(imageIds) || imageIds.length === 0) {
-      return NextResponse.json({ error: "No image IDs provided." }, { status: 400 });
+      return NextResponse.json(
+        { error: "No image IDs provided." },
+        { status: 400 },
+      );
     }
 
     if (imageIds.length > MAX_BATCH_SIZE) {
@@ -76,7 +86,11 @@ export async function POST(req: NextRequest) {
         const folder = filesToZip.find((f) => f.folder.id === folderId)?.folder;
         if (folder?.isPrivate) {
           let authorized = false;
-          if (passphrase && folder.passphrase && passphrase === folder.passphrase) {
+          if (
+            passphrase &&
+            folder.passphrase &&
+            passphrase === folder.passphrase
+          ) {
             authorized = true;
           }
           if (!authorized) {
@@ -108,7 +122,8 @@ export async function POST(req: NextRequest) {
 
     // Create a download session — actual ZIP generation happens on GET
     const finalDownloadId =
-      body.downloadId || `dl-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      body.downloadId ||
+      `dl-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     const sessionToken = await createSession({
       imageIds,
       quality,

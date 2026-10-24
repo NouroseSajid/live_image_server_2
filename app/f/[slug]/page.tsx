@@ -2,7 +2,7 @@
 
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import Gallery from "../../components/Gallery";
+import Gallery, { type Folder } from "../../components/Gallery";
 
 export default function FolderPage() {
   const params = useParams();
@@ -13,7 +13,7 @@ export default function FolderPage() {
   const tokenParam = searchParams.get("t") || searchParams.get("token");
 
   const [folderId, setFolderId] = useState<string | null>(null);
-  const [folderInfo, setFolderInfo] = useState<any | null>(null);
+  const [folderInfo, setFolderInfo] = useState<Folder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -21,7 +21,9 @@ export default function FolderPage() {
   useEffect(() => {
     const resolveFolderSlug = async () => {
       try {
-        const res = await fetch(`/api/folders?slug=${encodeURIComponent(slug)}`);
+        const res = await fetch(
+          `/api/folders?slug=${encodeURIComponent(slug)}`,
+        );
         if (!res.ok) {
           setError("Folder not found");
           setIsLoading(false);
@@ -37,7 +39,10 @@ export default function FolderPage() {
           const stored = sessionStorage.getItem("folderPassphrases");
           const passphrases = stored ? JSON.parse(stored) : {};
           passphrases[folder.id] = decodeURIComponent(passphrase);
-          sessionStorage.setItem("folderPassphrases", JSON.stringify(passphrases));
+          sessionStorage.setItem(
+            "folderPassphrases",
+            JSON.stringify(passphrases),
+          );
         }
 
         // If access token in URL, validate it immediately (sets httpOnly cookie)
@@ -68,7 +73,10 @@ export default function FolderPage() {
 
   if (isLoading) {
     return (
-      <main id="main-content" className="flex-1 mt-16 flex items-center justify-center">
+      <main
+        id="main-content"
+        className="flex-1 mt-16 flex items-center justify-center"
+      >
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       </main>
     );
@@ -89,7 +97,10 @@ export default function FolderPage() {
   // Gallery will auto-select this folder and use stored passphrase if present
   return (
     <div>
-      <Gallery initialFolderId={folderId} initialFolder={folderInfo} />
+      <Gallery
+        initialFolderId={folderId}
+        initialFolder={folderInfo ?? undefined}
+      />
     </div>
   );
 }

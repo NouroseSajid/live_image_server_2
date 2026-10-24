@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { FiFolder, FiPlus } from "react-icons/fi";
 import { resolveAssetPath } from "../../lib/assets";
 import FolderList from "./FolderList";
@@ -76,7 +77,8 @@ export default function FolderSidebar({
   onEditFolder,
   onDeleteFolder,
 }: FolderSidebarProps) {
-  const allThumbnailSrc = allThumbnailPreview || resolveAssetPath(allThumbnailUrl);
+  const allThumbnailSrc =
+    allThumbnailPreview || resolveAssetPath(allThumbnailUrl);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
@@ -104,12 +106,14 @@ export default function FolderSidebar({
           </span>
         </div>
         <div className="flex items-center gap-4">
-          <div className="w-24 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+          <div className="relative w-24 h-16 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
             {allThumbnailSrc ? (
-              <img
+              <Image
                 src={allThumbnailSrc}
                 alt="All folder thumbnail preview"
-                className="w-full h-full object-cover"
+                fill
+                unoptimized
+                className="object-cover"
               />
             ) : (
               <span className="text-xs text-gray-400">No thumbnail</span>
@@ -123,6 +127,7 @@ export default function FolderSidebar({
               className="block w-full text-xs text-gray-600 dark:text-gray-300 file:mr-4 file:py-2 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-gray-100 dark:file:bg-gray-700 file:text-gray-700 dark:file:text-gray-200"
             />
             <button
+              type="button"
               onClick={onUploadAllThumbnail}
               disabled={allThumbnailUploading || !hasAllThumbnailFile}
               className="mt-3 px-3 py-1.5 text-xs rounded bg-gray-900 text-white disabled:opacity-50"
@@ -144,10 +149,14 @@ export default function FolderSidebar({
         </div>
 
         <div className="space-y-3">
-          <label className="text-xs text-gray-600 dark:text-gray-300">
+          <label
+            htmlFor="filter-folder-target"
+            className="text-xs text-gray-600 dark:text-gray-300"
+          >
             Folder
           </label>
           <select
+            id="filter-folder-target"
             value={filterTargetId}
             onChange={(e) => onFilterTargetIdChange(e.target.value)}
             className="w-full px-3 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -189,10 +198,13 @@ export default function FolderSidebar({
               disabled={filterNoLimit}
               className="w-20 px-2 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
-            <span className="text-xs text-gray-500 dark:text-gray-400">minutes</span>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              minutes
+            </span>
           </div>
 
           <button
+            type="button"
             onClick={onSaveFilter}
             disabled={filterSaving}
             className="px-3 py-1.5 text-xs rounded bg-gray-900 text-white disabled:opacity-50"
@@ -212,6 +224,7 @@ export default function FolderSidebar({
           onKeyPress={(e) => e.key === "Enter" && onCreateFolder()}
         />
         <button
+          type="button"
           onClick={onCreateFolder}
           disabled={isLoading}
           className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center"
@@ -232,7 +245,9 @@ export default function FolderSidebar({
         <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
           <span>Selected index:</span>
           <span className="rounded-full border border-gray-200 dark:border-gray-700 px-2 py-0.5 text-[10px]">
-            {selectedOrderIndex !== null ? `#${selectedOrderIndex + 1}` : "None"}
+            {selectedOrderIndex !== null
+              ? `#${selectedOrderIndex + 1}`
+              : "None"}
           </span>
         </div>
         <div className="mt-3 flex items-center gap-2">
@@ -265,7 +280,9 @@ export default function FolderSidebar({
 
       <div className="space-y-2 max-h-96 overflow-y-auto">
         {isLoading && folders.length === 0 ? (
-          <div className="text-gray-500 dark:text-gray-400">Loading folders...</div>
+          <div className="text-gray-500 dark:text-gray-400">
+            Loading folders...
+          </div>
         ) : folders.length === 0 ? (
           <div className="text-gray-500 dark:text-gray-400">No folders yet</div>
         ) : (

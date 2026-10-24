@@ -103,15 +103,22 @@ model File {
   updatedAt          DateTime          @updatedAt
   deletedAt          DateTime?
   folderId           String
+  viewCount          Int               @default(0)
+  downloadCount      Int               @default(0)
+  lastViewedAt       DateTime?
+  lastDownloadedAt   DateTime?
   downloadJobFiles   DownloadJobFile[]
   folder             Folder            @relation(fields: [folderId], references: [id], onDelete: Cascade)
   thumbnailForFolder Folder?           @relation("FolderThumbnail")
   variants           Variant[]
+  requests           ImageRequest[]
 
   @@unique([folderId, fileName])
   @@index([folderId])
   @@index([fileType])
   @@index([createdAt])
+  @@index([viewCount])
+  @@index([downloadCount])
 }
 
 model Variant {
@@ -184,6 +191,23 @@ model DownloadJobFile {
   @@index([fileId], map: "DownloadJobFile_fileId_fkey")
 }
 
+model ImageRequest {
+  id        String        @id @default(cuid())
+  fileId    String
+  email     String?
+  name      String?
+  note      String?
+  visitorId String?
+  status    RequestStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  file      File          @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([fileId])
+  @@index([status, createdAt])
+  @@index([email])
+}
+
 model Setting {
   key   String @id
   value String
@@ -199,4 +223,10 @@ enum JobStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+enum RequestStatus {
+  PENDING
+  FULFILLED
+  DISMISSED
 }

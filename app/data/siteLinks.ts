@@ -13,7 +13,6 @@ export interface SocialLink {
 
 export const mainNavLinks: NavLink[] = [
   { label: "Go back home", href: "https://nourose.com" },
- 
 ];
 
 export const footerLinks: NavLink[] = [
@@ -22,8 +21,16 @@ export const footerLinks: NavLink[] = [
   { label: "Gallery", href: "https://nourose.com/#gallery" },
   { label: "My Approach", href: "https://nourose.com/#approach" },
   { label: "Contact", href: "https://nourose.com/#contact" },
-  { label: "Privacy Policy", href: "https://nourose.com/privacy", footerOnly: true },
-  { label: "Terms of Service", href: "https://nourose.com/terms", footerOnly: true },
+  {
+    label: "Privacy Policy",
+    href: "https://nourose.com/privacy",
+    footerOnly: true,
+  },
+  {
+    label: "Terms of Service",
+    href: "https://nourose.com/terms",
+    footerOnly: true,
+  },
 ];
 
 export const socialLinks = [

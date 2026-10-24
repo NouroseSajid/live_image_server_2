@@ -93,7 +93,9 @@ export default function useFolderOrdering({
       if (item.type === "group") {
         const group = groupMap.get(item.id);
         if (!group) return;
-        const count = folders.filter((folder) => folder.groupId === group.id).length;
+        const count = folders.filter(
+          (folder) => folder.groupId === group.id,
+        ).length;
         const isOpen = openGroups[group.id] ?? false;
         items.push({ type: "group", group, count, isOpen, orderIndex: index });
         return;
@@ -114,25 +116,28 @@ export default function useFolderOrdering({
     return items;
   }, [effectiveOrderItems, folderMap, folders, groupMap, openGroups]);
 
-  const saveOrderItems = useCallback(async (items: OrderItem[]) => {
-    try {
-      setSavingOrderItems(true);
-      const res = await fetch("/api/gallery-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      });
+  const saveOrderItems = useCallback(
+    async (items: OrderItem[]) => {
+      try {
+        setSavingOrderItems(true);
+        const res = await fetch("/api/gallery-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items }),
+        });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err?.error || "Failed to save order");
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || "Failed to save order");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error saving order");
+      } finally {
+        setSavingOrderItems(false);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error saving order");
-    } finally {
-      setSavingOrderItems(false);
-    }
-  }, [setError]);
+    },
+    [setError],
+  );
 
   const toggleGroupOpen = useCallback((groupId: string) => {
     setOpenGroups((prev) => ({
@@ -161,7 +166,10 @@ export default function useFolderOrdering({
       );
       if (sourceIndex === -1) return;
 
-      const nextIndex = Math.max(0, Math.min(currentOrder.length - 1, sourceIndex + delta));
+      const nextIndex = Math.max(
+        0,
+        Math.min(currentOrder.length - 1, sourceIndex + delta),
+      );
       if (nextIndex === sourceIndex) return;
 
       const [movedItem] = currentOrder.splice(sourceIndex, 1);

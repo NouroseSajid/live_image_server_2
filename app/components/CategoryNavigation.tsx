@@ -1,8 +1,8 @@
 "use client";
 
-import { MdLock } from "react-icons/md";
-import { FiChevronDown, FiFolder, FiX } from "react-icons/fi";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FiChevronDown, FiFolder, FiX } from "react-icons/fi";
+import { MdLock } from "react-icons/md";
 import { resolveAssetPath } from "../lib/assets";
 
 interface Category {
@@ -32,6 +32,8 @@ interface Group {
   position: number;
   items: Category[];
 }
+
+type GroupItem = { type: "group"; group: Group };
 
 interface CategoryNavigationProps {
   categories: Category[];
@@ -80,16 +82,16 @@ export default function CategoryNavigation({
     });
 
     const items: Array<
-      | { type: "group"; group: Group }
-      | { type: "folder"; folder: Category }
+      { type: "group"; group: Group } | { type: "folder"; folder: Category }
     > = [];
 
     const folderMap = new Map(folderItems.map((cat) => [cat.id, cat]));
     const groupMap = new Map(groupedMap);
 
-    const ordered = Array.isArray(orderItems) && orderItems.length > 0
-      ? orderItems
-      : folderItems.map((cat) => ({ type: "folder" as const, id: cat.id }));
+    const ordered =
+      Array.isArray(orderItems) && orderItems.length > 0
+        ? orderItems
+        : folderItems.map((cat) => ({ type: "folder" as const, id: cat.id }));
 
     const seenGroups = new Set<string>();
     const seenFolders = new Set<string>();
@@ -130,9 +132,12 @@ export default function CategoryNavigation({
     const current = categories.find((cat) => cat.id === activeFolder);
     const groupId = current?.group?.id;
     if (groupId) {
-      const groupData = (orderedItems.find(item => item.type === 'group' && item.group.id === groupId) as any)?.group;
+      const groupData = orderedItems.find(
+        (item): item is GroupItem =>
+          item.type === "group" && item.group.id === groupId,
+      )?.group;
       if (groupData) {
-        // Only set if not already set to avoid loops, 
+        // Only set if not already set to avoid loops,
         // but we actually want to CLOSE it if the user just selected a folder
         // Actually, if activeFolder is set, it means we are VIEWING that folder.
         // If the drawer is open, it might be blocking the view.
@@ -176,17 +181,23 @@ export default function CategoryNavigation({
           {absoluteThumbnailPath ? (
             <div
               className={`absolute inset-0 bg-cover bg-center blur-[1px] transition-all duration-700 ${
-                isActive ? "opacity-100 scale-105" : "opacity-60 group-hover:opacity-80 group-hover:scale-110"
+                isActive
+                  ? "opacity-100 scale-105"
+                  : "opacity-60 group-hover:opacity-80 group-hover:scale-110"
               }`}
               style={{ backgroundImage: `url('${absoluteThumbnailPath}')` }}
             />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-[var(--card)] to-[var(--background)] opacity-50" />
           )}
-          <div className={`absolute inset-0 bg-gradient-to-t transition-opacity duration-300 ${
-            isActive ? "from-black/80 via-black/40 to-transparent" : "from-black/70 via-black/40 to-black/20"
-          } backdrop-blur-[1px]`} />
-          
+          <div
+            className={`absolute inset-0 bg-gradient-to-t transition-opacity duration-300 ${
+              isActive
+                ? "from-black/80 via-black/40 to-transparent"
+                : "from-black/70 via-black/40 to-black/20"
+            } backdrop-blur-[1px]`}
+          />
+
           {isActive && (
             <div className="absolute inset-0 border-2 border-[var(--primary)]/30 rounded-xl pointer-events-none" />
           )}
@@ -201,15 +212,21 @@ export default function CategoryNavigation({
 
           <div className="absolute bottom-0 left-0 right-0 p-3">
             <div className="flex items-center justify-between gap-2">
-              <p className={`text-[11px] font-bold truncate tracking-wide uppercase transition-colors duration-300 ${
-                isActive ? "text-[var(--primary)]" : "text-white"
-              }`}>
+              <p
+                className={`text-[11px] font-bold truncate tracking-wide uppercase transition-colors duration-300 ${
+                  isActive ? "text-[var(--primary)]" : "text-white"
+                }`}
+              >
                 {cat.name}
               </p>
               {cat._count?.files !== undefined && (
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm transition-colors duration-300 ${
-                  isActive ? "bg-[var(--primary)] text-white" : "bg-white/20 text-white"
-                }`}>
+                <span
+                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm transition-colors duration-300 ${
+                    isActive
+                      ? "bg-[var(--primary)] text-white"
+                      : "bg-white/20 text-white"
+                  }`}
+                >
                   {cat._count.files}
                 </span>
               )}
@@ -226,15 +243,15 @@ export default function CategoryNavigation({
       .filter((path): path is string => path !== null)
       .slice(0, 4);
 
-    const isAnyActive = group.items.some(item => item.id === activeFolder);
+    const isAnyActive = group.items.some((item) => item.id === activeFolder);
 
     return (
       <button
         type="button"
         onClick={() => setSelectedGroup(group)}
         className={`group relative w-full aspect-[3/2] overflow-hidden rounded-xl border transition-all duration-300 ${
-          isAnyActive 
-            ? "border-[var(--primary)] shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)] scale-[1.01]" 
+          isAnyActive
+            ? "border-[var(--primary)] shadow-[0_0_15px_rgba(var(--primary-rgb),0.2)] scale-[1.01]"
             : "border-[var(--foreground)]/15 hover:border-[var(--foreground)]/40 hover:scale-[1.01]"
         }`}
       >
@@ -242,9 +259,9 @@ export default function CategoryNavigation({
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="relative bg-[var(--card)] overflow-hidden">
               {thumbPaths[i] ? (
-                <div 
-                  className="absolute inset-0 bg-cover bg-center" 
-                  style={{ backgroundImage: `url('${thumbPaths[i]}')` }} 
+                <div
+                  className="absolute inset-0 bg-cover bg-center"
+                  style={{ backgroundImage: `url('${thumbPaths[i]}')` }}
                 />
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-[var(--card)] to-[var(--background)] opacity-30" />
@@ -252,16 +269,27 @@ export default function CategoryNavigation({
             </div>
           ))}
         </div>
-        
-        <div className={`absolute inset-0 transition-colors duration-300 ${
-          isAnyActive ? "bg-black/50 backdrop-blur-md" : "bg-black/40 backdrop-blur-md group-hover:bg-black/30"
-        }`} />
-        
+
+        <div
+          className={`absolute inset-0 transition-colors duration-300 ${
+            isAnyActive
+              ? "bg-black/50 backdrop-blur-md"
+              : "bg-black/40 backdrop-blur-md group-hover:bg-black/30"
+          }`}
+        />
+
         <div className="absolute top-2 left-2">
-          <div className={`p-1.5 backdrop-blur-md rounded-lg border transition-colors duration-300 ${
-            isAnyActive ? "bg-[var(--primary)]/20 border-[var(--primary)]/40" : "bg-white/10 border-white/20"
-          }`}>
-            <FiFolder size={14} className={isAnyActive ? "text-[var(--primary)]" : "text-white"} />
+          <div
+            className={`p-1.5 backdrop-blur-md rounded-lg border transition-colors duration-300 ${
+              isAnyActive
+                ? "bg-[var(--primary)]/20 border-[var(--primary)]/40"
+                : "bg-white/10 border-white/20"
+            }`}
+          >
+            <FiFolder
+              size={14}
+              className={isAnyActive ? "text-[var(--primary)]" : "text-white"}
+            />
           </div>
         </div>
 
@@ -275,10 +303,16 @@ export default function CategoryNavigation({
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
-          <p className={`text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 ${
-            isAnyActive ? "text-[var(--primary)]" : "text-white"
-          }`}>{group.name}</p>
-          <p className="text-white/60 text-[9px] font-medium uppercase mt-0.5">Collection</p>
+          <p
+            className={`text-[11px] font-bold uppercase tracking-widest transition-colors duration-300 ${
+              isAnyActive ? "text-[var(--primary)]" : "text-white"
+            }`}
+          >
+            {group.name}
+          </p>
+          <p className="text-white/60 text-[9px] font-medium uppercase mt-0.5">
+            Collection
+          </p>
         </div>
       </button>
     );
@@ -305,6 +339,13 @@ export default function CategoryNavigation({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+
+    // Nothing to scroll when the row has no rendered cards.
+    if (orderedItems.length === 0 && !allCategory) {
+      setCanScrollLeft(false);
+      setCanScrollRight(false);
+      return;
+    }
 
     updateScrollState();
 
@@ -347,7 +388,9 @@ export default function CategoryNavigation({
   return (
     <div className="space-y-4 mb-12">
       <div className="flex items-center justify-between px-1">
-        <h2 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">Folders</h2>
+        <h2 className="text-2xl font-bold text-[var(--foreground)] tracking-tight">
+          Folders
+        </h2>
       </div>
 
       <div className="group/nav relative rounded-3xl border border-[var(--foreground)]/10 bg-[var(--background)] p-4 md:p-6 shadow-2xl">
@@ -373,16 +416,17 @@ export default function CategoryNavigation({
         >
           {/* 1. All Category */}
           {allCategory && (
-            <div className={cardWidthClass}>
-              {renderCard(allCategory)}
-            </div>
+            <div className={cardWidthClass}>{renderCard(allCategory)}</div>
           )}
 
           {/* 2. Groups and Standalone Folders */}
           {orderedItems.map((item, _index) => {
             if (item.type === "group") {
               return (
-                <div key={`group-wrapper-${item.group.id}`} className={cardWidthClass}>
+                <div
+                  key={`group-wrapper-${item.group.id}`}
+                  className={cardWidthClass}
+                >
                   {renderGroupCard(item.group)}
                 </div>
               );
@@ -400,11 +444,13 @@ export default function CategoryNavigation({
       {/* Drawer Overlay */}
       {selectedGroup && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div 
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+          <button
+            type="button"
+            aria-label="Close folder group drawer"
+            className="absolute inset-0 border-0 p-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
             onClick={() => setSelectedGroup(null)}
           />
-          
+
           <div className="relative w-full max-w-2xl bg-[var(--background)] rounded-t-3xl sm:rounded-3xl border border-[var(--foreground)]/10 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-10 duration-300">
             {/* Drawer Header */}
             <div className="sticky top-0 z-10 bg-[var(--background)]/80 backdrop-blur-md border-b border-[var(--foreground)]/5 p-4 flex items-center justify-between">
@@ -413,11 +459,16 @@ export default function CategoryNavigation({
                   <FiFolder className="text-[var(--primary)]" size={18} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider">{selectedGroup.name}</h3>
-                  <p className="text-[10px] text-[var(--foreground)]/50 uppercase font-medium">{selectedGroup.items.length} Folders inside</p>
+                  <h3 className="text-sm font-bold uppercase tracking-wider">
+                    {selectedGroup.name}
+                  </h3>
+                  <p className="text-[10px] text-[var(--foreground)]/50 uppercase font-medium">
+                    {selectedGroup.items.length} Folders inside
+                  </p>
                 </div>
               </div>
-              <button 
+              <button
+                type="button"
                 onClick={() => setSelectedGroup(null)}
                 className="p-2 hover:bg-[var(--foreground)]/5 rounded-full transition-colors"
               >

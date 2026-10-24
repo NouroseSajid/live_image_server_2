@@ -10,7 +10,7 @@ export async function GET() {
       const wsHost = process.env.WS_SERVER_HOST || "localhost";
       const wsPort = process.env.WS_SERVER_PORT || "8080";
       const protocol = process.env.WS_USE_SECURE === "true" ? "wss" : "ws";
-      
+
       // If WS_SERVER_URL is explicitly set (for services like Socket.io), use that
       if (process.env.WS_SERVER_URL) {
         wsUrl = process.env.WS_SERVER_URL;

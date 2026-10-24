@@ -6,7 +6,6 @@ import { useFetch } from "../lib/useFetch";
 import ActionBar from "./ActionBar";
 import CategoryNavigation from "./CategoryNavigation";
 import DownloadProgress from "./DownloadProgress";
-import ErrorDisplay from "./gallerycomponents/ErrorDisplay";
 import PassphraseModal from "./gallerycomponents/PassphraseModal";
 import { useContainerWidth } from "./gallerycomponents/useContainerWidth";
 import { useImageFetch } from "./gallerycomponents/useImageFetch";
@@ -34,7 +33,19 @@ interface FetchedImage {
   meta: string;
   createdAt?: string;
 }
-interface Folder {
+interface IncomingFile {
+  id: string;
+  fileName: string;
+  folderId: string;
+  fileType: "image" | "video";
+  mimeType?: string;
+  variants?: { name: string; path: string; size?: number }[];
+  width?: number;
+  height?: number;
+  createdAt?: string;
+}
+
+export interface Folder {
   id: string;
   name: string;
   isPrivate?: boolean;
@@ -73,15 +84,22 @@ interface GalleryProps {
   initialFolder?: Folder;
 }
 
-export default function Gallery({ initialFolderId, initialFolder }: GalleryProps = {}) {
-  const [folders, setFolders] = useState<Folder[]>(initialFolder ? [initialFolder] : []);
-  const [activeFolder, setActiveFolder] = useState<string>(initialFolderId || "all");
+export default function Gallery({
+  initialFolderId,
+  initialFolder,
+}: GalleryProps = {}) {
+  const [folders, setFolders] = useState<Folder[]>(
+    initialFolder ? [initialFolder] : [],
+  );
+  const [activeFolder, setActiveFolder] = useState<string>(
+    initialFolderId || "all",
+  );
 
   useEffect(() => {
     if (initialFolderId && initialFolderId !== activeFolder) {
       setActiveFolder(initialFolderId);
     }
-  }, [initialFolderId]);
+  }, [initialFolderId, activeFolder]);
 
   const [offset, setOffset] = useState(0);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
@@ -92,12 +110,16 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
     id: string;
     totalFiles: number;
   } | null>(null);
-  const [allFolderThumbnailUrl, setAllFolderThumbnailUrl] = useState<string | null>(null);
+  const [allFolderThumbnailUrl, setAllFolderThumbnailUrl] = useState<
+    string | null
+  >(null);
   const [folderMaxAgeMinutes, setFolderMaxAgeMinutes] = useState<
     Record<string, number | null>
   >({});
   const [error, setError] = useState<string | null>(null);
-  const [folderPassphrases, setFolderPassphrases] = useState<Record<string, string>>(() => {
+  const [folderPassphrases, setFolderPassphrases] = useState<
+    Record<string, string>
+  >(() => {
     if (typeof window === "undefined") return {};
     try {
       const sessionStored = sessionStorage.getItem("folderPassphrases");
@@ -241,16 +263,16 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
     onLoadMore: () => setOffset((prev) => prev + BATCH_SIZE),
   });
 
-  const { data: foldersData, error: foldersError } =
-    useFetch<Folder[]>("/api/folders?scope=public");
+  const { data: foldersData, error: foldersError } = useFetch<Folder[]>(
+    "/api/folders?scope=public",
+  );
 
   const { data: galleryConfigData } = useFetch<GalleryConfig>(
     "/api/gallery-config",
   );
 
-  const { data: galleryOrderData } = useFetch<GalleryOrderItem[]>(
-    "/api/gallery-order",
-  );
+  const { data: galleryOrderData } =
+    useFetch<GalleryOrderItem[]>("/api/gallery-order");
 
   useEffect(() => {
     if (foldersData) {
@@ -258,15 +280,15 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
         // Keep any folders that are already in state but not in foldersData
         // (e.g. folders added via initialFolder or tokens)
         const combined = [...foldersData];
-        
+
         // Add initialFolder if missing
         if (initialFolder && !combined.some((f) => f.id === initialFolder.id)) {
           combined.push(initialFolder);
         }
-        
+
         // Add any other "legacy" folders that were in prev but are not in combined
-        prev.forEach(oldFolder => {
-          if (!combined.some(f => f.id === oldFolder.id)) {
+        prev.forEach((oldFolder) => {
+          if (!combined.some((f) => f.id === oldFolder.id)) {
             combined.push(oldFolder);
           }
         });
@@ -341,7 +363,10 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
 
   useEffect(() => {
     try {
-      sessionStorage.setItem("folderPassphrases", JSON.stringify(folderPassphrases));
+      sessionStorage.setItem(
+        "folderPassphrases",
+        JSON.stringify(folderPassphrases),
+      );
     } catch (err) {
       console.error("[Gallery] Failed to persist passphrases", err);
     }
@@ -371,7 +396,7 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
 
             const message = JSON.parse(data);
             if (message.type === "new-file" && message.payload) {
-              const newFile = message.payload;
+              const newFile: IncomingFile = message.payload;
               console.log("[Gallery] Received new file:", newFile.fileName);
 
               const newImage: FetchedImage = {
@@ -383,8 +408,8 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
                 width: newFile.width ?? 1920,
                 height: newFile.height ?? 1080,
                 url:
-                  newFile.variants?.find((v: any) => v.name === "thumbnail")?.path ||
-                  newFile.variants?.find((v: any) => v.name === "thumb")?.path ||
+                  newFile.variants?.find((v) => v.name === "thumbnail")?.path ||
+                  newFile.variants?.find((v) => v.name === "thumb")?.path ||
                   newFile.variants?.[0]?.path ||
                   "/icons/video-placeholder.svg",
                 category: newFile.folderId,
@@ -396,7 +421,10 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
               setImages((prev) => [newImage, ...prev]);
             }
           } catch (error) {
-            console.error("[Gallery] Error processing WebSocket message:", error);
+            console.error(
+              "[Gallery] Error processing WebSocket message:",
+              error,
+            );
           }
         };
 
@@ -431,7 +459,10 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
     };
   }, []);
 
+  const lastResetFolderRef = useRef(activeFolder);
   useEffect(() => {
+    if (lastResetFolderRef.current === activeFolder) return;
+    lastResetFolderRef.current = activeFolder;
     setOffset(0);
     setSelectedIds(new Set());
   }, [activeFolder]);
@@ -496,12 +527,14 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
         : undefined;
 
       const thumbnailUrl = isVideo
-        ? convertToApiRoute(thumbnailVariant?.path) || "/icons/video-placeholder.svg"
+        ? convertToApiRoute(thumbnailVariant?.path) ||
+          "/icons/video-placeholder.svg"
         : convertToApiRoute(thumbnailVariant?.path) ||
           convertToApiRoute(image.variants[0]?.path) ||
           "/icons/video-placeholder.svg";
 
-      const lightboxUrl = convertToApiRoute(webpVariant?.path) ||
+      const lightboxUrl =
+        convertToApiRoute(webpVariant?.path) ||
         convertToApiRoute(originalVariant?.path) ||
         convertToApiRoute(image.variants[0]?.path) ||
         "/icons/video-placeholder.svg";
@@ -677,7 +710,10 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
           onSelectCategory={handleSelectCategory}
         />
 
-        <div id="latest-uploads" className="mb-4 flex flex-wrap items-center justify-between gap-3 scroll-mt-24">
+        <div
+          id="latest-uploads"
+          className="mb-4 flex flex-wrap items-center justify-between gap-3 scroll-mt-24"
+        >
           <div>
             <p className="text-lg font-semibold text-[var(--foreground)]">
               Latest uploads
@@ -706,7 +742,9 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
         {isLoading && (
           <div className="flex justify-center items-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--foreground)]/60"></div>
-            <span className="ml-3 text-[var(--foreground)]/60">Loading more images...</span>
+            <span className="ml-3 text-[var(--foreground)]/60">
+              Loading more images...
+            </span>
           </div>
         )}
 
@@ -728,7 +766,11 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
             }));
             setActiveFolder(passphraseModal.folderId);
             if (typeof window !== "undefined") {
-              window.history.replaceState({}, "", `?f=${passphraseModal.folderId}`);
+              window.history.replaceState(
+                {},
+                "",
+                `?f=${passphraseModal.folderId}`,
+              );
             }
             setError(null);
             setPassphraseModal(null);
@@ -740,58 +782,57 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
         />
       )}
 
-      {lightboxImg && (
+      {lightboxImg &&
         (() => {
           const idx = processedImages.findIndex((i) => i.id === lightboxImg.id);
           const hasImages = processedImages.length > 0 && idx !== -1;
-          const nextImage = hasImages && idx + 1 < processedImages.length
-            ? processedImages[idx + 1]
-            : null;
-          const prevImage = hasImages && idx - 1 >= 0
-            ? processedImages[idx - 1]
-            : null;
+          const nextImage =
+            hasImages && idx + 1 < processedImages.length
+              ? processedImages[idx + 1]
+              : null;
+          const prevImage =
+            hasImages && idx - 1 >= 0 ? processedImages[idx - 1] : null;
 
           return (
-        <Lightbox
-          image={lightboxImg}
-          passphrase={folderPassphrases[activeFolder]}
-          onClose={closeLightbox}
-          onNext={() => {
-            const idx = processedImages.findIndex(
-              (i) => i.id === lightboxImg.id,
-            );
-            const next = idx + 1;
-            if (next < processedImages.length) {
-              showLightboxImage(processedImages[next]);
-              scrollToImage(processedImages[next].id);
-              return;
-            }
-            if (hasMore && !isLoading) {
-              pendingAdvanceRef.current = true;
-              triggerLoadMore();
-            }
-          }}
-          onPrev={() => {
-            const idx = processedImages.findIndex(
-              (i) => i.id === lightboxImg.id,
-            );
-            const prev = idx - 1;
-            if (prev >= 0) {
-              showLightboxImage(processedImages[prev]);
-              scrollToImage(processedImages[prev].id);
-            }
-          }}
-          canNext={Boolean(nextImage) || (hasMore && !isLoading)}
-          isLoadingMore={isLoading}
-          nextImage={nextImage}
-          prevImage={prevImage}
-          isSelected={selectedIds.has(lightboxImg.id)}
-          onToggleSelect={toggleSelect}
-          isDownloading={isDownloading}
-        />
+            <Lightbox
+              image={lightboxImg}
+              passphrase={folderPassphrases[activeFolder]}
+              onClose={closeLightbox}
+              onNext={() => {
+                const idx = processedImages.findIndex(
+                  (i) => i.id === lightboxImg.id,
+                );
+                const next = idx + 1;
+                if (next < processedImages.length) {
+                  showLightboxImage(processedImages[next]);
+                  scrollToImage(processedImages[next].id);
+                  return;
+                }
+                if (hasMore && !isLoading) {
+                  pendingAdvanceRef.current = true;
+                  triggerLoadMore();
+                }
+              }}
+              onPrev={() => {
+                const idx = processedImages.findIndex(
+                  (i) => i.id === lightboxImg.id,
+                );
+                const prev = idx - 1;
+                if (prev >= 0) {
+                  showLightboxImage(processedImages[prev]);
+                  scrollToImage(processedImages[prev].id);
+                }
+              }}
+              canNext={Boolean(nextImage) || (hasMore && !isLoading)}
+              isLoadingMore={isLoading}
+              nextImage={nextImage}
+              prevImage={prevImage}
+              isSelected={selectedIds.has(lightboxImg.id)}
+              onToggleSelect={toggleSelect}
+              isDownloading={isDownloading}
+            />
           );
-        })()
-      )}
+        })()}
 
       {!downloadProgress && (
         <ActionBar
@@ -844,7 +885,7 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
 
           try {
             const downloadId = `dl-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-            
+
             console.log(
               `[Download] Starting download of ${selectedIds.size} images (quality: ${quality}, id: ${downloadId})`,
             );
@@ -887,8 +928,12 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
             });
 
             if (!res.ok) {
-              const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
-              throw new Error(errorData.error || `Server returned ${res.status}`);
+              const errorData = await res
+                .json()
+                .catch(() => ({ error: "Unknown error" }));
+              throw new Error(
+                errorData.error || `Server returned ${res.status}`,
+              );
             }
 
             const { sessionToken } = await res.json();
@@ -905,7 +950,9 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
                   msg.type === "download-complete" &&
                   msg.payload.downloadId === downloadId
                 ) {
-                  console.log("[Download] Received completion event from server");
+                  console.log(
+                    "[Download] Received completion event from server",
+                  );
                   resolveDownload();
                 }
               } catch (err) {
@@ -1019,7 +1066,6 @@ export default function Gallery({ initialFolderId, initialFolder }: GalleryProps
           onClose={() => setDownloadProgress(null)}
         />
       )}
-
     </div>
   );
 }

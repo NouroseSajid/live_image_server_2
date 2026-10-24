@@ -1,8 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { FiArchive, FiEye, FiGrid, FiLink, FiLock, FiSave, FiX } from "react-icons/fi";
 import axios from "axios";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+import {
+  FiArchive,
+  FiEye,
+  FiGrid,
+  FiLink,
+  FiLock,
+  FiSave,
+  FiX,
+} from "react-icons/fi";
 
 export interface FolderUpdate {
   name: string;
@@ -64,15 +73,39 @@ export default function FolderEditorModal({
 
   // Visibility slider: 0=Archived, 1=Hidden, 2=Visible, 3=In Gallery
   const VISIBILITY_LEVELS = [
-    { label: "Archived", icon: FiArchive, color: "text-gray-500", desc: "Admin-only. Not accessible publicly." },
-    { label: "Hidden", icon: FiLink, color: "text-yellow-500", desc: "Accessible via direct link only" },
-    { label: "Visible", icon: FiEye, color: "text-blue-500", desc: "Shown in folder navigation" },
-    { label: "In Gallery", icon: FiGrid, color: "text-green-500", desc: "Images appear in main gallery" },
+    {
+      label: "Archived",
+      icon: FiArchive,
+      color: "text-gray-500",
+      desc: "Admin-only. Not accessible publicly.",
+    },
+    {
+      label: "Hidden",
+      icon: FiLink,
+      color: "text-yellow-500",
+      desc: "Accessible via direct link only",
+    },
+    {
+      label: "Visible",
+      icon: FiEye,
+      color: "text-blue-500",
+      desc: "Shown in folder navigation",
+    },
+    {
+      label: "In Gallery",
+      icon: FiGrid,
+      color: "text-green-500",
+      desc: "Images appear in main gallery",
+    },
   ] as const;
 
   const SLIDER_COLORS = ["#6b7280", "#eab308", "#3b82f6", "#22c55e"];
 
-  const deriveSliderLevel = (data: { archived: boolean; visible: boolean; inGridView: boolean }) => {
+  const deriveSliderLevel = (data: {
+    archived: boolean;
+    visible: boolean;
+    inGridView: boolean;
+  }) => {
     if (data.archived) return 0;
     if (!data.visible) return 1;
     if (data.inGridView) return 3;
@@ -201,7 +234,9 @@ export default function FolderEditorModal({
         setError("No token returned");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create access link");
+      setError(
+        err instanceof Error ? err.message : "Failed to create access link",
+      );
     } finally {
       setIsGeneratingAccessLink(false);
     }
@@ -277,6 +312,7 @@ export default function FolderEditorModal({
             Edit Folder
           </h2>
           <button
+            type="button"
             ref={closeButtonRef}
             onClick={onClose}
             disabled={isLoading || thumbnailUploading}
@@ -302,10 +338,14 @@ export default function FolderEditorModal({
             </h3>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor="folder-name"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Folder Name
               </label>
               <input
+                id="folder-name"
                 type="text"
                 name="name"
                 value={formData.name}
@@ -318,10 +358,14 @@ export default function FolderEditorModal({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor="folder-slug"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Unique URL Slug
               </label>
               <input
+                id="folder-slug"
                 type="text"
                 name="uniqueUrl"
                 value={formData.uniqueUrl}
@@ -344,17 +388,27 @@ export default function FolderEditorModal({
             <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50 space-y-4">
               {/* Current level indicator */}
               <div className="flex items-center gap-3">
-                {(() => { const L = VISIBILITY_LEVELS[visibilityLevel]; const Icon = L.icon; return (
-                  <>
-                    <div className={`p-2 rounded-lg bg-gray-200 dark:bg-gray-600 ${L.color}`}>
-                      <Icon size={18} />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white text-sm">{L.label}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{L.desc}</p>
-                    </div>
-                  </>
-                ); })()}
+                {(() => {
+                  const L = VISIBILITY_LEVELS[visibilityLevel];
+                  const Icon = L.icon;
+                  return (
+                    <>
+                      <div
+                        className={`p-2 rounded-lg bg-gray-200 dark:bg-gray-600 ${L.color}`}
+                      >
+                        <Icon size={18} />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                          {L.label}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {L.desc}
+                        </p>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Slider track */}
@@ -382,7 +436,11 @@ export default function FolderEditorModal({
                           ? "border-current bg-white dark:bg-gray-800 shadow-md scale-110"
                           : "border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-700"
                       }`}
-                      style={i <= visibilityLevel ? { color: SLIDER_COLORS[i] } : undefined}
+                      style={
+                        i <= visibilityLevel
+                          ? { color: SLIDER_COLORS[i] }
+                          : undefined
+                      }
                       aria-label={level.label}
                     >
                       {i === visibilityLevel && (
@@ -435,12 +493,16 @@ export default function FolderEditorModal({
                   disabled={isGeneratingAccessLink}
                   className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600"
                 >
-                  {isGeneratingAccessLink ? "Generating…" : "Generate Access Link"}
+                  {isGeneratingAccessLink
+                    ? "Generating…"
+                    : "Generate Access Link"}
                 </button>
                 {accessLinkToken && (
                   <button
                     type="button"
-                    onClick={() => copyToClipboard(buildAccessLinkUrl(accessLinkToken))}
+                    onClick={() =>
+                      copyToClipboard(buildAccessLinkUrl(accessLinkToken))
+                    }
                     className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600"
                   >
                     Copy Access Link
@@ -451,10 +513,14 @@ export default function FolderEditorModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label
+              htmlFor="folder-group"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+            >
               Folder Group
             </label>
             <select
+              id="folder-group"
               name="groupId"
               value={formData.groupId}
               onChange={handleChange}
@@ -481,40 +547,58 @@ export default function FolderEditorModal({
             {/* Password protection toggle */}
             <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 dark:bg-gray-700/50">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${formData.isPrivate ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-500' : 'bg-gray-200 dark:bg-gray-600 text-gray-400'}`}>
+                <div
+                  className={`p-2 rounded-lg ${formData.isPrivate ? "bg-orange-100 dark:bg-orange-900/30 text-orange-500" : "bg-gray-200 dark:bg-gray-600 text-gray-400"}`}
+                >
                   <FiLock size={18} />
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900 dark:text-white text-sm">Password Protected</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Require a passphrase to view this folder</p>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">
+                    Password Protected
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Require a passphrase to view this folder
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  setFormData((prev) => ({ ...prev, isPrivate: !prev.isPrivate, passphrase: !prev.isPrivate ? prev.passphrase : "" }));
+                  setFormData((prev) => ({
+                    ...prev,
+                    isPrivate: !prev.isPrivate,
+                    passphrase: !prev.isPrivate ? prev.passphrase : "",
+                  }));
                   setIsDirty(true);
                 }}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  formData.isPrivate ? 'bg-orange-500' : 'bg-gray-300 dark:bg-gray-600'
+                  formData.isPrivate
+                    ? "bg-orange-500"
+                    : "bg-gray-300 dark:bg-gray-600"
                 }`}
                 role="switch"
                 aria-checked={formData.isPrivate}
               >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  formData.isPrivate ? 'translate-x-6' : 'translate-x-1'
-                }`} />
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    formData.isPrivate ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
               </button>
             </div>
 
             {/* Passphrase input - only shown when password protection is on */}
             {formData.isPrivate && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label
+                  htmlFor="folder-passphrase"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+                >
                   Passphrase
                 </label>
                 <input
                   ref={passphraseInputRef}
+                  id="folder-passphrase"
                   type="text"
                   name="passphrase"
                   value={formData.passphrase}
@@ -541,7 +625,10 @@ export default function FolderEditorModal({
             </h3>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label
+                htmlFor="folder-thumbnail"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+              >
                 Upload Thumbnail Image (Optional)
               </label>
               <div className="flex flex-col gap-4">
@@ -549,6 +636,7 @@ export default function FolderEditorModal({
                 <div>
                   <input
                     ref={fileInputRef}
+                    id="folder-thumbnail"
                     type="file"
                     accept="image/*"
                     onChange={handleThumbnailSelect}
@@ -564,10 +652,12 @@ export default function FolderEditorModal({
                 {/* Preview */}
                 {thumbnailPreview && (
                   <div className="relative w-full h-40 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden">
-                    <img
+                    <Image
                       src={thumbnailPreview}
                       alt="Thumbnail preview"
-                      className="w-full h-full object-cover"
+                      fill
+                      unoptimized
+                      className="object-cover"
                     />
                   </div>
                 )}

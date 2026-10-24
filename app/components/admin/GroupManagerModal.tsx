@@ -88,7 +88,9 @@ export default function GroupManagerModal({
                     <input
                       className="flex-1 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       value={draftValue}
-                      onChange={(e) => onGroupDraftChange(group.id, e.target.value)}
+                      onChange={(e) =>
+                        onGroupDraftChange(group.id, e.target.value)
+                      }
                     />
                     <button
                       type="button"

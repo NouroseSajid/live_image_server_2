@@ -20,7 +20,10 @@ export async function PUT(
     const { name } = body || {};
 
     if (!name || typeof name !== "string" || !name.trim()) {
-      return NextResponse.json({ error: "Group name is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Group name is required" },
+        { status: 400 },
+      );
     }
 
     const updated = await prisma.folderGroup.update({

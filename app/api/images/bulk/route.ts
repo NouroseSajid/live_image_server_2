@@ -183,7 +183,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const action: "move" | "copy" | "delete" = body?.action;
     const fileIds: string[] = body?.fileIds || [];
-    const targetFolderId: string | undefined = body?.targetFolderId || undefined;
+    const targetFolderId: string | undefined =
+      body?.targetFolderId || undefined;
     const conflictResolution: "rename" | "replace" | "skip" | undefined =
       body?.conflictResolution || undefined;
 
@@ -199,7 +200,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Type guard: ensure targetFolderId is defined for move/copy actions
-    if ((action === "move" || action === "copy") && typeof targetFolderId !== "string") {
+    if (
+      (action === "move" || action === "copy") &&
+      typeof targetFolderId !== "string"
+    ) {
       return NextResponse.json(
         { error: "Invalid target folder ID" },
         { status: 400 },
@@ -269,7 +273,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const existingNames = new Set(existingInTarget.map((item) => item.fileName));
+    const existingNames = new Set(
+      existingInTarget.map((item) => item.fileName),
+    );
     let filesToProcess = files;
     const renameMap = new Map<string, string>();
     const skippedIds: string[] = [];

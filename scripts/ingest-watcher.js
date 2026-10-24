@@ -38,8 +38,14 @@ const _VARIANT_NAMES = {
 const _THUMB_SIZE = Number.parseInt(process.env.THUMB_WIDTH || "300", 10);
 const _WEBP_QUALITY = Number.parseInt(process.env.WEBP_QUALITY || "80", 10);
 const _WS_RECONNECT_DELAY = 5000;
-const _CONFIG_UPDATE_INTERVAL = Number.parseInt(process.env.CONFIG_UPDATE_INTERVAL || "5000", 10);
-const _FILE_STABLE_THRESHOLD = Number.parseInt(process.env.FILE_STABLE_THRESHOLD || "1500", 10);
+const _CONFIG_UPDATE_INTERVAL = Number.parseInt(
+  process.env.CONFIG_UPDATE_INTERVAL || "5000",
+  10,
+);
+const _FILE_STABLE_THRESHOLD = Number.parseInt(
+  process.env.FILE_STABLE_THRESHOLD || "1500",
+  10,
+);
 const _VIDEO_PLACEHOLDER = "/icons/video-placeholder.svg";
 const _VIDEO_FALLBACK_WIDTH = 1920;
 const _VIDEO_FALLBACK_HEIGHT = 1080;
@@ -133,9 +139,11 @@ async function getIngestFolderId() {
     const data = await fs.readFile(configPath, "utf-8");
     const config = JSON.parse(data);
     if (config.folderId) return config.folderId;
-    if (Array.isArray(config.folderIds) && config.folderIds.length > 0) return config.folderIds[0];
+    if (Array.isArray(config.folderIds) && config.folderIds.length > 0)
+      return config.folderIds[0];
   } catch (error) {
-    if (error.code !== "ENOENT") console.error("Error reading ingest-config.json:", error);
+    if (error.code !== "ENOENT")
+      console.error("Error reading ingest-config.json:", error);
     return null;
   }
 }
@@ -144,7 +152,9 @@ async function updateIngestFolderId() {
   try {
     const folderId = await getIngestFolderId();
     if (folderId) {
-      const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+      const folder = await prisma.folder.findUnique({
+        where: { id: folderId },
+      });
       if (folder) {
         if (liveFolderId !== folder.id) {
           log(`Ingest folder changed to: ${folder.name} (ID: ${folder.id})`);
@@ -192,13 +202,13 @@ async function checkAndRetryFailed() {
     for (const file of files) {
       const fullPath = path.join(failedFolder, file);
       const count = retryCount.get(file) || 0;
-      if (count < 1) { 
+      if (count < 1) {
         log(`Retrying failed file: ${file}`);
         retryCount.set(file, count + 1);
         enqueueFile(fullPath);
       }
     }
-  } catch (err) {
+  } catch {
     // Ignore
   }
 }
@@ -212,16 +222,18 @@ async function handleFailure(filePath, error) {
   const fileName = path.basename(filePath);
   log(`FAILURE for ${fileName}: ${error}`);
   await logFailed(fileName, error);
-  
+
   try {
     await fs.mkdir(failedFolder, { recursive: true });
     const destPath = path.join(failedFolder, fileName);
     if (filePath !== destPath) {
-        await fs.rename(filePath, destPath);
-        log(`Moved failed file to: ${destPath}`);
+      await fs.rename(filePath, destPath);
+      log(`Moved failed file to: ${destPath}`);
     }
   } catch (err) {
-    log(`Critical error: Could not move failed file ${fileName}: ${err.message}`);
+    log(
+      `Critical error: Could not move failed file ${fileName}: ${err.message}`,
+    );
   }
 }
 
@@ -234,7 +246,7 @@ async function processFile(filePath) {
     }
 
     await fs.access(filePath);
-    
+
     // Read only the first 4KB to detect type
     let fileTypeResult = null;
     try {
@@ -242,7 +254,9 @@ async function processFile(filePath) {
       const headerBuffer = Buffer.alloc(4096);
       const { bytesRead } = await fd.read(headerBuffer, 0, 4096, 0);
       await fd.close();
-      fileTypeResult = await fileTypeFromBuffer(headerBuffer.subarray(0, bytesRead));
+      fileTypeResult = await fileTypeFromBuffer(
+        headerBuffer.subarray(0, bytesRead),
+      );
     } catch (err) {
       log(`Error reading file header for type detection: ${err.message}`);
     }
@@ -255,7 +269,9 @@ async function processFile(filePath) {
       return;
     }
 
-    const mime = fileTypeResult ? fileTypeResult.mime : "application/octet-stream";
+    const mime = fileTypeResult
+      ? fileTypeResult.mime
+      : "application/octet-stream";
     const isImage = mime.startsWith("image/");
     const isVideo = mime.startsWith("video/");
 
@@ -275,14 +291,31 @@ async function processFile(filePath) {
 }
 
 function isRawFile(filePath) {
-  const rawExtensions = [".arw", ".cr2", ".cr3", ".nef", ".orf", ".raf", ".rw2", ".pef", ".dng"];
+  const rawExtensions = [
+    ".arw",
+    ".cr2",
+    ".cr3",
+    ".nef",
+    ".orf",
+    ".raf",
+    ".rw2",
+    ".pef",
+    ".dng",
+  ];
   return rawExtensions.includes(path.extname(filePath).toLowerCase());
 }
 
 async function processRawFile(filePath) {
   const fileName = path.basename(filePath);
   const targetFolderId = liveFolderId;
-  const rawFolder = path.join(__dirname, "..", "image_repo", "images", String(targetFolderId), "raw");
+  const rawFolder = path.join(
+    __dirname,
+    "..",
+    "image_repo",
+    "images",
+    String(targetFolderId),
+    "raw",
+  );
 
   await fs.mkdir(rawFolder, { recursive: true });
   const originalPath = path.join(rawFolder, fileName);
@@ -293,8 +326,15 @@ async function processRawFile(filePath) {
 async function processVideo(filePath, fileTypeResult) {
   const fileName = path.basename(filePath);
   const targetFolderId = liveFolderId;
-  const originalFolder = path.join(__dirname, "..", "image_repo", "images", String(targetFolderId), "original");
-  
+  const originalFolder = path.join(
+    __dirname,
+    "..",
+    "image_repo",
+    "images",
+    String(targetFolderId),
+    "original",
+  );
+
   await fs.mkdir(originalFolder, { recursive: true });
   const originalPath = path.join(originalFolder, fileName);
 
@@ -320,12 +360,21 @@ async function processVideo(filePath, fileTypeResult) {
     const fileStats = await fs.stat(originalPath);
     const newFile = await prisma.file.create({
       data: {
-        fileName, hash, mimeType: fileTypeResult?.mime || null,
-        width: _VIDEO_FALLBACK_WIDTH, height: _VIDEO_FALLBACK_HEIGHT,
-        fileSize: BigInt(fileStats.size), fileType: "video", folderId: targetFolderId,
+        fileName,
+        hash,
+        mimeType: fileTypeResult?.mime || null,
+        width: _VIDEO_FALLBACK_WIDTH,
+        height: _VIDEO_FALLBACK_HEIGHT,
+        fileSize: BigInt(fileStats.size),
+        fileType: "video",
+        folderId: targetFolderId,
         variants: {
           create: [
-            { name: "original", path: `/images/${targetFolderId}/original/${fileName}`, size: BigInt(fileStats.size) },
+            {
+              name: "original",
+              path: `/images/${targetFolderId}/original/${fileName}`,
+              size: BigInt(fileStats.size),
+            },
             { name: "thumbnail", path: _VIDEO_PLACEHOLDER, size: BigInt(0) },
           ],
         },
@@ -345,7 +394,13 @@ async function processImage(filePath) {
   const fileBaseName = path.basename(fileName, fileExtension);
   const targetFolderId = liveFolderId;
 
-  const baseFolder = path.join(__dirname, "..", "image_repo", "images", String(targetFolderId));
+  const baseFolder = path.join(
+    __dirname,
+    "..",
+    "image_repo",
+    "images",
+    String(targetFolderId),
+  );
   const originalFolder = path.join(baseFolder, "original");
   const webpFolder = path.join(baseFolder, "webp");
   const thumbFolder = path.join(baseFolder, "thumbs");
@@ -380,25 +435,48 @@ async function processImage(filePath) {
   const meta = await rotatedSharp.metadata();
 
   await rotatedSharp.clone().webp({ quality: 75, effort: 6 }).toFile(webpPath);
-  await rotatedSharp.clone().resize(300, 300, { fit: "cover" }).webp({ quality: 80 }).toFile(thumbPath);
+  await rotatedSharp
+    .clone()
+    .resize(300, 300, { fit: "cover" })
+    .webp({ quality: 80 })
+    .toFile(thumbPath);
 
   await fs.rename(filePath, originalPath);
 
   try {
     const [origStats, webpStats, thumbStats] = await Promise.all([
-      fs.stat(originalPath), fs.stat(webpPath), fs.stat(thumbPath)
+      fs.stat(originalPath),
+      fs.stat(webpPath),
+      fs.stat(thumbPath),
     ]);
 
     const newFile = await prisma.file.create({
       data: {
-        fileName, hash, mimeType: "image/webp",
-        width: meta.width, height: meta.height,
-        fileSize: BigInt(origStats.size), fileType: "image", folderId: targetFolderId,
+        fileName,
+        hash,
+        mimeType: "image/webp",
+        width: meta.width,
+        height: meta.height,
+        fileSize: BigInt(origStats.size),
+        fileType: "image",
+        folderId: targetFolderId,
         variants: {
           create: [
-            { name: "original", path: `/images/${targetFolderId}/original/${fileName}`, size: BigInt(origStats.size) },
-            { name: "webp", path: `/images/${targetFolderId}/webp/${fileBaseName}.webp`, size: BigInt(webpStats.size) },
-            { name: "thumbnail", path: `/images/${targetFolderId}/thumbs/${fileBaseName}_thumb.webp`, size: BigInt(thumbStats.size) },
+            {
+              name: "original",
+              path: `/images/${targetFolderId}/original/${fileName}`,
+              size: BigInt(origStats.size),
+            },
+            {
+              name: "webp",
+              path: `/images/${targetFolderId}/webp/${fileBaseName}.webp`,
+              size: BigInt(webpStats.size),
+            },
+            {
+              name: "thumbnail",
+              path: `/images/${targetFolderId}/thumbs/${fileBaseName}_thumb.webp`,
+              size: BigInt(thumbStats.size),
+            },
           ],
         },
       },
@@ -422,13 +500,14 @@ async function startWatching() {
     return;
   }
 
-  watcher = chokidar.watch(ingestFolder, {
-    ignored: /(^|[/\\])\../,
-    persistent: true,
-    awaitWriteFinish: { stabilityThreshold: 1500, pollInterval: 100 },
-  })
-  .on("add", (path) => enqueueFile(path))
-  .on("error", (error) => log(`Watcher error: ${error.message}`));
+  watcher = chokidar
+    .watch(ingestFolder, {
+      ignored: /(^|[/\\])\../,
+      persistent: true,
+      awaitWriteFinish: { stabilityThreshold: 1500, pollInterval: 100 },
+    })
+    .on("add", (path) => enqueueFile(path))
+    .on("error", (error) => log(`Watcher error: ${error.message}`));
 }
 
 (async () => {

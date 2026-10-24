@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { mkdir, stat, writeFile, unlink } from "node:fs/promises";
+import { mkdir, stat, unlink, writeFile } from "node:fs/promises";
 import path, { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
@@ -14,7 +14,15 @@ const VIDEO_FALLBACK_WIDTH = 1920;
 const VIDEO_FALLBACK_HEIGHT = 1080;
 
 const RAW_EXTENSIONS = new Set([
-  ".arw", ".cr2", ".cr3", ".nef", ".orf", ".raf", ".rw2", ".pef", ".dng",
+  ".arw",
+  ".cr2",
+  ".cr3",
+  ".nef",
+  ".orf",
+  ".raf",
+  ".rw2",
+  ".pef",
+  ".dng",
 ]);
 
 function isRawFile(fileName: string): boolean {
@@ -44,7 +52,10 @@ export async function POST(request: NextRequest) {
       const fId = formData.get("folderId") as string;
 
       if (!file) {
-        return NextResponse.json({ error: "No file provided" }, { status: 400 });
+        return NextResponse.json(
+          { error: "No file provided" },
+          { status: 400 },
+        );
       }
 
       if (!fId) {
@@ -79,7 +90,9 @@ export async function POST(request: NextRequest) {
       const rawFolderId = request.headers.get("x-folder-id");
       if (!rawFileName || !rawFolderId) {
         return NextResponse.json(
-          { error: "Missing x-file-name or x-folder-id headers for raw upload" },
+          {
+            error: "Missing x-file-name or x-folder-id headers for raw upload",
+          },
           { status: 400 },
         );
       }
@@ -89,9 +102,14 @@ export async function POST(request: NextRequest) {
       mimeType = contentType;
 
       // Verify folder exists before writing file
-      const folder = await prisma.folder.findUnique({ where: { id: folderId } });
+      const folder = await prisma.folder.findUnique({
+        where: { id: folderId },
+      });
       if (!folder) {
-        return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Folder not found" },
+          { status: 404 },
+        );
       }
 
       const permanentFolderBase = join(
@@ -105,7 +123,10 @@ export async function POST(request: NextRequest) {
       originalPath = join(originalFolder, fileName);
 
       if (!request.body) {
-        return NextResponse.json({ error: "Request body is empty" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Request body is empty" },
+          { status: 400 },
+        );
       }
 
       const writeStream = createWriteStream(originalPath);
@@ -135,7 +156,9 @@ export async function POST(request: NextRequest) {
     const folder = await prisma.folder.findUnique({ where: { id: folderId } });
     if (!folder) {
       if (originalPath) {
-        try { await unlink(originalPath); } catch {}
+        try {
+          await unlink(originalPath);
+        } catch {}
       }
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
@@ -167,10 +190,15 @@ export async function POST(request: NextRequest) {
       fileType = "video";
     } else {
       if (originalPath) {
-        try { await unlink(originalPath); } catch {}
+        try {
+          await unlink(originalPath);
+        } catch {}
       }
       return NextResponse.json(
-        { error: "Invalid file type. Only images, videos, and RAW files allowed." },
+        {
+          error:
+            "Invalid file type. Only images, videos, and RAW files allowed.",
+        },
         { status: 400 },
       );
     }
@@ -186,7 +214,11 @@ export async function POST(request: NextRequest) {
       // RAW file handling — save original, skip sharp processing
       const originalStats = await stat(originalPath);
 
-      const placeholderAbsolute = join(process.cwd(), "public", RAW_THUMB_PLACEHOLDER);
+      const placeholderAbsolute = join(
+        process.cwd(),
+        "public",
+        RAW_THUMB_PLACEHOLDER,
+      );
       let placeholderSize = BigInt(0);
       try {
         const placeholderStats = await stat(placeholderAbsolute);
@@ -332,7 +364,11 @@ export async function POST(request: NextRequest) {
       // Video
       const originalStats = await stat(originalPath);
 
-      const placeholderAbsolute = join(process.cwd(), "public", VIDEO_THUMB_PLACEHOLDER);
+      const placeholderAbsolute = join(
+        process.cwd(),
+        "public",
+        VIDEO_THUMB_PLACEHOLDER,
+      );
       let placeholderSize = BigInt(0);
       try {
         const placeholderStats = await stat(placeholderAbsolute);
@@ -399,4 +435,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

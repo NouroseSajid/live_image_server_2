@@ -18,23 +18,26 @@ export default function useAdminFiles({
   const [dragActive, setDragActive] = useState<boolean>(false);
   const dragRef = useRef<HTMLDivElement | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [actionTargetFolderId, setActionTargetFolderId] = useState<string | null>(
-    null,
-  );
+  const [actionTargetFolderId, setActionTargetFolderId] = useState<
+    string | null
+  >(null);
   const [isBulkWorking, setIsBulkWorking] = useState(false);
   const [conflictInfo, setConflictInfo] = useState<ConflictInfo | null>(null);
   const [stagedFiles, setStagedFiles] = useState<File[]>([]);
 
-  const fetchFiles = useCallback(async (folderId: string) => {
-    try {
-      const res = await fetch(`/api/folders/${folderId}/files`);
-      if (!res.ok) throw new Error("Failed to fetch files");
-      const data = await res.json();
-      setFiles(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error fetching files");
-    }
-  }, [setError]);
+  const fetchFiles = useCallback(
+    async (folderId: string) => {
+      try {
+        const res = await fetch(`/api/folders/${folderId}/files`);
+        if (!res.ok) throw new Error("Failed to fetch files");
+        const data = await res.json();
+        setFiles(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error fetching files");
+      }
+    },
+    [setError],
+  );
 
   useEffect(() => {
     if (activeFolder) {
@@ -42,7 +45,10 @@ export default function useAdminFiles({
     }
   }, [activeFolder, fetchFiles]);
 
+  const lastResetFolderRef = useRef(activeFolder);
   useEffect(() => {
+    if (lastResetFolderRef.current === activeFolder) return;
+    lastResetFolderRef.current = activeFolder;
     setSelectedIds(new Set());
     setActionTargetFolderId(null);
   }, [activeFolder]);
@@ -116,7 +122,8 @@ export default function useAdminFiles({
 
   const clearSelection = () => setSelectedIds(new Set());
 
-  const selectAll = () => setSelectedIds(new Set(files.map((f) => f.id)));
+  const selectAll = (ids?: string[]) =>
+    setSelectedIds(new Set(ids ?? files.map((f) => f.id)));
 
   const applyBulkAction = async (
     action: "move" | "copy" | "delete",
@@ -201,7 +208,11 @@ export default function useAdminFiles({
 
   const resolveConflicts = (resolution: "rename" | "replace" | "skip") => {
     if (!conflictInfo) return;
-    applyBulkAction(conflictInfo.action, resolution, conflictInfo.targetFolderId);
+    applyBulkAction(
+      conflictInfo.action,
+      resolution,
+      conflictInfo.targetFolderId,
+    );
   };
 
   return {

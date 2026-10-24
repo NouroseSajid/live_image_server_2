@@ -2,7 +2,7 @@
 
 import { AlertCircle, Check, UploadCloud, X } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { type Upload, useUploads } from "@/app/lib/useUploads";
 
 const UploadToast = () => {
@@ -24,10 +24,11 @@ const UploadToast = () => {
 
   const getOrCreateBlobUrl = (file: File): string => {
     const key = `${file.name}-${file.size}-${file.lastModified}`;
-    if (!blobUrlsRef.current.has(key)) {
-      blobUrlsRef.current.set(key, URL.createObjectURL(file));
-    }
-    return blobUrlsRef.current.get(key)!;
+    const existing = blobUrlsRef.current.get(key);
+    if (existing) return existing;
+    const url = URL.createObjectURL(file);
+    blobUrlsRef.current.set(key, url);
+    return url;
   };
 
   const getThumbnail = (upload: Upload) => {
@@ -131,8 +132,8 @@ const UploadToast = () => {
                     style={{ width: `${upload.progress}%` }}
                     className={`absolute left-0 top-0 h-full transition-all ${
                       upload.status === "success"
-                          ? "bg-green-500"
-                          : "bg-gradient-to-r from-blue-400 to-blue-600"
+                        ? "bg-green-500"
+                        : "bg-gradient-to-r from-blue-400 to-blue-600"
                     }`}
                   />
                 </div>
@@ -156,6 +157,7 @@ const UploadToast = () => {
                 )}
               </div>
               <button
+                type="button"
                 onClick={() => remove(upload.id)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
               >

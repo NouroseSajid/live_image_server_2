@@ -122,6 +122,21 @@ export async function GET(
 
     try {
       const stats = await stat(filePath);
+
+      // Count only successful, non-admin downloads. The file exists on disk at
+      // this point, so auth and variant resolution have already succeeded.
+      if (!session?.user) {
+        void prisma.file
+          .update({
+            where: { id: file.id },
+            data: {
+              downloadCount: { increment: 1 },
+              lastDownloadedAt: new Date(),
+            },
+          })
+          .catch((err) => console.error("Failed to record download:", err));
+      }
+
       const stream = createReadStream(filePath);
       const webStream = Readable.toWeb(stream);
 

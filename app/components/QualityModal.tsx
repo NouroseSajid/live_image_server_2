@@ -35,6 +35,7 @@ export default function QualityModal({
             Download Quality
           </h2>
           <button
+            type="button"
             onClick={onCancel}
             className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
           >
@@ -49,6 +50,7 @@ export default function QualityModal({
 
         <div className="space-y-3">
           <button
+            type="button"
             onClick={() => onSelect("original")}
             className="w-full p-4 border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/30 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-all text-left group"
           >
@@ -61,6 +63,7 @@ export default function QualityModal({
           </button>
 
           <button
+            type="button"
             onClick={() => onSelect("webp")}
             className="w-full p-4 border-2 border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-800 rounded-xl hover:bg-gray-100 dark:hover:bg-slate-700 transition-all text-left group"
           >
@@ -74,6 +77,7 @@ export default function QualityModal({
         </div>
 
         <button
+          type="button"
           onClick={onCancel}
           className="w-full mt-6 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors text-sm font-medium"
         >

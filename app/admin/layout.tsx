@@ -1,3 +1,4 @@
+import AdminNav from "../components/admin/AdminNav";
 import { AuthProvider } from "../providers/AuthProvider";
 
 export default function AdminLayout({
@@ -5,5 +6,10 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <AuthProvider>{children}</AuthProvider>;
+  return (
+    <AuthProvider>
+      <AdminNav />
+      {children}
+    </AuthProvider>
+  );
 }

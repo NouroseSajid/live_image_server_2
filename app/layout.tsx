@@ -40,7 +40,7 @@ export const metadata: Metadata = {
   },
   other: {
     "googlebot-news": "noindex",
-    "bingbot": "noindex",
+    bingbot: "noindex",
   },
 };
 
