@@ -1,43 +1,31 @@
-import { mkdir, rename, rm, stat } from "node:fs/promises";
-import { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import slugify from "slugify";
 import prisma from "../../../../prisma/client";
+import { getStorage, storageKey } from "../../../lib/storage";
 import { authOptions } from "../../auth/[...nextauth]/route";
 
-const repoImagesDir = (folderId: string) =>
-  join(process.cwd(), "image_repo", "images", folderId);
-
-/** Best-effort path existence check. */
-const pathExists = async (p: string) => {
-  try {
-    await stat(p);
-    return true;
-  } catch {
-    return false;
-  }
-};
+const repoImagesPrefix = (folderId: string) => storageKey("images", folderId);
 
 /**
- * Moves a folder's original files into `image_repo/trash/{folderId}/original`.
+ * Moves a folder's original files into `trash/{folderId}/original`.
  * Only originals are kept — webp/thumbs are derived and regenerable, so they
- * are removed once the folder is deleted. Returns the trash path, or null if
- * the folder had no originals on disk.
+ * are removed once the folder is deleted. Returns the trash key prefix, or
+ * null if the folder had no originals in storage.
  */
 async function trashFolderOriginals(folderId: string): Promise<string | null> {
-  const sourceDir = join(repoImagesDir(folderId), "original");
-  if (!(await pathExists(sourceDir))) return null;
+  const storage = getStorage();
+  const sourcePrefix = storageKey(repoImagesPrefix(folderId), "original");
+  if (!(await storage.existsPrefix(sourcePrefix))) return null;
 
-  let targetDir = join(process.cwd(), "image_repo", "trash", folderId);
-  if (await pathExists(targetDir)) {
-    targetDir = `${targetDir}_${Date.now()}`;
+  let targetPrefix = storageKey("trash", folderId);
+  if (await storage.existsPrefix(targetPrefix)) {
+    targetPrefix = storageKey("trash", `${folderId}_${Date.now()}`);
   }
-  await mkdir(targetDir, { recursive: true });
 
-  const trashPath = join(targetDir, "original");
-  await rename(sourceDir, trashPath);
-  return trashPath;
+  const trashPrefix = storageKey(targetPrefix, "original");
+  await storage.movePrefix(sourcePrefix, trashPrefix);
+  return trashPrefix;
 }
 
 export async function GET(
@@ -195,8 +183,11 @@ export async function DELETE(
       // 3. DB delete failed — restore the originals so the folder keeps working.
       if (trashPath) {
         try {
-          await mkdir(repoImagesDir(id), { recursive: true });
-          await rename(trashPath, join(repoImagesDir(id), "original"));
+          const storage = getStorage();
+          await storage.movePrefix(
+            trashPath,
+            storageKey(repoImagesPrefix(id), "original"),
+          );
           console.log(
             `[FolderDelete] Restored originals of ${id} after DB failure`,
           );
@@ -210,8 +201,8 @@ export async function DELETE(
       throw error;
     }
 
-    // 4. Remove the derived variants (webp/thumbs) left behind on disk.
-    await rm(repoImagesDir(id), { recursive: true, force: true });
+    // 4. Remove the derived variants (webp/thumbs) left behind in storage.
+    await getStorage().removePrefix(repoImagesPrefix(id));
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {

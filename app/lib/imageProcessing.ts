@@ -1,6 +1,6 @@
-import { mkdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
+import { getStorage, storageKey } from "./storage";
 
 /**
  * Shared image-processing pipeline for uploaded thumbnails.
@@ -34,8 +34,6 @@ export interface ProcessImageOptions {
   buffer: Buffer;
   /** File name the original is stored under (base name derives webp/thumb names). */
   originalFileName: string;
-  /** Absolute directory holding `original/`, `webp/`, `thumbs/` sub-directories. */
-  baseDir: string;
   /** Folder id (or `_all`) used to build the `/images/...` DB paths. */
   dbFolder: string;
   /** Override the base name for webp/thumb files (used to guarantee uniqueness). */
@@ -51,7 +49,6 @@ export interface ProcessImageOptions {
 export async function processImageUpload({
   buffer,
   originalFileName,
-  baseDir,
   dbFolder,
   baseName,
   embedOrientationMeta = false,
@@ -61,20 +58,17 @@ export async function processImageUpload({
   const webpFileName = `${fileBaseName}.webp`;
   const thumbFileName = `${fileBaseName}_thumb.webp`;
 
-  const originalDir = path.join(baseDir, "original");
-  const webpDir = path.join(baseDir, "webp");
-  const thumbDir = path.join(baseDir, "thumbs");
-  await Promise.all([
-    mkdir(originalDir, { recursive: true }),
-    mkdir(webpDir, { recursive: true }),
-    mkdir(thumbDir, { recursive: true }),
-  ]);
+  const originalKey = storageKey(
+    "images",
+    dbFolder,
+    "original",
+    originalFileName,
+  );
+  const webpKey = storageKey("images", dbFolder, "webp", webpFileName);
+  const thumbKey = storageKey("images", dbFolder, "thumbs", thumbFileName);
 
-  const originalPath = path.join(originalDir, originalFileName);
-  const webpPath = path.join(webpDir, webpFileName);
-  const thumbPath = path.join(thumbDir, thumbFileName);
-
-  await writeFile(originalPath, buffer);
+  const storage = getStorage();
+  await storage.write(originalKey, buffer);
 
   const rotated = sharp(buffer, { failOnError: false }).rotate();
   const { width, height } = await rotated.metadata();
@@ -83,8 +77,12 @@ export async function processImageUpload({
     ? rotated.withMetadata({ orientation: 1 })
     : rotated;
 
-  await variant.clone().webp({ quality: 85, effort: 6 }).toFile(webpPath);
-  await variant
+  const webpBuffer = await variant
+    .clone()
+    .webp({ quality: 85, effort: 6 })
+    .toBuffer();
+
+  const thumbBuffer = await variant
     .clone()
     .resize(300, 300, {
       fit: "cover",
@@ -92,26 +90,23 @@ export async function processImageUpload({
       withoutEnlargement: false,
     })
     .webp({ quality: 80, effort: 6 })
-    .toFile(thumbPath);
+    .toBuffer();
 
-  const [originalStats, webpStats, thumbStats] = await Promise.all([
-    stat(originalPath),
-    stat(webpPath),
-    stat(thumbPath),
-  ]);
+  await storage.write(webpKey, webpBuffer);
+  await storage.write(thumbKey, thumbBuffer);
 
   return {
     original: {
       dbPath: dbVariantPath(dbFolder, "original", originalFileName),
-      size: originalStats.size,
+      size: buffer.length,
     },
     webp: {
       dbPath: dbVariantPath(dbFolder, "webp", webpFileName),
-      size: webpStats.size,
+      size: webpBuffer.length,
     },
     thumbnail: {
       dbPath: dbVariantPath(dbFolder, "thumbs", thumbFileName),
-      size: thumbStats.size,
+      size: thumbBuffer.length,
     },
     width: width ?? null,
     height: height ?? null,

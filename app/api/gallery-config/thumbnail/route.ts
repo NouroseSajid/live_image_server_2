@@ -74,7 +74,6 @@ export async function POST(request: NextRequest) {
     const processed = await processImageUpload({
       buffer,
       originalFileName,
-      baseDir: join(process.cwd(), "image_repo", "images", "_all"),
       dbFolder: "_all",
       baseName: uniqueBaseName,
     });

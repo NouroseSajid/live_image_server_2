@@ -22,11 +22,14 @@
 require("dotenv").config();
 
 const { access } = require("node:fs/promises");
-const { join } = require("node:path");
+const { join, resolve } = require("node:path");
 const { PrismaClient } = require("@prisma/client");
 
 const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:3000";
-const IMAGE_REPO_ROOT = join(process.cwd(), "image_repo");
+if (!process.env.STORAGE_ROOT) {
+  throw new Error("STORAGE_ROOT is not set (needed to locate image files)");
+}
+const IMAGE_REPO_ROOT = resolve(process.env.STORAGE_ROOT);
 
 const prisma = new PrismaClient();
 

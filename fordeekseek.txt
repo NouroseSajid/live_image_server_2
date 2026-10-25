@@ -1,0 +1,267 @@
+nourose@2a02-1810-1ca5-e500-b1a5-d431-3307-20a3:~$ ssh -p9988 nourose@109.133.54.25
+nourose@109.133.54.25's password: 
+Last login: Sun Oct 25 00:48:49 2026 from 84.197.143.151
+[nourose@localhost ~]$ PM2 RESTART ALL
+-bash: PM2: command not found
+[nourose@localhost ~]$ 
+[nourose@localhost ~]$ 
+[nourose@localhost ~]$ 
+[nourose@localhost ~]$ pm2 restart all
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [all](ids: [ 0, 1, 2, 3 ])
+[PM2] [live-image-server-web](1) ✓
+[PM2] [live-image-server-ws](2) ✓
+[PM2] [main_website](0) ✓
+[PM2] [live-image-server-ingest](3) ✓
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 3  │ live-image-server… │ fork     │ 1    │ online    │ 0%       │ 19.6mb   │
+│ 1  │ live-image-server… │ fork     │ 159  │ online    │ 0%       │ 58.6mb   │
+│ 2  │ live-image-server… │ fork     │ 1    │ online    │ 0%       │ 53.1mb   │
+│ 0  │ main_website       │ fork     │ 1    │ online    │ 0%       │ 50.5mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[nourose@localhost ~]$ cd coding_projects/live_image_server_2/
+[nourose@localhost live_image_server_2]$ npm run dev
+
+> live_image_server@0.1.0 dev
+> next dev --turbopack
+
+▲ Next.js 16.4.3 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.111:3000
+- Environments: .env
+✓ Ready in 569ms
+✓ Running next.config.ts took 44ms
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.
+
+  To migrate automatically, run:
+  npx @next/codemod@canary middleware-to-proxy .
+
+  Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+⨯ ./app/globals.css
+Error: Error evaluating Node.js code
+Error: Cannot find module '@tailwindcss/postcss'
+Require stack:
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[root-of-the-server]__1kki86fknkq7y._.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[turbopack]_runtime.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/pool_entry-[turbopack-node]_transforms_postcss_ts_0tp-k2vy8nj6i._.js
+    [at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)]
+    [at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)]
+    [at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)]
+    [at Function._load (node:internal/modules/cjs/loader:1216:25)]
+    [at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)]
+    [at Module.require (node:internal/modules/cjs/loader:1527:12)]
+    [at require (node:internal/modules/helpers:147:16)]
+    [at <anonymous> (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:49:25)]
+    [at <anonymous>]
+    [at Module.init (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:43:33)]
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Server Component]
+
+
+ GET / 500 in 770ms (next.js: 644ms, application-code: 126ms)
+⚠ Blocked cross-origin request to Next.js dev resource /__nextjs_original-stack-frames from "repo.nourose.com".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['repo.nourose.com'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+⚠ Blocked cross-origin request to Next.js dev resource /_next/hmr from "repo.nourose.com".
+Cross-origin access to Next.js dev resources is blocked by default for safety.
+
+To allow this host in development, add it to "allowedDevOrigins" in next.config.js and restart the dev server:
+
+// next.config.js
+module.exports = {
+  allowedDevOrigins: ['repo.nourose.com'],
+}
+
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+⨯ ./app/globals.css
+Error: Error evaluating Node.js code
+Error: Cannot find module '@tailwindcss/postcss'
+Require stack:
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[root-of-the-server]__1kki86fknkq7y._.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[turbopack]_runtime.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/pool_entry-[turbopack-node]_transforms_postcss_ts_0tp-k2vy8nj6i._.js
+    [at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)]
+    [at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)]
+    [at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)]
+    [at Function._load (node:internal/modules/cjs/loader:1216:25)]
+    [at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)]
+    [at Module.require (node:internal/modules/cjs/loader:1527:12)]
+    [at require (node:internal/modules/helpers:147:16)]
+    [at <anonymous> (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:49:25)]
+    [at <anonymous>]
+    [at Module.init (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:43:33)]
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Server Component]
+
+
+ GET / 500 in 16ms (next.js: 7ms, application-code: 9ms)
+⨯ ./app/globals.css
+Error: Error evaluating Node.js code
+Error: Cannot find module '@tailwindcss/postcss'
+Require stack:
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[root-of-the-server]__1kki86fknkq7y._.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[turbopack]_runtime.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/pool_entry-[turbopack-node]_transforms_postcss_ts_0tp-k2vy8nj6i._.js
+    [at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)]
+    [at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)]
+    [at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)]
+    [at Function._load (node:internal/modules/cjs/loader:1216:25)]
+    [at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)]
+    [at Module.require (node:internal/modules/cjs/loader:1527:12)]
+    [at require (node:internal/modules/helpers:147:16)]
+    [at <anonymous> (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:49:25)]
+    [at <anonymous>]
+    [at Module.init (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:43:33)]
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Server Component]
+
+
+ GET / 500 in 14ms (next.js: 3ms, application-code: 11ms)
+⨯ ./app/globals.css
+Error: Error evaluating Node.js code
+Error: Cannot find module '@tailwindcss/postcss'
+Require stack:
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[root-of-the-server]__1kki86fknkq7y._.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[turbopack]_runtime.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/pool_entry-[turbopack-node]_transforms_postcss_ts_0tp-k2vy8nj6i._.js
+    [at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)]
+    [at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)]
+    [at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)]
+    [at Function._load (node:internal/modules/cjs/loader:1216:25)]
+    [at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)]
+    [at Module.require (node:internal/modules/cjs/loader:1527:12)]
+    [at require (node:internal/modules/helpers:147:16)]
+    [at <anonymous> (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:49:25)]
+    [at <anonymous>]
+    [at Module.init (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:43:33)]
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Server Component]
+
+
+ GET / 500 in 11ms (next.js: 2ms, application-code: 8ms)
+⨯ ./app/globals.css
+Error: Error evaluating Node.js code
+Error: Cannot find module '@tailwindcss/postcss'
+Require stack:
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[root-of-the-server]__1kki86fknkq7y._.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[turbopack]_runtime.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/pool_entry-[turbopack-node]_transforms_postcss_ts_0tp-k2vy8nj6i._.js
+    [at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)]
+    [at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)]
+    [at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)]
+    [at Function._load (node:internal/modules/cjs/loader:1216:25)]
+    [at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)]
+    [at Module.require (node:internal/modules/cjs/loader:1527:12)]
+    [at require (node:internal/modules/helpers:147:16)]
+    [at <anonymous> (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:49:25)]
+    [at <anonymous>]
+    [at Module.init (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:43:33)]
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Server Component]
+
+
+ GET / 500 in 9ms (next.js: 1.9ms, application-code: 8ms)
+⨯ ./app/globals.css
+Error: Error evaluating Node.js code
+Error: Cannot find module '@tailwindcss/postcss'
+Require stack:
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[root-of-the-server]__1kki86fknkq7y._.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[turbopack]_runtime.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/pool_entry-[turbopack-node]_transforms_postcss_ts_0tp-k2vy8nj6i._.js
+    [at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)]
+    [at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)]
+    [at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)]
+    [at Function._load (node:internal/modules/cjs/loader:1216:25)]
+    [at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)]
+    [at Module.require (node:internal/modules/cjs/loader:1527:12)]
+    [at require (node:internal/modules/helpers:147:16)]
+    [at <anonymous> (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:49:25)]
+    [at <anonymous>]
+    [at Module.init (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:43:33)]
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Server Component]
+
+
+ GET / 500 in 8ms (next.js: 1.7ms, application-code: 7ms)
+⨯ ./app/globals.css
+Error: Error evaluating Node.js code
+Error: Cannot find module '@tailwindcss/postcss'
+Require stack:
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[root-of-the-server]__1kki86fknkq7y._.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[turbopack]_runtime.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/pool_entry-[turbopack-node]_transforms_postcss_ts_0tp-k2vy8nj6i._.js
+    [at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)]
+    [at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)]
+    [at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)]
+    [at Function._load (node:internal/modules/cjs/loader:1216:25)]
+    [at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)]
+    [at Module.require (node:internal/modules/cjs/loader:1527:12)]
+    [at require (node:internal/modules/helpers:147:16)]
+    [at <anonymous> (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:49:25)]
+    [at <anonymous>]
+    [at Module.init (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:43:33)]
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Server Component]
+
+
+ GET / 500 in 9ms (next.js: 1.6ms, application-code: 7ms)
+⨯ ./app/globals.css
+Error: Error evaluating Node.js code
+Error: Cannot find module '@tailwindcss/postcss'
+Require stack:
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[root-of-the-server]__1kki86fknkq7y._.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/[turbopack]_runtime.js
+- /home/nourose/coding_projects/live_image_server_2/.next/dev/build/chunks/pool_entry-[turbopack-node]_transforms_postcss_ts_0tp-k2vy8nj6i._.js
+    [at Function._resolveFilename (node:internal/modules/cjs/loader:1430:15)]
+    [at defaultResolveImpl (node:internal/modules/cjs/loader:1040:19)]
+    [at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1045:22)]
+    [at Function._load (node:internal/modules/cjs/loader:1216:25)]
+    [at wrapModuleLoad (node:internal/modules/cjs/loader:254:19)]
+    [at Module.require (node:internal/modules/cjs/loader:1527:12)]
+    [at require (node:internal/modules/helpers:147:16)]
+    [at <anonymous> (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:49:25)]
+    [at <anonymous>]
+    [at Module.init (turbopack:///[turbopack-node]/transforms/postcss.ts?config=[project]/postcss.config.mjs:43:33)]
+
+Import trace:
+  Client Component Browser:
+    ./app/globals.css [Client Component Browser]
+    ./app/layout.tsx [Server Component]
+
+
+ GET / 500 in 9ms (next.js: 2ms, application-code: 7ms)
+^C
+[nourose@localhost live_image_server_2]$ nano fordeekseek.txt
+[nourose@localhost live_image_server_2]$ 

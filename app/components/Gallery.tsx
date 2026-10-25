@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MdInfo } from "react-icons/md";
+import { resolveAssetPath } from "../lib/assets";
 import { buildRows, type Image } from "../lib/imageData";
 import { useFetch } from "../lib/useFetch";
 import ActionBar from "./ActionBar";
@@ -514,12 +515,8 @@ export default function Gallery({
       const webpVariant = image.variants.find((v) => v.name === "webp");
       const originalVariant = image.variants.find((v) => v.name === "original");
 
-      const convertToApiRoute = (dbPath?: string) => {
-        if (!dbPath) return dbPath;
-        if (dbPath.startsWith("/icons/")) return dbPath;
-
-        return dbPath.replace(/^\/images\//, "/api/serve/");
-      };
+      const convertToApiRoute = (dbPath?: string) =>
+        resolveAssetPath(dbPath) ?? undefined;
 
       const videoUrl = isVideo
         ? convertToApiRoute(originalVariant?.path) ||

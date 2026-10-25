@@ -19,8 +19,15 @@ if (fsSync.existsSync(dotEnvLocalPath)) {
 }
 
 const prisma = new PrismaClient();
-const ingestFolder = path.join(__dirname, "..", "image_repo", "ingest");
-const failedFolder = path.join(__dirname, "..", "image_repo", "failed");
+const storageRootSetting = process.env.STORAGE_ROOT;
+if (!storageRootSetting) {
+  throw new Error(
+    "STORAGE_ROOT is not set. Point it at the absolute path that holds images/ and ingest/.",
+  );
+}
+const storageRoot = path.resolve(storageRootSetting);
+const ingestFolder = path.join(storageRoot, "ingest");
+const failedFolder = path.join(storageRoot, "failed");
 const failedLogPath = path.join(__dirname, "..", "failed-log.txt");
 const configPath = path.join(__dirname, "..", "ingest-config.json");
 
@@ -309,9 +316,7 @@ async function processRawFile(filePath) {
   const fileName = path.basename(filePath);
   const targetFolderId = liveFolderId;
   const rawFolder = path.join(
-    __dirname,
-    "..",
-    "image_repo",
+    storageRoot,
     "images",
     String(targetFolderId),
     "raw",
@@ -327,9 +332,7 @@ async function processVideo(filePath, fileTypeResult) {
   const fileName = path.basename(filePath);
   const targetFolderId = liveFolderId;
   const originalFolder = path.join(
-    __dirname,
-    "..",
-    "image_repo",
+    storageRoot,
     "images",
     String(targetFolderId),
     "original",
@@ -394,13 +397,7 @@ async function processImage(filePath) {
   const fileBaseName = path.basename(fileName, fileExtension);
   const targetFolderId = liveFolderId;
 
-  const baseFolder = path.join(
-    __dirname,
-    "..",
-    "image_repo",
-    "images",
-    String(targetFolderId),
-  );
+  const baseFolder = path.join(storageRoot, "images", String(targetFolderId));
   const originalFolder = path.join(baseFolder, "original");
   const webpFolder = path.join(baseFolder, "webp");
   const thumbFolder = path.join(baseFolder, "thumbs");

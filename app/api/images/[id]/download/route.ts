@@ -1,10 +1,9 @@
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname } from "node:path";
 import { Readable } from "node:stream";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "../../../../../prisma/client";
+import { getStorage } from "../../../../lib/storage";
 import { authOptions } from "../../../auth/[...nextauth]/route";
 
 /**
@@ -114,17 +113,17 @@ export async function GET(
     }
 
     // Path traversal protection
-    if (variant.path.includes("..") || join(variant.path).startsWith("..")) {
+    if (variant.path.includes("..")) {
       return new NextResponse("Invalid file path", { status: 400 });
     }
 
-    const filePath = join(process.cwd(), "image_repo", variant.path);
+    const storage = getStorage();
 
     try {
-      const stats = await stat(filePath);
+      const { stream, size } = await storage.read(variant.path);
 
-      // Count only successful, non-admin downloads. The file exists on disk at
-      // this point, so auth and variant resolution have already succeeded.
+      // Count only successful, non-admin downloads. The file exists at this
+      // point, so auth and variant resolution have already succeeded.
       if (!session?.user) {
         void prisma.file
           .update({
@@ -137,7 +136,6 @@ export async function GET(
           .catch((err) => console.error("Failed to record download:", err));
       }
 
-      const stream = createReadStream(filePath);
       const webStream = Readable.toWeb(stream);
 
       // Use actual file extension to determine MIME type
@@ -152,11 +150,15 @@ export async function GET(
         `attachment; filename="${file.fileName}"; filename*=UTF-8''${encodedFilename}`,
       );
       headers.set("Content-Type", mimeType);
-      headers.set("Content-Length", stats.size.toString());
+      headers.set("Content-Length", size.toString());
 
       return new NextResponse(webStream as unknown as BodyInit, { headers });
-    } catch (_error) {
-      return new NextResponse("File not found on disk", { status: 404 });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return new NextResponse("File not found on disk", { status: 404 });
+      }
+      console.error("Error reading file from storage:", error);
+      return new NextResponse("Internal Server Error", { status: 500 });
     }
   } catch (error) {
     console.error("Error downloading file:", error);

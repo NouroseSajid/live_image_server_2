@@ -1,16 +1,12 @@
 import crypto from "node:crypto";
-import { existsSync } from "node:fs";
-import { copyFile, mkdir, rename, symlink, unlink } from "node:fs/promises";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, extname } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "../../../../prisma/client";
+import { getStorage } from "../../../lib/storage";
 import { authOptions } from "../../auth/[...nextauth]/route";
 
 const imagesPrefix = "/images/";
-
-const publicPathToAbsolute = (publicPath: string) =>
-  join(process.cwd(), "image_repo", publicPath.replace(/^\/+/, ""));
 
 const mapVariantPath = (
   variantPath: string,
@@ -69,10 +65,6 @@ const getVariantPathForName = (
   return existingPath;
 };
 
-const ensureParentDir = async (absolutePath: string) => {
-  await mkdir(dirname(absolutePath), { recursive: true });
-};
-
 const serializeFile = (file: {
   fileSize: bigint;
   variants: { size: bigint }[];
@@ -106,20 +98,18 @@ async function moveVariantFiles(
     }
   }
 
+  const storage = getStorage();
   for (const update of updates) {
-    const srcAbs = publicPathToAbsolute(update.oldPath);
-    const dstAbs = publicPathToAbsolute(update.newPath);
-    if (!existsSync(srcAbs)) {
+    if (!(await storage.exists(update.oldPath))) {
       throw new Error(`Missing source file: ${update.oldPath}`);
     }
-    await ensureParentDir(dstAbs);
-    await rename(srcAbs, dstAbs);
+    await storage.move(update.oldPath, update.newPath);
   }
 
   return updates;
 }
 
-async function copyVariantFilesAsSymlink(
+async function copyVariantFiles(
   variants: { path: string; name: string }[],
   sourceFolderId: string,
   targetFolderId: string,
@@ -140,34 +130,26 @@ async function copyVariantFilesAsSymlink(
     }
   }
 
+  const storage = getStorage();
   for (const update of updates) {
-    const srcAbs = publicPathToAbsolute(update.oldPath);
-    const dstAbs = publicPathToAbsolute(update.newPath);
-    if (!existsSync(srcAbs)) {
+    if (!(await storage.exists(update.oldPath))) {
       throw new Error(`Missing source file: ${update.oldPath}`);
     }
-    await ensureParentDir(dstAbs);
-    try {
-      await symlink(srcAbs, dstAbs, "file");
-    } catch (err) {
-      console.warn("Symlink failed, falling back to copy:", err);
-      await copyFile(srcAbs, dstAbs);
-    }
+    // Hard-link locally (cheap, still a real object for S3-style backends).
+    await storage.copy(update.oldPath, update.newPath, { preferLink: true });
   }
 
   return updates;
 }
 
 async function deleteVariantFiles(variants: { path: string }[]) {
+  const storage = getStorage();
   for (const variant of variants) {
     if (!variant.path.startsWith(imagesPrefix)) continue;
-    const absPath = publicPathToAbsolute(variant.path);
-    if (existsSync(absPath)) {
-      try {
-        await unlink(absPath);
-      } catch (err) {
-        console.warn("Failed to delete variant:", variant.path, err);
-      }
+    try {
+      await storage.remove(variant.path);
+    } catch (err) {
+      console.warn("Failed to delete variant:", variant.path, err);
     }
   }
 }
@@ -352,7 +334,7 @@ export async function POST(request: NextRequest) {
       const created: typeof files = [];
       for (const file of filesToProcess) {
         const newFileName = renameMap.get(file.id) || file.fileName;
-        await copyVariantFilesAsSymlink(
+        await copyVariantFiles(
           file.variants,
           file.folderId,
           safeTargetFolderId,

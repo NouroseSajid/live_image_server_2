@@ -1,13 +1,12 @@
 // app/api/images/download-zip/[token]/route.ts
 
-import { access } from "node:fs/promises";
 import http from "node:http";
-import path from "node:path";
 import { PassThrough } from "node:stream";
 import archiver from "archiver";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "../../../../../prisma/client";
+import { getStorage } from "../../../../lib/storage";
 import { authOptions } from "../../../auth/[...nextauth]/route";
 import { deleteSession, getSession } from "../sessionStore";
 
@@ -106,7 +105,7 @@ export async function GET(
       return NextResponse.json({ error: "No images found." }, { status: 404 });
     }
 
-    // Resolve file paths
+    // Resolve storage keys
     const filesWithPaths = filesToZip
       .map((file) => {
         const variant =
@@ -122,11 +121,10 @@ export async function GET(
           return null;
         }
 
-        const filePath = path.join(process.cwd(), "image_repo", variant.path);
         return {
           fileId: file.id,
           fileName: file.fileName,
-          filePath: filePath,
+          key: variant.path,
           size: Number(variant.size) || 0,
         };
       })
@@ -139,18 +137,30 @@ export async function GET(
       );
     }
 
-    // Only archive files that actually exist on disk. A variant row can exist
-    // in the DB while its bytes are gone; those are skipped with a warning.
-    // If nothing remains we fail explicitly (400) instead of silently
-    // streaming an empty zip — an empty "successful" download is worse than
-    // a clear error the client can surface.
-    const availableFiles: typeof filesWithPaths = [];
+    // Only archive files that actually exist in storage. A variant row can
+    // exist in the DB while its bytes are gone; those are skipped with a
+    // warning. If nothing remains we fail explicitly (400) instead of
+    // silently streaming an empty zip — an empty "successful" download is
+    // worse than a clear error the client can surface.
+    const storage = getStorage();
+    const availableFiles: Array<{
+      fileId: string;
+      fileName: string;
+      size: number;
+      localPath: string;
+      dispose: () => Promise<void>;
+    }> = [];
+
     for (const file of filesWithPaths) {
       try {
-        await access(file.filePath);
-        availableFiles.push(file);
+        const local = await storage.openLocal(file.key);
+        availableFiles.push({
+          ...file,
+          localPath: local.path,
+          dispose: local.dispose,
+        });
       } catch {
-        console.warn(`File missing: ${file.filePath}`);
+        console.warn(`File missing: ${file.key}`);
       }
     }
 
@@ -167,12 +177,24 @@ export async function GET(
     const archive = archiver("zip", { zlib: { level: 5 } });
     const finalDownloadId = downloadId || `dl-${Date.now()}`;
 
-    archive.on("error", (err) => passthrough.destroy(err));
+    let disposed = false;
+    const disposeLocalFiles = () => {
+      if (disposed) return;
+      disposed = true;
+      for (const file of availableFiles) {
+        void file.dispose().catch(() => {});
+      }
+    };
+
+    archive.on("error", (err) => {
+      disposeLocalFiles();
+      passthrough.destroy(err);
+    });
     archive.pipe(passthrough);
 
     // Add files to archive
     for (const file of availableFiles) {
-      archive.file(file.filePath, { name: file.fileName });
+      archive.file(file.localPath, { name: file.fileName });
     }
     archive.finalize();
 
@@ -241,12 +263,14 @@ export async function GET(
           }
 
           controller.close();
+          disposeLocalFiles();
           // Clean up session after download completes
           deleteSession(token).catch(() => {});
         });
 
         passthrough.on("error", (err) => {
           clearTimeout(timeoutId);
+          disposeLocalFiles();
           controller.error(err);
           // Release the session so the client's polling fallback (which
           // treats a 404 as terminal) can resolve instead of hanging.
@@ -259,6 +283,7 @@ export async function GET(
       cancel() {
         passthrough.destroy();
         archive.abort();
+        disposeLocalFiles();
         deleteSession(token).catch(() => {});
       },
     });

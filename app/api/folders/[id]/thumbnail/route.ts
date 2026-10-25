@@ -1,6 +1,4 @@
 import crypto from "node:crypto";
-import { mkdir, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import prisma from "../../../../../prisma/client";
@@ -8,6 +6,7 @@ import {
   processImageUpload,
   VIDEO_PLACEHOLDER_PATH,
 } from "../../../../lib/imageProcessing";
+import { getStorage, storageKey } from "../../../../lib/storage";
 import { authOptions } from "../../../auth/[...nextauth]/route";
 
 /**
@@ -79,17 +78,13 @@ export async function POST(
       );
     }
 
-    const baseDir = join(process.cwd(), "image_repo", "images", id);
     const fileType = mimeType.startsWith("video/") ? "video" : "image";
 
     if (fileType === "video") {
       // Videos keep the original file plus a placeholder thumbnail (same
       // convention as the ingest pipeline — no frame extraction here).
-      const originalDir = join(baseDir, "original");
-      await mkdir(originalDir, { recursive: true });
-      const originalPath = join(originalDir, fileName);
-      await writeFile(originalPath, buffer);
-      const originalStats = await stat(originalPath);
+      const originalKey = storageKey("images", id, "original", fileName);
+      await getStorage().write(originalKey, buffer);
 
       const newFile = await prisma.file.create({
         data: {
@@ -103,7 +98,7 @@ export async function POST(
               {
                 name: "original",
                 path: `/images/${id}/original/${fileName}`,
-                size: BigInt(originalStats.size),
+                size: BigInt(buffer.length),
               },
               {
                 name: "thumbnail",
@@ -128,7 +123,6 @@ export async function POST(
     const processed = await processImageUpload({
       buffer,
       originalFileName: fileName,
-      baseDir,
       dbFolder: id,
       embedOrientationMeta: true,
     });
