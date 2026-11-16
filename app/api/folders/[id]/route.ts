@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import slugify from "slugify";
+import { authOptions } from "@/app/lib/auth";
 import prisma from "../../../../prisma/client";
 import { getStorage, storageKey } from "../../../lib/storage";
-import { authOptions } from "../../auth/[...nextauth]/route";
 
 const repoImagesPrefix = (folderId: string) => storageKey("images", folderId);
 

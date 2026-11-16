@@ -1,13 +1,13 @@
 import crypto from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/lib/auth";
 import prisma from "../../../../../prisma/client";
 import {
   processImageUpload,
   VIDEO_PLACEHOLDER_PATH,
 } from "../../../../lib/imageProcessing";
 import { getStorage, storageKey } from "../../../../lib/storage";
-import { authOptions } from "../../../auth/[...nextauth]/route";
 
 /**
  * Uploads a new file (image or video) and sets it as the folder thumbnail.

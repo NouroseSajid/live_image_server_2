@@ -4,9 +4,9 @@ import path from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import sharp from "sharp";
+import { authOptions } from "@/app/lib/auth";
 import prisma from "../../../../prisma/client";
 import { getStorage, storageKey } from "../../../lib/storage";
-import { authOptions } from "../../auth/[...nextauth]/route";
 
 const VIDEO_THUMB_PLACEHOLDER = "/icons/video-placeholder.svg";
 const RAW_THUMB_PLACEHOLDER = "/icons/video-placeholder.svg";
@@ -258,7 +258,7 @@ export async function POST(request: NextRequest) {
       const sourceBuffer =
         originalBuffer ?? (await readStorageObject(originalKey));
 
-      const rotatedSharp = sharp(sourceBuffer, { failOnError: false }).rotate();
+      const rotatedSharp = sharp(sourceBuffer, { failOn: "none" }).rotate();
       const rotatedMetadata = await rotatedSharp.metadata();
 
       const imageWidth = rotatedMetadata.width || null;

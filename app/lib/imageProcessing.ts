@@ -70,7 +70,7 @@ export async function processImageUpload({
   const storage = getStorage();
   await storage.write(originalKey, buffer);
 
-  const rotated = sharp(buffer, { failOnError: false }).rotate();
+  const rotated = sharp(buffer, { failOn: "none" }).rotate();
   const { width, height } = await rotated.metadata();
 
   const variant = embedOrientationMeta

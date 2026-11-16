@@ -24,6 +24,7 @@ require("dotenv").config();
 const { access } = require("node:fs/promises");
 const { join, resolve } = require("node:path");
 const { PrismaClient } = require("@prisma/client");
+const { PrismaMariaDb } = require("@prisma/adapter-mariadb");
 
 const BASE_URL = process.env.TEST_BASE_URL || "http://localhost:3000";
 if (!process.env.STORAGE_ROOT) {
@@ -31,7 +32,9 @@ if (!process.env.STORAGE_ROOT) {
 }
 const IMAGE_REPO_ROOT = resolve(process.env.STORAGE_ROOT);
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaMariaDb(process.env.DATABASE_URL),
+});
 
 let passed = 0;
 let failed = 0;

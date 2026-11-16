@@ -14,10 +14,10 @@
     "dev:full": "concurrently \"npm run dev\" \"npm run ws-server\" \"npm run ingest\""
   },
   "dependencies": {
-    "@prisma/client": "^6.17.1",
+    "@prisma/adapter-mariadb": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@tailwindcss/postcss": "^4",
-    "@types/archiver": "^7.0.0",
-    "archiver": "^7.0.1",
+    "archiver": "^8.0.0",
     "axios": "^1.13.2",
     "chokidar": "^4.0.3",
     "dotenv": "^17.2.3",
@@ -26,7 +26,7 @@
     "lucide-react": "^0.562.0",
     "next": "^16.4.3",
     "next-auth": "^4.24.11",
-    "prisma": "6.19.3",
+    "prisma": "^7.10.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-icons": "^4.11.0",
@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.0",
+    "@types/archiver": "^8.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

@@ -2,12 +2,12 @@
 
 import http from "node:http";
 import { PassThrough } from "node:stream";
-import archiver from "archiver";
+import { ZipArchive } from "archiver";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/lib/auth";
 import prisma from "../../../../../prisma/client";
 import { getStorage } from "../../../../lib/storage";
-import { authOptions } from "../../../auth/[...nextauth]/route";
 import { deleteSession, getSession } from "../sessionStore";
 
 const DOWNLOAD_TIMEOUT = 15 * 60 * 1000; // 15 minutes
@@ -174,7 +174,7 @@ export async function GET(
 
     const totalSize = availableFiles.reduce((acc, f) => acc + f.size, 0);
     const passthrough = new PassThrough();
-    const archive = archiver("zip", { zlib: { level: 5 } });
+    const archive = new ZipArchive({ zlib: { level: 5 } });
     const finalDownloadId = downloadId || `dl-${Date.now()}`;
 
     let disposed = false;
@@ -186,7 +186,7 @@ export async function GET(
       }
     };
 
-    archive.on("error", (err) => {
+    archive.on("error", (err: Error) => {
       disposeLocalFiles();
       passthrough.destroy(err);
     });
@@ -196,7 +196,9 @@ export async function GET(
     for (const file of availableFiles) {
       archive.file(file.localPath, { name: file.fileName });
     }
-    archive.finalize();
+    archive.finalize().catch(() => {
+      // Errors are surfaced through the "error" listener above.
+    });
 
     const webStream = new ReadableStream({
       start(controller) {

@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/lib/auth";
 import prisma from "../../../prisma/client";
 import { sendInternalEvent } from "../../lib/internalEvents";
-import { authOptions } from "../auth/[...nextauth]/route";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAIL = 200;

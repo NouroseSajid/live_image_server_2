@@ -3,8 +3,8 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/lib/auth";
 import prisma from "../../../prisma/client";
-import { authOptions } from "../auth/[...nextauth]/route";
 
 const configPath = join(process.cwd(), "ingest-config.json");
 

@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../api/auth/[...nextauth]/route";
+import { authOptions } from "@/app/lib/auth";
 import RequestsPanel from "../../components/admin/RequestsPanel";
 
 export default async function RequestsPage() {

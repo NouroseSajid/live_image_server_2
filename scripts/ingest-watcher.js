@@ -4,6 +4,7 @@ const fsSync = require("node:fs");
 const path = require("node:path");
 const sharp = require("sharp");
 const { PrismaClient } = require("@prisma/client");
+const { PrismaMariaDb } = require("@prisma/adapter-mariadb");
 const { fileTypeFromBuffer } = require("file-type");
 const crypto = require("node:crypto");
 const WebSocket = require("ws");
@@ -18,7 +19,9 @@ if (fsSync.existsSync(dotEnvLocalPath)) {
   require("dotenv").config({ path: dotEnvLocalPath, override: true });
 }
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  adapter: new PrismaMariaDb(process.env.DATABASE_URL),
+});
 const storageRootSetting = process.env.STORAGE_ROOT;
 if (!storageRootSetting) {
   throw new Error(

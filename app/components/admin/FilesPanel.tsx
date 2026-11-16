@@ -10,10 +10,10 @@ interface FilesPanelProps {
   files: FileEntry[];
   dragActive: boolean;
   dragRef: React.RefObject<HTMLDivElement | null>;
-  onDragEnter: (event: React.DragEvent<HTMLDivElement>) => void;
-  onDragLeave: (event: React.DragEvent<HTMLDivElement>) => void;
-  onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
-  onDrop: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDragEnter: (event: React.DragEvent<HTMLElement>) => void;
+  onDragLeave: (event: React.DragEvent<HTMLElement>) => void;
+  onDragOver: (event: React.DragEvent<HTMLElement>) => void;
+  onDrop: (event: React.DragEvent<HTMLElement>) => void;
   onUploadImage: (event: React.ChangeEvent<HTMLInputElement>) => void;
   selectedIds: Set<string>;
   actionTargetFolderId: string | null;
