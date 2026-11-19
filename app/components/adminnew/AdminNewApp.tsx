@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, X, XCircle } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useAdminFiles from "@/app/components/admin/hooks/useAdminFiles";
 import useFolderOrdering from "@/app/components/admin/hooks/useFolderOrdering";
 import useGalleryConfig from "@/app/components/admin/hooks/useGalleryConfig";
@@ -130,6 +130,18 @@ export default function AdminNewApp({ userLabel }: { userLabel: string }) {
 
   const ordering = useFolderOrdering({ folders, groups, setError });
   const galleryConfig = useGalleryConfig({ setError, setSuccess });
+
+  // Overview follows the same saved gallery order as the Folders panel.
+  const orderedFolders = useMemo(() => {
+    const byId = new Map(folders.map((folder) => [folder.id, folder]));
+    const ids = ordering.effectiveOrderItems
+      .filter((item) => item.type === "folder")
+      .map((item) => item.id);
+    if (ids.length === 0) return folders;
+    return ids
+      .map((id) => byId.get(id))
+      .filter((folder): folder is Folder => Boolean(folder));
+  }, [folders, ordering.effectiveOrderItems]);
 
   const activeFolder =
     folders.find((folder) => folder.id === activeFolderId) ?? null;
@@ -386,7 +398,7 @@ export default function AdminNewApp({ userLabel }: { userLabel: string }) {
         <main className="min-w-0 space-y-6">
           {section === "overview" && (
             <OverviewSection
-              folders={folders}
+              folders={orderedFolders}
               groupCount={groups.length}
               pendingCount={pendingCount}
               loading={loadingFolders}
