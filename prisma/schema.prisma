@@ -151,7 +151,10 @@ model AccessLink {
 model DownloadSession {
   id         String   @id @default(cuid())
   token      String   @unique
-  imageIds   String   // JSON-serialized array of image IDs
+  // JSON-serialized array of image IDs. Must be TEXT, not the MySQL default
+  // VARCHAR(191): ~8 CUIDs already overflow it, which broke every multi-file
+  // download at session creation with a swallowed 500.
+  imageIds   String   @db.Text
   quality    String   @default("webp")
   passphrase String?
   downloadId String?
