@@ -11,6 +11,7 @@
     "ingest": "node scripts/ingest-watcher.js",
     "ws-server": "node scripts/ws-server.js",
     "test:downloads": "node scripts/test-downloads.js",
+    "test:download-scale": "node scripts/test-download-scale.js",
     "dev:full": "concurrently \"npm run dev\" \"npm run ws-server\" \"npm run ingest\""
   },
   "dependencies": {
