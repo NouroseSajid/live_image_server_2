@@ -16,7 +16,7 @@
  */
 require("dotenv").config();
 
-const { access } = require("node:fs/promises");
+const { access, open } = require("node:fs/promises");
 const { join, resolve } = require("node:path");
 const { PrismaClient } = require("@prisma/client");
 const { PrismaMariaDb } = require("@prisma/adapter-mariadb");
@@ -26,6 +26,7 @@ const COUNT = Number(process.env.TEST_IMAGE_COUNT || 10);
 const QUALITY = process.env.TEST_QUALITY || "original";
 const TIMEOUT_MS = Number(process.env.TEST_TIMEOUT_MS || 15 * 60 * 1000);
 const FOLDER_ID = process.env.TEST_FOLDER_ID || null;
+const SAVE_PATH = process.env.TEST_SAVE_ZIP || null;
 
 if (!process.env.STORAGE_ROOT) {
   throw new Error("STORAGE_ROOT is not set (needed to locate image files)");
@@ -129,6 +130,8 @@ async function main() {
   const started = Date.now();
 
   let res;
+  const outputFile = SAVE_PATH ? await open(SAVE_PATH, "w") : null;
+  if (SAVE_PATH) console.log(`  saving stream to ${SAVE_PATH} (verify with: unzip -t ${SAVE_PATH})`);
   try {
     res = await fetch(`${BASE_URL}/api/images/download-zip/${session.sessionToken}`, {
       signal: controller.signal,
@@ -141,7 +144,9 @@ async function main() {
     let localHeaders = 0;
     let centralHeaders = 0;
     let carry = Buffer.alloc(0);
-    let lastBytes = Buffer.alloc(0);
+    // Rolling 64-byte tail. Taking the tail of only the final chunk misses the
+    // EOCD record when the last chunk is shorter than 22 bytes.
+    let tail = Buffer.alloc(0);
     const firstBytes = Buffer.alloc(4);
     let firstFilled = 0;
     let nextReport = 25 * 1024 * 1024;
@@ -152,6 +157,7 @@ async function main() {
 
       const chunk = Buffer.from(value);
       totalBytes += chunk.length;
+      if (outputFile) await outputFile.write(chunk);
 
       if (firstFilled < 4) {
         const take = Math.min(4 - firstFilled, chunk.length);
@@ -163,7 +169,7 @@ async function main() {
       localHeaders += countOccurrences(data, LOCAL_HEADER);
       centralHeaders += countOccurrences(data, CENTRAL_HEADER);
       carry = data.subarray(Math.max(0, data.length - 3));
-      lastBytes = data.subarray(Math.max(0, data.length - 64));
+      tail = data.subarray(Math.max(0, data.length - 64));
 
       if (totalBytes >= nextReport) {
         console.log(`      streamed ${formatBytes(totalBytes)}...`);
@@ -177,7 +183,7 @@ async function main() {
 
     assert(firstBytes.subarray(0, 2).toString("ascii") === "PK", "ZIP has valid PK magic bytes");
     assert(totalBytes > 22, `ZIP is non-empty (${formatBytes(totalBytes)})`);
-    assert(lastBytes.includes(EOCD), "ZIP has an end-of-central-directory record");
+    assert(tail.includes(EOCD), "ZIP has an end-of-central-directory record");
     assert(
       centralHeaders >= COUNT,
       `central directory lists at least ${COUNT} entries (found ${centralHeaders})`,
@@ -190,6 +196,7 @@ async function main() {
     if (err.name === "AbortError") throw new Error(`stream timed out after ${TIMEOUT_MS / 1000}s`);
     throw err;
   } finally {
+    if (outputFile) await outputFile.close();
     // Poll once: the server deletes the session when streaming completes.
     await sleep(500);
   }
