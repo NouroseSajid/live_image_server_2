@@ -7,6 +7,7 @@ import type { Folder } from "@/app/components/admin/types";
 import { getPreviewFromVariants } from "@/app/components/admin/fileUtils";
 import type { ImageRequestEntry } from "@/app/components/admin/types";
 import { getFolderCover, getFolderVisibility } from "./folderMeta";
+import IngestTargetPanel from "./IngestTargetPanel";
 import { Badge, EmptyState, SectionHeader, Stat } from "./ui";
 
 const formatShortDate = (iso: string) =>
@@ -116,6 +117,8 @@ export default function OverviewSection({
           hint="Original file requests"
         />
       </div>
+
+      <IngestTargetPanel folders={folders} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="an-panel overflow-hidden">
