@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 const links = [
-  { href: "/admin", label: "Content" },
-  { href: "/admin/folders", label: "Folders" },
-  { href: "/admin/requests", label: "Requests" },
+  { href: "/adminold", label: "Content" },
+  { href: "/adminold/folders", label: "Folders" },
+  { href: "/adminold/requests", label: "Requests" },
 ];
 
 export default function AdminNav() {
@@ -56,7 +56,7 @@ export default function AdminNav() {
   }, [refreshPending]);
 
   const isActive = (href: string) =>
-    href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+    href === "/adminold" ? pathname === "/adminold" : pathname.startsWith(href);
 
   return (
     <nav className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 backdrop-blur dark:border-gray-800 dark:bg-gray-900/80">
@@ -72,7 +72,7 @@ export default function AdminNav() {
             }`}
           >
             {link.label}
-            {link.href === "/admin/requests" && pending > 0 && (
+            {link.href === "/adminold/requests" && pending > 0 && (
               <span className="rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
                 {pending > 99 ? "99+" : pending}
               </span>

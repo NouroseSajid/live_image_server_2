@@ -1,15 +1,13 @@
-import AdminNav from "../components/admin/AdminNav";
-import { AuthProvider } from "../providers/AuthProvider";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Admin — Nourose Repository",
+};
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <AuthProvider>
-      <AdminNav />
-      {children}
-    </AuthProvider>
-  );
+  return <div className="adminnew flex-1">{children}</div>;
 }

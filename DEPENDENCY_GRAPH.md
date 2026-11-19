@@ -16,10 +16,10 @@ counted separately.
 
 ```
 Browser
-└─ app/page.tsx · app/f/[slug] · app/admin/** · app/_adminnew (parked, not routed)
+└─ app/page.tsx · app/f/[slug] · app/admin/** · app/adminold/** · app/_adminnew (parked, not routed)
    └─ app/components/**
-      ├─ admin/**            (legacy admin UI)
-      ├─ adminnew/**         (new admin UI, WIP)
+      ├─ admin/**            (legacy admin components, used by /adminold)
+      ├─ adminnew/**         (current admin UI, used by /admin)
       └─ gallerycomponents/**
          └─ app/lib/**       (auth, assets, storage, imageData, imageProcessing, viewTracking, hooks)
             └─ prisma/client.ts
@@ -36,8 +36,9 @@ flowchart LR
   n0["app"]
   n1["app/_adminnew"]
   n2["app/admin"]
-  n3["app/admin/folders"]
-  n4["app/admin/requests"]
+  n3["app/adminold"]
+  n4["app/adminold/folders"]
+  n4b["app/adminold/requests"]
   n5["app/api/access-links"]
   n6["app/api/auth"]
   n7["app/api/folder-groups"]
@@ -68,6 +69,8 @@ flowchart LR
   n3 --> n21
   n4 --> n16
   n4 --> n21
+  n4b --> n16
+  n4b --> n21
   n5 --> n21
   n5 --> n23
   n6 --> n21
@@ -121,14 +124,14 @@ These are the files to treat as API surface. Changing them fans out widely.
 `scripts/*` entry points. A signature change here is a whole-backend change.
 
 **`app/lib/auth.ts` (29 direct importers)** — all guarded pages
-(`app/admin/**`, `app/_adminnew`) and every authenticated API route. The
+(`app/admin/**`, `app/adminold/**`, `app/_adminnew`) and every authenticated API route. The
 `authOptions` object is the de-facto auth contract; prefer adding options over
 restructuring. `app/api/auth/[...nextauth]/route.ts` is now a thin
 `NextAuth(authOptions)` adapter and should stay that way.
 
 **`app/components/admin/types.ts` (20 direct importers)** — shared by both the
-legacy `admin/**` tree and the new `adminnew/**` tree, so it is the bridge that
-keeps the two admin UIs coupled.
+current `adminnew/**` UI at `/admin` and the legacy `admin/**` UI at `/adminold`,
+so it is the bridge that keeps the two admin UIs coupled.
 
 **`app/lib/storage.ts` (9 direct importers)** — all file-serving, upload, bulk,
 and zip routes. Changing the storage driver contract touches every media route.
@@ -160,8 +163,7 @@ and zip routes. Changing the storage driver contract touches every media route.
   hooks; admin components import shared pieces from `app/components`). It is a
   UI-layer loop only and does not affect the server bundle.
 - **`app/_adminnew`** is parked as a Next private folder. It still imports
-  `app/lib/auth` and `app/components/adminnew` but is excluded from routing and
-  the build until `SettingsSection.tsx` exists.
+  `app/lib/auth` and `app/components/adminnew` but is excluded from routing.
 - **`prisma/client.ts` is the only DB entry point** — keep it that way; adding a
   second `new PrismaClient()` elsewhere would duplicate the driver adapter and
   connection pool.

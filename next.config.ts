@@ -1,11 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Next 16.4.3 ships with a "security upgrade" nudge that deliberately aborts
-  // next dev / next build when run by a coding agent. Disable it so builds can
-  // complete; upgrade Next deliberately instead of via the interrupt.
+  // Next ships a "security upgrade" nudge that deliberately aborts next dev /
+  // next build when run by a coding agent. Disable it so builds can complete;
+  // upgrades are done deliberately instead of via the interrupt.
   experimental: {
     agentUpgrade: false,
+  },
+  async redirects() {
+    return [
+      {
+        source: "/adminnew",
+        destination: "/admin",
+        permanent: true,
+      },
+    ];
   },
   typescript: {
     ignoreBuildErrors: true,
