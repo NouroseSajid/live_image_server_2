@@ -38,6 +38,7 @@ interface UseImageFetchOptions {
   folders: Folder[];
   folderPassphrases: Record<string, string>;
   passphraseModal: { folderId: string; name: string } | null;
+  retryKey?: number;
   onPassphraseRequired: (folderId: string, folderName: string) => void;
   onError: (error: string) => void;
 }
@@ -49,6 +50,7 @@ export function useImageFetch({
   folders,
   folderPassphrases,
   passphraseModal,
+  retryKey = 0,
   onPassphraseRequired,
   onError,
 }: UseImageFetchOptions) {
@@ -85,7 +87,7 @@ export function useImageFetch({
 
     const currentPass =
       activeFolder !== "all" ? folderPassphrases[activeFolder] || "" : "";
-    const requestKey = `${activeFolder}:${offset}:${currentPass}`;
+    const requestKey = `${activeFolder}:${offset}:${currentPass}:${retryKey}`;
 
     if (lastRequestKeyRef.current === requestKey) {
       return;
@@ -148,6 +150,7 @@ export function useImageFetch({
     batchSize,
     hasMore,
     folderPassphrases,
+    retryKey,
   ]);
 
   // Reset when changing folder or when the active folder's passphrase changes

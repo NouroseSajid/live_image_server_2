@@ -96,11 +96,15 @@ export default function Gallery({
     initialFolderId || "all",
   );
 
+  // Only adopt the slug-resolved folder once. Re-applying it on every
+  // activeFolder change traps visitors on /f/<slug> and fights the
+  // wrong-passphrase redirect.
+  const appliedInitialFolderRef = useRef(false);
   useEffect(() => {
-    if (initialFolderId && initialFolderId !== activeFolder) {
-      setActiveFolder(initialFolderId);
-    }
-  }, [initialFolderId, activeFolder]);
+    if (appliedInitialFolderRef.current || !initialFolderId) return;
+    appliedInitialFolderRef.current = true;
+    setActiveFolder(initialFolderId);
+  }, [initialFolderId]);
 
   const [offset, setOffset] = useState(0);
   const [selectedIds, setSelectedIds] = useState(new Set<string>());
@@ -137,6 +141,9 @@ export default function Gallery({
     name: string;
   } | null>(null);
   const [passphraseError, setPassphraseError] = useState<string>("");
+  // Bumped whenever a passphrase is submitted so the image fetch restarts
+  // cleanly even if a previous 401 left its dedupe ref in a stale state.
+  const [passphraseRetry, setPassphraseRetry] = useState(0);
   const pendingAdvanceRef = useRef(false);
   const downloadCleanupRef = useRef<(() => void) | null>(null);
   const BATCH_SIZE = 20;
@@ -241,6 +248,7 @@ export default function Gallery({
     folders,
     folderPassphrases,
     passphraseModal,
+    retryKey: passphraseRetry,
     onPassphraseRequired: (folderId, folderName) => {
       const attemptedPassphrase = folderPassphrases[folderId];
       setFolderPassphrases((prev) => {
@@ -773,6 +781,8 @@ export default function Gallery({
               [passphraseModal.folderId]: passphrase,
             }));
             setActiveFolder(passphraseModal.folderId);
+            setOffset(0);
+            setPassphraseRetry((n) => n + 1);
             if (typeof window !== "undefined") {
               window.history.replaceState(
                 {},

@@ -3,6 +3,7 @@
 import {
   Check,
   Download,
+  Eye,
   FileVideo,
   FolderPlus,
   Image as ImageIcon,
@@ -109,6 +110,18 @@ function FileCard({
             </span>
           )}
         </p>
+        <p className="mt-1 flex items-center gap-3 text-[11px] text-[var(--an-muted)]">
+          <span className="inline-flex items-center gap-1">
+            <Eye size={12} aria-hidden />
+            {(file.viewCount ?? 0).toLocaleString()} view
+            {file.viewCount === 1 ? "" : "s"}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Download size={12} aria-hidden />
+            {(file.downloadCount ?? 0).toLocaleString()} download
+            {file.downloadCount === 1 ? "" : "s"}
+          </span>
+        </p>
       </div>
     </div>
   );
@@ -209,6 +222,18 @@ export default function LibrarySection({
     resolveConflicts,
   } = filesApi;
 
+  const totals = useMemo(
+    () =>
+      files.reduce(
+        (acc, file) => ({
+          views: acc.views + (file.viewCount ?? 0),
+          downloads: acc.downloads + (file.downloadCount ?? 0),
+        }),
+        { views: 0, downloads: 0 },
+      ),
+    [files],
+  );
+
   return (
     <>
       <SectionHeader
@@ -235,6 +260,18 @@ export default function LibrarySection({
                 ? `${activeFolder.name} · ${files.length} file${files.length === 1 ? "" : "s"}`
                 : "Choose a folder to begin."}
             </p>
+            {activeFolder && files.length > 0 && (
+              <p className="mt-1 flex items-center gap-3 text-[11px] text-[var(--an-muted)]">
+                <span className="inline-flex items-center gap-1">
+                  <Eye size={12} aria-hidden />
+                  {totals.views.toLocaleString()} views
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Download size={12} aria-hidden />
+                  {totals.downloads.toLocaleString()} downloads
+                </span>
+              </p>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
