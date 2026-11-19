@@ -90,6 +90,8 @@ export default function ImageCard({
           : "hover:scale-[1.03] hover:shadow-2xl"
       }`}
       style={{ width, height, backgroundColor: "#18181b" }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <button
         type="button"
@@ -105,8 +107,6 @@ export default function ImageCard({
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchMove={handleTouchMove}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
         className="absolute inset-0 z-10 h-full w-full border-0 bg-transparent p-0"
       />
       <div
