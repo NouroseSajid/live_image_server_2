@@ -66,7 +66,6 @@ export default function OverviewSection({
   const hiddenCount = folders.filter(
     (folder) => !folder.visible && !folder.archived,
   ).length;
-  const visibleFolders = folders.slice(0, 6);
 
   return (
     <>
@@ -124,7 +123,7 @@ export default function OverviewSection({
             <div>
               <h2 className="text-[13px] font-semibold">Folders</h2>
               <p className="mt-0.5 text-[11px] text-[var(--an-muted)]">
-                Current visibility and share path.
+                All {folders.length} folders · current visibility and share path.
               </p>
             </div>
             <button
@@ -140,7 +139,7 @@ export default function OverviewSection({
             <p className="px-4 py-8 text-center text-[12px] text-[var(--an-muted)]">
               Loading folders…
             </p>
-          ) : visibleFolders.length === 0 ? (
+          ) : folders.length === 0 ? (
             <EmptyState
               icon={<FolderPlus size={22} />}
               title="No folders yet"
@@ -157,8 +156,8 @@ export default function OverviewSection({
               }
             />
           ) : (
-            <div>
-              {visibleFolders.map((folder) => {
+            <div className="an-scroll max-h-[350px] overflow-y-auto">
+              {folders.map((folder) => {
                 const visibility = getFolderVisibility(folder);
                 const cover = getFolderCover(folder);
 
