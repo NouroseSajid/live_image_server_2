@@ -351,6 +351,24 @@ export default function AdminNewApp({ userLabel }: { userLabel: string }) {
     return `${window.location.origin}/?t=${encodeURIComponent(data.token)}`;
   };
 
+  const handleCreatePermanentLink = async (folderId: string) => {
+    const res = await fetch("/api/access-links", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folderId, permanent: true }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to create permanent link");
+    }
+    if (!data.token) {
+      throw new Error("No token returned");
+    }
+
+    return `${window.location.origin}/?t=${encodeURIComponent(data.token)}`;
+  };
+
   const handleCountsChange = useCallback((counts: { PENDING: number }) => {
     setPendingCount(counts.PENDING);
   }, []);
@@ -403,6 +421,7 @@ export default function AdminNewApp({ userLabel }: { userLabel: string }) {
               onDeleteFolder={handleDeleteFolder}
               onManageGroups={() => setShowGroups(true)}
               onCreateAccessLink={handleCreateAccessLink}
+              onCreatePermanentLink={handleCreatePermanentLink}
               onOpenLibrary={openLibrary}
               onNotify={notify}
             />

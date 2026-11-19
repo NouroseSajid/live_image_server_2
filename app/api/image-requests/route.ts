@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/lib/auth";
+import { checkAccessLink } from "@/app/lib/accessLink";
 import prisma from "../../../prisma/client";
 import { sendInternalEvent } from "../../lib/internalEvents";
 
@@ -62,15 +63,7 @@ async function canRequestFile(
   }
 
   const token = request.cookies.get(`access_folder_${folder.id}`)?.value;
-  if (!token) return false;
-
-  const link = await prisma.accessLink.findUnique({ where: { token } });
-  return Boolean(
-    link &&
-      link.folderId === folder.id &&
-      (!link.expiresAt || link.expiresAt > new Date()) &&
-      (link.usesLeft === null || link.usesLeft > 0),
-  );
+  return (await checkAccessLink(token, folder.id)).valid;
 }
 
 export async function POST(request: NextRequest) {

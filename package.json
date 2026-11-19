@@ -13,6 +13,7 @@
     "ws-server": "node scripts/ws-server.js",
     "test:downloads": "node scripts/test-downloads.js",
     "test:download-scale": "node scripts/test-download-scale.js",
+    "test:access-links": "node scripts/test-access-links.js",
     "dev:full": "concurrently \"npm run dev\" \"npm run ws-server\" \"npm run ingest\""
   },
   "dependencies": {

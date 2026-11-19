@@ -26,9 +26,3 @@ export function getFolderCover(folder: Folder): string | null {
 export function getSharePath(folder: Folder): string {
   return `/f/${folder.uniqueUrl}`;
 }
-
-export function getUnlockedPath(folder: Folder): string {
-  const base = getSharePath(folder);
-  if (!folder.isPrivate || !folder.passphrase) return base;
-  return `${base}+?p=${encodeURIComponent(folder.passphrase)}`;
-}

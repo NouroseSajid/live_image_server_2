@@ -334,7 +334,18 @@ export default function Gallery({
               return [...prev, data.folder];
             });
           }
-          applyFolder(data.folderId);
+          if (data.permanent) {
+            // Keep the revocable token in the URL so bookmarks keep working
+            // even after the cookie expires. One-time links stay stripped.
+            setActiveFolder(data.folderId);
+            window.history.replaceState(
+              {},
+              "",
+              `?f=${data.folderId}&t=${encodeURIComponent(tokenParam)}`,
+            );
+          } else {
+            applyFolder(data.folderId);
+          }
         } else {
           setError("Access link is invalid or expired.");
         }

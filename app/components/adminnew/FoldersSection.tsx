@@ -23,7 +23,6 @@ import {
   getFolderCover,
   getFolderVisibility,
   getSharePath,
-  getUnlockedPath,
 } from "./folderMeta";
 import type { ToastKind } from "./types";
 import { Badge, EmptyState, SectionHeader } from "./ui";
@@ -41,6 +40,7 @@ export default function FoldersSection({
   onDeleteFolder,
   onManageGroups,
   onCreateAccessLink,
+  onCreatePermanentLink,
   onOpenLibrary,
   onNotify,
 }: {
@@ -54,11 +54,16 @@ export default function FoldersSection({
   onDeleteFolder: (folder: Folder) => void;
   onManageGroups: () => void;
   onCreateAccessLink: (folderId: string) => Promise<string>;
+  onCreatePermanentLink: (folderId: string) => Promise<string>;
   onOpenLibrary: (folderId?: string) => void;
   onNotify: (kind: ToastKind, message: string) => void;
 }) {
   const [accessLink, setAccessLink] = useState<string | null>(null);
   const [creatingLink, setCreatingLink] = useState(false);
+  const [permanentLinks, setPermanentLinks] = useState<
+    Array<{ id: string; token: string; createdAt: string; revokedAt: string | null }>
+  >([]);
+  const [creatingPermanent, setCreatingPermanent] = useState(false);
 
   const {
     effectiveOrderItems,
@@ -81,6 +86,7 @@ export default function FoldersSection({
 
   useEffect(() => {
     setAccessLink(null);
+    setPermanentLinks([]);
   }, [activeFolderId]);
 
   const copyText = async (text: string, label: string) => {
@@ -88,7 +94,24 @@ export default function FoldersSection({
       await navigator.clipboard.writeText(text);
       onNotify("success", `${label} copied`);
     } catch {
-      onNotify("error", "Failed to copy link");
+      // The async Clipboard API can be blocked (e.g. unfocused embedded
+      // browsers or denied permissions). Fall back to the legacy copy command.
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.top = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        textarea.setSelectionRange(0, textarea.value.length);
+        const copied = document.execCommand("copy");
+        document.body.removeChild(textarea);
+        if (!copied) throw new Error("Copy command failed");
+        onNotify("success", `${label} copied`);
+      } catch {
+        onNotify("error", "Failed to copy link");
+      }
     }
   };
 
@@ -107,6 +130,55 @@ export default function FoldersSection({
       );
     } finally {
       setCreatingLink(false);
+    }
+  };
+
+  const loadPermanentLinks = async (folderId: string) => {
+    try {
+      const res = await fetch(`/api/access-links?folderId=${folderId}`);
+      if (!res.ok) return;
+      setPermanentLinks(await res.json());
+    } catch {
+      // Listing is best-effort; creating/revoking still work.
+    }
+  };
+
+  useEffect(() => {
+    if (activeFolderId) void loadPermanentLinks(activeFolderId);
+  }, [activeFolderId]);
+
+  const handleCreatePermanentLink = async () => {
+    if (!activeFolder) return;
+
+    setCreatingPermanent(true);
+    try {
+      const link = await onCreatePermanentLink(activeFolder.id);
+      await copyText(link, "Unlocked link");
+      await loadPermanentLinks(activeFolder.id);
+    } catch (err) {
+      onNotify(
+        "error",
+        err instanceof Error ? err.message : "Failed to create unlocked link",
+      );
+    } finally {
+      setCreatingPermanent(false);
+    }
+  };
+
+  const handleRevokeLink = async (token: string) => {
+    if (!activeFolder) return;
+    try {
+      const res = await fetch(`/api/access-links/${token}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to revoke link");
+      await loadPermanentLinks(activeFolder.id);
+      onNotify("success", "Unlocked link revoked");
+    } catch (err) {
+      onNotify(
+        "error",
+        err instanceof Error ? err.message : "Failed to revoke link",
+      );
     }
   };
 
@@ -427,15 +499,12 @@ export default function FoldersSection({
                       <button
                         type="button"
                         className="an-btn an-btn-soft an-btn-xs"
-                        onClick={() =>
-                          void copyText(
-                            `${window.location.origin}${getUnlockedPath(activeFolder)}`,
-                            "Unlocked link",
-                          )
-                        }
+                        onClick={() => void handleCreatePermanentLink()}
+                        disabled={creatingPermanent}
+                        title="Permanent link with the passphrase hidden behind a revocable token"
                       >
                         <Unlock size={13} />
-                        Unlocked
+                        {creatingPermanent ? "Creating…" : "Unlocked"}
                       </button>
                     )}
                     <button
@@ -454,6 +523,34 @@ export default function FoldersSection({
                     <p className="an-inset break-all p-2 text-[11px] text-[var(--an-muted)]">
                       {accessLink}
                     </p>
+                  )}
+                  {permanentLinks.length > 0 && (
+                    <div className="an-inset space-y-1.5 p-2">
+                      <p className="an-label">Unlocked links</p>
+                      {permanentLinks.map((link) => (
+                        <div
+                          key={link.id}
+                          className="flex items-center gap-2 text-[11px]"
+                        >
+                          <code className="min-w-0 flex-1 truncate text-[var(--an-muted)]">
+                            {link.token}
+                          </code>
+                          {link.revokedAt ? (
+                            <Badge tone="neutral">Revoked</Badge>
+                          ) : (
+                            <button
+                              type="button"
+                              className="an-btn an-btn-soft an-btn-xs"
+                              onClick={() => void handleRevokeLink(link.token)}
+                              title="Revoke this link"
+                            >
+                              <Trash2 size={12} />
+                              Revoke
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 

@@ -2,6 +2,11 @@ import { timingSafeEqual } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/lib/auth";
+import {
+  checkAccessLink,
+  PERMANENT_LINK_COOKIE_MS,
+  TEMP_LINK_COOKIE_MS,
+} from "@/app/lib/accessLink";
 import prisma from "../../../../prisma/client";
 
 export async function GET(request: NextRequest) {
@@ -67,16 +72,10 @@ export async function GET(request: NextRequest) {
     let accessGranted = false;
     let setAccessCookie = false;
     let tokenToPersist: string | null = null;
+    let tokenIsPermanent = false;
 
-    const validateToken = async (token: string | null) => {
-      if (!token) return false;
-      const link = await prisma.accessLink.findUnique({ where: { token } });
-      if (!link) return false;
-      if (link.folderId !== folderId) return false;
-      if (link.expiresAt && link.expiresAt < new Date()) return false;
-      if (link.usesLeft !== null && link.usesLeft <= 0) return false;
-      return true;
-    };
+    const validateToken = async (token: string | null) =>
+      (await checkAccessLink(token, folderId)).valid;
 
     const safeCompare = (a: string, b: string) => {
       if (a.length !== b.length) return false;
@@ -90,10 +89,14 @@ export async function GET(request: NextRequest) {
       }
 
       // Token via query param
-      if (!accessGranted && (await validateToken(tokenParam))) {
-        accessGranted = true;
-        setAccessCookie = true;
-        tokenToPersist = tokenParam;
+      if (!accessGranted && tokenParam) {
+        const check = await checkAccessLink(tokenParam, folderId);
+        if (check.valid) {
+          accessGranted = true;
+          setAccessCookie = true;
+          tokenToPersist = tokenParam;
+          tokenIsPermanent = check.permanent;
+        }
       }
 
       // Cookie path
@@ -134,7 +137,10 @@ export async function GET(request: NextRequest) {
     const res = NextResponse.json(serializedImages);
 
     if (setAccessCookie && tokenToPersist) {
-      const expires = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7);
+      const expires = new Date(
+        Date.now() +
+          (tokenIsPermanent ? PERMANENT_LINK_COOKIE_MS : TEMP_LINK_COOKIE_MS),
+      );
       res.cookies.set(cookieName, tokenToPersist, {
         httpOnly: true,
         sameSite: "lax",

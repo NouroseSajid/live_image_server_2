@@ -3,6 +3,7 @@ import { Readable } from "node:stream";
 import { type NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/lib/auth";
+import { checkAccessLink } from "@/app/lib/accessLink";
 import prisma from "../../../../../prisma/client";
 import { getStorage } from "../../../../lib/storage";
 
@@ -87,17 +88,7 @@ export async function GET(
         const token = tokenParam || tokenFromCookie;
 
         if (!authorized && token) {
-          const link = await prisma.accessLink.findUnique({
-            where: { token },
-          });
-          if (
-            link &&
-            link.folderId === file.folder.id &&
-            (!link.expiresAt || link.expiresAt > new Date()) &&
-            (link.usesLeft === null || link.usesLeft > 0)
-          ) {
-            authorized = true;
-          }
+          authorized = (await checkAccessLink(token, file.folder.id)).valid;
         }
       }
 

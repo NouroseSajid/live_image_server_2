@@ -140,7 +140,11 @@ model AccessLink {
   id        String    @id @default(cuid())
   token     String    @unique @default(cuid())
   expiresAt DateTime?
-  usesLeft  Int       @default(1)
+  // null = unlimited uses (permanent links). One-time links start at 1.
+  usesLeft  Int?      @default(1)
+  // Permanent share links hide the passphrase behind a revocable token.
+  isPermanent Boolean @default(false)
+  revokedAt DateTime?
   createdAt DateTime  @default(now())
   folderId  String
   folder    Folder    @relation(fields: [folderId], references: [id], onDelete: Cascade)

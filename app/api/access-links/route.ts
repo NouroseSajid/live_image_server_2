@@ -3,6 +3,40 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/lib/auth";
 import prisma from "../../../prisma/client";
 
+export async function GET(request: Request) {
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  const folderId = new URL(request.url).searchParams.get("folderId");
+  try {
+    const links = await prisma.accessLink.findMany({
+      where: {
+        ...(folderId ? { folderId } : {}),
+        isPermanent: true,
+      },
+      select: {
+        id: true,
+        token: true,
+        folderId: true,
+        createdAt: true,
+        expiresAt: true,
+        revokedAt: true,
+        isPermanent: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return NextResponse.json(links);
+  } catch (error) {
+    console.error("Error listing access links:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 },
+    );
+  }
+}
+
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions);
 
@@ -12,7 +46,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { folderId, expiresAt, usesLeft } = body;
+    const { folderId, expiresAt, usesLeft, permanent } = body;
 
     if (!folderId) {
       return NextResponse.json(
@@ -26,11 +60,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Folder not found" }, { status: 404 });
     }
 
+    const isPermanent = permanent === true;
     const link = await prisma.accessLink.create({
       data: {
         folderId,
-        expiresAt: expiresAt ? new Date(expiresAt) : null,
-        usesLeft: typeof usesLeft === "number" ? usesLeft : 1,
+        // Permanent links never expire, have unlimited uses and hide the
+        // passphrase behind a revocable token.
+        expiresAt: isPermanent
+          ? null
+          : expiresAt
+            ? new Date(expiresAt)
+            : null,
+        usesLeft: isPermanent
+          ? null
+          : typeof usesLeft === "number"
+            ? usesLeft
+            : 1,
+        isPermanent,
       },
     });
 
